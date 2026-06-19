@@ -1232,7 +1232,6 @@ void raymarch() {
 			mat4 matDat = matData(stage[0].world, stage[0].closestInd);
 			int type = matType(stage[0].world, stage[0].closestInd);
 			// stage[1].color = fetched;
-			
 		
 			if (stage[0].localDist < ray_minDist) {
 				int res = applyHitEffect(0, oldLocalDist, type, matDat[0], matDat[1], matDat[2]);
@@ -1254,35 +1253,29 @@ void raymarch() {
 	}
 }
 
-void shadow(int stg, int lightIndex) {
+void shadow(int stg, vec3 lightVec) {
 	//prep
 	stage[stg].world = stage[0].world;
 	stage[stg].density = stage[0].density;
-	
 	stage[stg].totalDist = 0.02;
+	
 	int count = 80;
-	vec3 sunVec;
-	if (lightIndex == -1) {
-		sunVec = w_sunVec(stage[0].world);
-	} else {
-		// sunVec; = ///oughhhhhhhh
-	}
 	vec3 normal = getNormal(stage[0].path.spot.yzw, stage[0].world, stage[0].closestInd);
 	vec3 reflected = reflect(stage[0].path.vel, normal);
-	float shadowDot = dot(sunVec, normal);
-	setStageRay(stg, stage[0].path.spot.yzw + normal * ray_minDist * 5., sunVec);
+	float shadowDot = dot(lightVec, normal);
+	setStageRay(stg, stage[0].path.spot.yzw + normal * ray_minDist * 5., lightVec);
 	
 	for(int i=0; i<count; i++) {
 		stage[stg].iters = i;
 		stage[stg].localDist = sceneSDF(stage[stg].path.spot.yzw, stg);
 		int res = 0;
 		
-		if (stage[1].localDist < ray_minDist) {
+		if (stage[stg].localDist < ray_minDist) {
 			mat4 matDat = matData(stage[stg].world, stage[stg].closestInd);
 			int type = matType(stage[stg].world, stage[stg].closestInd);
 			res = applyHitEffect(stg, stage[stg].localDist, type, matDat[0], matDat[1], matDat[2]);
 			if (res > 0) {
-				pixelGamma = 0.0;
+				pixelGamma = float(res - 1);
 				break;
 			}
 		}
@@ -1563,7 +1556,7 @@ void main() {
 
 		currStg = 1;
 		//it's hit an object, run shadow stage
-		shadow(1, -1);
+		shadow(1, w_sunVec(stage[0].world));
 		// shadow(2);
 	}
 	
