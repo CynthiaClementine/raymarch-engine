@@ -135,11 +135,14 @@ const colors16 = [
 ];
 const color_editor_border = colors16[15];
 
-
-var controls_cursorLock = false;
-var controls_shiftPressed = false;
-var controls_altPressed = false;
-var controls_sensitivity = 0.005;
+let controls = {
+	shouldDrag: false,
+	cursorLock: false,
+	alt: false,
+	shift: false,
+	mButton: 0,
+	sensitivity: 0.005
+}
 
 var debug_listening = false;
 var debug_flags = {

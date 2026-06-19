@@ -1,10 +1,9 @@
 window.onload = setup;
 window.onresize = resize;
-window.addEventListener("keydown", handleKeyPress, false);
-window.addEventListener("keyup", handleKeyNegate, false);
-document.addEventListener('pointerlockchange', handleCursorLockChange, false);
-document.addEventListener('mozpointerlockchange', handleCursorLockChange, false);
-window.addEventListener("wheel", handleWheel, {passive: false});
+window.onkeydown = handleKeyPress;
+window.onkeyup = handleKeyNegate;
+document.onpointerlockchange = handleCursorLockChange;
+window.addEventListener(`wheel`, handleWheel, {passive: false});
 
 var canvas;
 var gl;
@@ -52,6 +51,18 @@ async function setup() {
 	}
 	if (!keysMatch(map_strMat, materialEditables)) {
 		throw new Error(`Mismatch between editor materials and defined materials!`);
+	}
+
+	//windows safeguard
+	if (navigator.userAgent.includes(`Windows`)) {
+		var isAlright = confirm("Hi! It appears you are running Windows, which means that this program will likely take at least 30 seconds to load, "
+		+"and may end up just breaking entirely. The tab will be frozen during this time. Why? Because: Windows.\n"
+		+"For a longer explanation, see https://stackoverflow.com/questions/53541626/webgl-how-to-avoid-long-shader-compile-stalling-a-tab#53549882\n"
+		+"Would you like to continue?");
+
+		if (!isAlright) {
+			return;
+		}
 	}
 
 	setupGLState(vertexShaderCode, fragmentShaderCode);
@@ -114,9 +125,9 @@ function tick() {
 	camera.tick();
 	
 	//editor syncing
-	if (debug_listening && controls_cursorLock) {
+	if (debug_listening && controls.cursorLock) {
 		var es = editor_selected;
-		if (es != player && controls_altPressed) {
+		if (es != player && controls.shouldDrag) {
 			//held object?????
 			var newPos = calcPlacePos();
 			if (getDistancePos(newPos, es.pos) > 0.1) {
@@ -407,7 +418,7 @@ function handleKeyPress(a) {
 				return;
 			case "KeyO":
 				//select player
-				if (controls_altPressed) {
+				if (controls.alt) {
 					editor_select(player);
 					return;
 				}
@@ -454,16 +465,16 @@ function handleKeyPress(a) {
 		case "ShiftRight":
 			player.dash();
 			player.aPos[1] = -player.accel;
-			controls_shiftPressed = true;
+			controls.shift = true;
 			break;
 		case "AltLeft":
 		case "AltRight":
-			controls_altPressed = true;
+			controls.alt = true;
 			editor_raycast();
 			break;
 		case "Space":
 			player.jump();
-			if (controls_shiftPressed) {
+			if (controls.shift) {
 				player.aPos[1] = 0;
 			} else {
 				player.aPos[1] = player.accel;
@@ -501,28 +512,26 @@ function handleKeyNegate(a) {
 		case "ShiftLeft":
 		case "ShiftRight":
 			player.aPos[1] = Math.max(player.aPos[1], 0);
-			controls_shiftPressed = false;
+			controls.shift = false;
 			break;
 		case "AltLeft":
 		case "AltRight":
-			controls_altPressed = false;
+			controls.alt = false;
 			break;
 		case "Space":
 			player.aPos[1] = Math.min(player.aPos[1], 0);
-			controls_dashPressed = false;
+			controls.dash = false;
 			break;
 	}
 }
 
 function handleCursorLockChange() {
 	console.log(`cursor lock is changing`);
-	if (document.pointerLockElement === banvas || document.mozPointerLockElement === banvas) {
-		controls_cursorLock = true;
-		document.addEventListener("mousemove", handleMouseMove, false);
-	} else {
-		controls_cursorLock = false;
-		document.removeEventListener("mousemove", handleMouseMove, false);
-	}
+	const isOn = (document.pointerLockElement === banvas || document.mozPointerLockElement === banvas);
+	controls.cursorLock = isOn;
+	document.onmousedown = isOn ? handleMouseDown : null;
+	document.onmousemove = isOn ? handleMouseMove : null;
+	document.onmouseup = isOn ? handleMouseUp : null;
 }
 
 function handleMouseMove(a) {
@@ -537,16 +546,26 @@ function handleMouseMove(a) {
 		loading_world.shouldRegen = true;
 		return;
 	}
-	var dTheta = a.movementX * controls_sensitivity;
+	var dTheta = a.movementX * controls.sensitivity;
 	player.theta += dTheta;
-	player.phi -= (a.movementY) * controls_sensitivity;
+	player.phi -= (a.movementY) * controls.sensitivity;
 	var phiLimit = (camera_projFunc == projectPanini) ? Math.PI * 0.2 : Math.PI * 0.49;
 	player.phi = clamp(player.phi, -phiLimit, phiLimit);
 	
 	//change velocity in the case of rotating, since dPos is based on view angle
 	if (Math.abs(a.movementX) > 2) {
-		[player.dPos[0], player.dPos[2]] = rotate(player.dPos[0], player.dPos[2], dTheta - (2 * controls_sensitivity));
+		[player.dPos[0], player.dPos[2]] = rotate(player.dPos[0], player.dPos[2], dTheta - (2 * controls.sensitivity));
 	}
+}
+
+function handleMouseDown(a) {
+	// console.log(a);
+	controls.mButton = 1 + (a.button / 2);
+	console.log(controls.mButton);
+}
+
+function handleMouseUp(a) {
+	controls.mButton = 0;
 }
 
 function handleWheel(a) {
