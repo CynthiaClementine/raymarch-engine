@@ -459,7 +459,6 @@ var objectEditables = {};
 var materialEditables = {};
 
 function editor_initialize() {
-	editor_selected = player;
 	var s = `&nbsp;`;
 	var posLim = 99999;
 	var playerConstructors = [Player, Player_Debug, Player_Noclip];
@@ -556,7 +555,7 @@ function editor_initialize() {
 					player.dPos = oldPlayer.dPos;
 					player.theta = oldPlayer.theta;
 					player.phi = oldPlayer.phi;
-					editor_select(player);
+					editor_deselect(editor_selected);
 				} else {
 					//change the constructor. If nothing's selected, act as a plus button
 					var ind = loading_world.objects.indexOf(editor_selected);
@@ -571,12 +570,14 @@ function editor_initialize() {
 					loading_world.objects[ind] = newObj;
 					transferProperties(oldObj, newObj);
 					loading_world.shouldRegen = true;
+					editor_deselect(editor_selected);
 					editor_select(newObj);
 				}
 			}
 			
 			//idk whatever
 			var type = editor_selected.constructor.name;
+			label_obj.innerHTML = type;
 			return map_objStr[type];
 		}, Object.keys(map_strObj)),
 		
@@ -624,6 +625,7 @@ function editor_initialize() {
 		"PLAYER": [],
 		"PLAYER-DEBUG": [],
 		"PLAYER-NOCLIP": [],
+		
 		"BOX": [...rxyz],
 		"BOX-FRAME": [...rxyz, slider_e],
 		"BOX-MOVING": [...rxyz],
@@ -647,6 +649,7 @@ function editor_initialize() {
 		"TERRAIN": [...rxyz, slider_n, slider_ampl, slider_gyrA, slider_freq, slider_gyrB],
 		"VOXEL": [slider_rr, checkbox_c1, checkbox_c2, checkbox_c3, checkbox_c4, checkbox_c5, checkbox_c6, checkbox_c7, checkbox_c8],
 		
+		"GROUP-L": [],
 		"DOTDOTDOT": [],
 		"SKYBUNNY": [],
 		
@@ -666,6 +669,8 @@ function editor_initialize() {
 		"gravity": [],
 		"rubber": [],
 	}
+
+	editor_select(player);
 }
 
 
@@ -698,7 +703,7 @@ function editor_applyDrag(dragOffset) {
 			console.log(xDelta, yDelta, zDelta);
 			if (es.rx != undefined) {
 				//loop objects should expand slower
-				if (es.constructor.type == TYPE_CLASS_LOOP) {
+				if (es.type == TYPE_CLASS_LOOP) {
 					xDelta = (xDelta / 4);
 					yDelta = (yDelta / 4);
 					zDelta = (zDelta / 4);
@@ -837,9 +842,37 @@ function editor_raycast() {
 		validPortals.sort((a, b) => a.distanceToPos(camera.pos) - b.distanceToPos(camera.pos));
 		ray.object = validPortals[0];
 	}
+	if (!controls.shift) {
+		editor_deselect(editor_selected);
+	}
 	editor_select(ray.object);
 	//set the placeOffset to match
 	editor_placeOffset = getDistancePos(editor_selected.pos, camera.pos);
+}
+
+
+function editor_deselect(object) {
+	if (!object) {
+		console.error(`cannot deselect ${object}!`);
+		return;
+	}
+
+	//if the goal is to deselect everything, then select the player
+	if (editor_selected == object) {
+		editor_selected = undefined;
+		editor_select(player);
+		return;
+	}
+
+	//if there's multiple things selected, remove it from the group
+	if (editor_selected.type == TYPE_CLASS_LGROUP) {
+		editor_selected.removeObj(object);
+		return;
+	}
+
+	//we're still here? then there's only one thing selected.. but the goal is NOT to deselect it. What?
+	console.error(`deselection error: trying to deselect`, object, `but the only object selected is`, editor_selected);
+
 }
 
 function editor_select(object) {
@@ -847,11 +880,32 @@ function editor_select(object) {
 	while (object && object.parent) {
 		object = object.parent;
 	}
-	editor_selected = object ?? player;
-	var consName = editor_selected.constructor.name;
+	if (!object) {
+		console.error(`was unable to select ${object.constructor.name}`);
+		return;
+	}
+
+	//if the player's selected, this is the first object and therefore easy.
+	if (!editor_selected || editor_selected == player) {
+		editor_selected = object;
+	} else {
+		//player is NOT selected. We need to select multiple objects
+		if (editor_selected.type != TYPE_CLASS_LGROUP) {
+			editor_selected = new SceneCollectionLoose(editor_selected);
+		}
+
+		editor_selected.addObj(object);
+	}
+
+	editor_updatePanelsFor(editor_selected);
+}
+
+function editor_updatePanelsFor(obj) {
+	const cons = obj.constructor;
+	const consName = cons.name;
 	var matName;
-	if (editor_selected.material) {
-		matName = editor_selected.material.constructor.name;
+	if (obj.material) {
+		matName = obj.material.constructor.name;
 	}
 	
 	//hide all panels
@@ -872,17 +926,17 @@ function editor_select(object) {
 	var philess = [Sphere, Shell];
 	var rotless = [Sphere, Shell, Capsule, Cylinder, Ring, Fractal];
 	
-	if (!thetaless.includes(editor_selected.constructor)) {
+	if (!thetaless.includes(cons)) {
 		shouldSee.push(slider_tht);
 	}
-	if (!philess.includes(editor_selected.constructor)) {
+	if (!philess.includes(cons)) {
 		shouldSee.push(slider_phi);
 	}
-	if (!rotless.includes(editor_selected.constructor)) {
+	if (!rotless.includes(cons)) {
 		shouldSee.push(slider_rot);
 	}
 	
-	if (editor_selected != player) {
+	if (obj != player && obj.type != TYPE_CLASS_LGROUP) {
 		shouldSee = shouldSee.concat(checkbox_gloop, checkbox_anti, checkbox_fog, checkbox_gravity);
 	}
 	
@@ -893,8 +947,16 @@ function editor_select(object) {
 	}
 
 	for (var c=0; c<shouldSee.length; c++) {
-		shouldSee[c].setVisibility(true);
-		shouldSee[c].synchronize();
+		try {
+			shouldSee[c].setVisibility(true);
+		} catch (e) {
+			console.error(`could not set visibility for element ${c}:`, e);
+		}
+		try {
+			shouldSee[c].synchronize();
+		} catch (e) {
+			console.error(`could not synchronize element ${c}:`, e);
+		}
 	}
 }
 

@@ -380,6 +380,97 @@ class SceneCollection {
 	}
 }
 
+class SceneCollectionLoose {
+	static type = TYPE_CLASS_LGROUP;
+	/**
+	 * a SceneCollectionLoose is a wrapper around a bunch of objects. 
+	 * You can apply translations / rotations to it, and it will apply them to the individual objects.
+	 * It's not a SceneCollection, because it's not intended to be cohesive. 
+	 * Instead, you are intended to just throw things in here, modify them, and then safely dissolve the collection.
+	 */
+	constructor(objects) {
+		this.type = this.constructor.type;
+		this.objects = new Set();
+		this.createTransform();
+	}
+
+	createTransform() {
+		//variables that others will update
+		this.pos = Pos(0, 0, 0);
+		this.theta = 0;
+		this.phi = 0;
+		this.rot = 0;
+		//stable variants - used to track what should actually be updated
+		this.sPos = Pos(0, 0, 0);
+		this.sTheta = 0;
+		this.sPhi = 0;
+		this.sRot = 0;
+
+		[this.minPos, this.maxPos] = boundsForList(this.objects);
+		for (var x=0; x<3; x++) {
+			this.pos[x] = (this.minPos[x] + this.maxPos[x]) / 2;
+			this.sPos[x] = this.pos[x];
+		}
+	}
+
+	/**
+	 * add an object to the collection. 
+	 * @param {Scene3dObject} obj the object to add
+	 */
+	addObj(obj) {
+		this.objects.add(obj);
+		this.createTransform();
+	}
+
+	removeObj(obj) {
+		this.objects.delete(obj);
+		this.createTransform();
+	}
+
+	tick() {
+		//apply transform delta, if there is one
+		
+		if (this.theta != this.sTheta || this.phi != this.sPhi || this.rot != this.sRot) {
+			const dt = this.theta - this.sTheta;
+			const dp = this.phi - this.sPhi;
+			const dr = this.rot - this.sRot;
+			// loading_world.shouldRegen = true;
+		}
+
+		//apply translation
+		if (getDistancePos(this.pos, this.sPos) > 0.01) {
+			const diff = [
+				this.pos[0] - this.sPos[0],
+				this.pos[1] - this.sPos[1],
+				this.pos[2] - this.sPos[2],
+			];
+			this.objects.forEach(o => {
+				o.pos[0] += diff[0];
+				o.pos[1] += diff[1];
+				o.pos[2] += diff[2];
+			});
+
+			for (var t=0; t<3; t++) {
+				this.minPos[t] += diff[t];
+				this.maxPos[t] += diff[t];
+				this.sPos[t] = this.pos[t];
+			}
+			loading_world.shouldRegen = true;
+		}
+	}
+
+	distanceToPos() {
+		console.error(`Do not call the SDF for Loose Collections!`);
+		return -1;
+	}
+	serialize() {
+		console.error(`why must I suffer in this way`);
+	}
+	express() {
+		console.error(`don't.`);
+	}
+}
+
 
 
 class Box extends Scene3dObject_Axes {

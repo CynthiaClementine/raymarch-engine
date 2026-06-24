@@ -40,9 +40,7 @@ async function setup() {
 	player = new Player_Debug(loading_world, Pos(...loading_world.spawn), ...loading_world.spawn.slice(3));
 	camera = new Camera(loading_world, Pos(...loading_world.spawn));
 	
-	
 	editor_initialize();
-	editor_select();
 	document.title = `Raymarching: ${splashes[(Math.random() * splashes.length) | 0]}`;
 	
 	//serializing / editor error checking
@@ -136,6 +134,9 @@ function tick() {
 			}
 		}
 		//idk where to put this
+		if (es.tick) {
+			es.tick();
+		}
 		if (es.material) {
 			es.material.syncWith(es);
 		}
@@ -355,21 +356,21 @@ function handleKeyPress(a) {
 				var oldPlayer = player;
 				player = new Player(player.world, player.pos, player.theta, player.phi);
 				if (editor_selected == oldPlayer) {
-					editor_selected = player;
+					editor_deselect(editor_selected);
 				}
 				break;
 			case "Digit2":
 				var oldPlayer = player;
 				player = new Player_Debug(player.world, player.pos, player.theta, player.phi);
 				if (editor_selected == oldPlayer) {
-					editor_selected = player;
+					editor_deselect(editor_selected);
 				}
 				break;
 			case "Digit3":
 				var oldPlayer = player;
 				player = new Player_Noclip(player.world, player.pos, player.theta, player.phi);
 				if (editor_selected == oldPlayer) {
-					editor_selected = player;
+					editor_deselect(editor_selected);
 				}
 				break;
 		
@@ -381,6 +382,9 @@ function handleKeyPress(a) {
 					loading_world.preEffects.splice(0, 1);
 				}
 				loading_world.shouldRegen = true;
+				return;
+			case "KeyE":
+				controls.shouldDrag = true;
 				return;
 			case "KeyN":
 				if (loading_world.postEffects.length < 1 || loading_world.postEffects[0][0] != E_ITERS) {
@@ -417,9 +421,8 @@ function handleKeyPress(a) {
 				editor_local = !editor_local;
 				return;
 			case "KeyO":
-				//select player
 				if (controls.alt) {
-					editor_select(player);
+					editor_deselect(editor_selected);
 					return;
 				}
 				editor_raycast();
@@ -520,7 +523,11 @@ function handleKeyNegate(a) {
 			break;
 		case "Space":
 			player.aPos[1] = Math.min(player.aPos[1], 0);
-			controls.dash = false;
+			break;
+
+
+		case "KeyE":
+			controls.shouldDrag = false;
 			break;
 	}
 }
@@ -532,6 +539,25 @@ function handleCursorLockChange() {
 	document.onmousedown = isOn ? handleMouseDown : null;
 	document.onmousemove = isOn ? handleMouseMove : null;
 	document.onmouseup = isOn ? handleMouseUp : null;
+}
+
+
+function handleMouseDown(a) {
+	controls.mButton = 1 + (a.button / 2);
+
+	//left-click
+	if (controls.mButton == 1) {
+		if (debug_listening) {
+			editor_raycast();
+		}
+		controls.shouldDrag = true;
+		return;
+	}
+
+	//right-click
+	if (controls.mButton == 2) {
+		return;
+	}
 }
 
 function handleMouseMove(a) {
@@ -558,14 +584,9 @@ function handleMouseMove(a) {
 	}
 }
 
-function handleMouseDown(a) {
-	// console.log(a);
-	controls.mButton = 1 + (a.button / 2);
-	console.log(controls.mButton);
-}
-
 function handleMouseUp(a) {
 	controls.mButton = 0;
+	controls.shouldDrag = false;
 }
 
 function handleWheel(a) {

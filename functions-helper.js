@@ -74,6 +74,34 @@ function boundsAngle(radians) {
 	return Math.PI - radians;
 }
 
+/**
+* takes in an array of Scene3dObjects and calculates a bounding box that encompasses all the objects (by taking the min of all mins and max of all maxs)
+* @param {Scene3dObject[]} objectList the list to calculate for
+* @returns {Number[]} an array in the format [minPos, maxPos]
+ */
+function boundsForList(objectList) {
+	var min = [1e1001, 1e1001, 1e1001];
+	var max = [-1e101, -1e101, -1e101];
+	objectList.forEach(o => {
+		if (!o) {
+			throw new Error(`Bounds Error: undefined object!`);
+		}
+		var bounds = o.bounds();
+		for (var a=0; a<=2; a++) {
+			min[a] = Math.min(min[a], bounds[0][a]);
+			max[a] = Math.max(max[a], bounds[1][a]);
+			if (Number.isNaN(bounds[0][a])) {
+				console.error(bounds, o);
+				throw new Error(`Bounds Error: bounds aren't calculated correctly!`);
+			}
+			if (Number.isNaN(min[a])) {
+				throw new Error(`Bounds Error: what`);
+			}
+		}
+	});
+	return [min, max];
+}
+
 function BVHUnion(node1, node2) {
 	const minPos = Pos(
 		Math.min(node1.minPos[0], node2.minPos[0]),
@@ -396,6 +424,9 @@ function proj(a, b) {
 	return [b[0] * mult, b[1] * mult, b[2] * mult];
 }
 
+
+//TODO: remove this and put in the fragment shader, where it's actually useful
+
 //https://www.researchgate.net/publication/354065227_Essential_Ray_Generation_Shaders
 
 //pixel ray essentially starts behind the camera, from the back of the panini circle.
@@ -691,10 +722,6 @@ function sceneSDF(sceneCollection, pos) {
 }
 
 function updateFOV(newFOV) {
-	updateFOV_work(newFOV);
-}
-
-function updateFOV_work(newFOV) {
 	camera_FOV = newFOV;
 	//first figure out best function given the FOV
 	switch (true) {
@@ -703,7 +730,6 @@ function updateFOV_work(newFOV) {
 			camera_halfTan = Math.tan((camera_FOV / 2) * degToRad);
 			break;
 		case (newFOV <= 180):
-			camera_projFunc = projectPanini;
 			//handle panini FOV:
 			//panini FOVs are different. Because it's stereographic projection, basically, degrees are doubled. 
 			//90 paniniº are worth 180 traditionalº. 
@@ -713,13 +739,6 @@ function updateFOV_work(newFOV) {
 			camera_halfTan = Math.tan((camera_FOV / 4) * degToRad);
 			//in this case, vertical FOV will be less than horizontal FOV
 			camera_halfTanVert = Math.tan((vertFOV / 2) * degToRad);
-			break;
-		case (newFOV == 360):
-			camera_projFunc = projectOct;
-			//not much to do here. the octahedron mapping takes care of pretty much everything
-			break;
-		default:
-			console.error(`something went wrong with FOV=${newFOV} ):`);
 			break;
 	}
 }

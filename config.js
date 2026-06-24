@@ -48,7 +48,8 @@ const TYPE_CLASS_OBJAX =	-2;
 const TYPE_CLASS_PRISM =	-3;
 const TYPE_CLASS_LOOP =		-4;
 const TYPE_CLASS_GROUP =	-5;
-const TYPE_CLASS_SPUN =		-6;
+const TYPE_CLASS_LGROUP =	-6;
+const TYPE_CLASS_SPUN =		-7;
 
 const TYPE_SPHERE =			0;
 const TYPE_ELLIPSE =		1;

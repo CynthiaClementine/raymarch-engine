@@ -178,6 +178,7 @@ var map_strObj = {
 	"PLAYER-NOCLIP": Player_Noclip,
 	
 	"LOOP": Scene3dLoop,
+	"GROUP-L": SceneCollectionLoose,
 };
 var map_objStr = Object.fromEntries(Object.entries(map_strObj).map(a => [a[1].name, a[0]]));
 
