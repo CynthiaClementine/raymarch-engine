@@ -124,17 +124,15 @@ function tick() {
 	
 	//editor syncing
 	if (debug_listening && controls.cursorLock) {
-		var es = editor_selected;
-		if (es != player && controls.shouldDrag) {
-			//held object?????
-			var newPos = calcPlacePos();
-			if (getDistancePos(newPos, es.pos) > 0.1) {
-				es.pos = newPos;
-				loading_world.shouldRegen = true;
-			}
+		const es = editor_selected;
+		const isPlayer = (es == player);
+
+		if (getDistancePos(player.dPos, Pos(0, 2, 0)) > 0.1) {
+			editor_updateHolp();
 		}
+		
 		//idk where to put this
-		if (es.tick) {
+		if (!isPlayer && es.tick) {
 			es.tick();
 		}
 		if (es.material) {
@@ -577,6 +575,8 @@ function handleMouseMove(a) {
 	player.phi -= (a.movementY) * controls.sensitivity;
 	var phiLimit = (camera_projFunc == projectPanini) ? Math.PI * 0.2 : Math.PI * 0.49;
 	player.phi = clamp(player.phi, -phiLimit, phiLimit);
+
+	editor_updateHolp();
 	
 	//change velocity in the case of rotating, since dPos is based on view angle
 	if (Math.abs(a.movementX) > 2) {
@@ -593,4 +593,5 @@ function handleWheel(a) {
 	a.preventDefault();
 	editor_placeOffset *= (1 + a.deltaY / 50);
 	editor_placeOffset = clamp(editor_placeOffset, ...editor_placeRange);
+	editor_updateHolp();
 }

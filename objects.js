@@ -389,8 +389,12 @@ class SceneCollectionLoose {
 	 * Instead, you are intended to just throw things in here, modify them, and then safely dissolve the collection.
 	 */
 	constructor(objects) {
+		if (objects && objects.type != undefined) {
+			objects = [objects];
+		}
+		console.log(objects);
 		this.type = this.constructor.type;
-		this.objects = new Set();
+		this.objects = new Set(objects);
 		this.createTransform();
 	}
 
@@ -434,7 +438,13 @@ class SceneCollectionLoose {
 			const dt = this.theta - this.sTheta;
 			const dp = this.phi - this.sPhi;
 			const dr = this.rot - this.sRot;
-			// loading_world.shouldRegen = true;
+
+
+
+
+
+		
+			loading_world.shouldRegen = true;
 		}
 
 		//apply translation

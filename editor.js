@@ -960,6 +960,20 @@ function editor_updatePanelsFor(obj) {
 	}
 }
 
+function editor_updateHolp() {
+	if (editor_selected == player) {
+		return;
+	}
+	if (!controls.shouldDrag) {
+		return;
+	}
+	var newPos = calcPlacePos();
+	if (getDistancePos(newPos, editor_selected.pos) > 0.1) {
+		editor_selected.pos = newPos;
+		loading_world.shouldRegen = true;
+	}
+}
+
 function editor_toggleAxis(axisID) {
 	if (editor_axis == axisID) {
 		editor_axis = null;
