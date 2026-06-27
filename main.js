@@ -303,6 +303,19 @@ function handleKeyPress(a) {
 		/*
 		all debug effects are activated by pressing ] and then another key.
 		DEBUG EFFECTS:
+			SELECTION:
+				Left-click or O - select object
+				shift-click - select multiple objects
+				alt-click - deselect object
+				click + drag or E - move object around
+
+			MODIFICATION:
+
+
+
+
+
+			
 			C - copy selected object
 			V - paste selected object
 
@@ -311,7 +324,6 @@ function handleKeyPress(a) {
 			B - toggle Bounding Box highlights
 			N - show the Number of iterations per pixel
 			
-			O - select crosshair's Object
 			P - copy current Pos to clipboard
 			
 			E + drag- select object and move it around
@@ -393,7 +405,6 @@ function handleKeyPress(a) {
 				loading_world.shouldRegen = true;
 				return;
 			case "KeyC":
-				editor_raycast();
 				if (editor_selected != player) {
 					clipboard = editor_selected.serialize();
 				}
@@ -403,6 +414,10 @@ function handleKeyPress(a) {
 					var newObj = deserialize(clipboard);
 					newObj.pos = calcPlacePos();
 					loading_world.objects.push(newObj);
+					if (newObj.type == TYPE_CLASS_LGROUP) {
+						newObj.tick();
+						newObj.break();
+					}
 					loading_world.shouldRegen = true;
 				}
 				return;
@@ -471,7 +486,7 @@ function handleKeyPress(a) {
 		case "AltLeft":
 		case "AltRight":
 			controls.alt = true;
-			editor_raycast();
+			a.preventDefault();
 			break;
 		case "Space":
 			player.jump();

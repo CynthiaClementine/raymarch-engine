@@ -388,12 +388,11 @@ class SceneCollectionLoose {
 	 * It's not a SceneCollection, because it's not intended to be cohesive. 
 	 * Instead, you are intended to just throw things in here, modify them, and then safely dissolve the collection.
 	 */
-	constructor(objects) {
+	constructor(posRot, objects, a1, a2, a3) {
+		this.type = this.constructor.type;
 		if (objects && objects.type != undefined) {
 			objects = [objects];
 		}
-		console.log(objects);
-		this.type = this.constructor.type;
 		this.objects = new Set(objects);
 		this.createTransform();
 	}
@@ -433,17 +432,27 @@ class SceneCollectionLoose {
 
 	tick() {
 		//apply transform delta, if there is one
-		
+		console.log(`ticking`);
 		if (this.theta != this.sTheta || this.phi != this.sPhi || this.rot != this.sRot) {
 			const dt = this.theta - this.sTheta;
 			const dp = this.phi - this.sPhi;
 			const dr = this.rot - this.sRot;
 
+			this.objects.forEach(o => {
+				o.pos[0] -= this.sPos[0];
+				o.pos[1] -= this.sPos[1];
+				o.pos[2] -= this.sPos[2];
+				var newTrans = transformTransform(o.pos, o.theta, o.phi, o.rot, this.sPos, dt, dp, dr);
+				o.pos = newTrans.pos;
+				o.theta = newTrans.theta;
+				o.phi = newTrans.phi;
+				o.rot = newTrans.rot;
+			});
 
-
-
-
-		
+			this.sTheta = this.theta;
+			this.sPhi = this.phi;
+			this.sRot = this.rot;
+			
 			loading_world.shouldRegen = true;
 		}
 
@@ -469,12 +478,20 @@ class SceneCollectionLoose {
 		}
 	}
 
+	//remove self from the objectsArray and add each of the constituent parts to said array
+	break(objectsArr) {
+		
+	}
+	
+	serialize() {
+		const grStr = Array.from(this.objects).map(a => a.serialize()).join(`\n\t||`);
+		const pos = this.sPos;
+		return `GROUP-L~[${pos[0]},${pos[1]},${pos[2]}]~X~0~90~0|\n\t||${grStr}`;
+	}
+
 	distanceToPos() {
 		console.error(`Do not call the SDF for Loose Collections!`);
 		return -1;
-	}
-	serialize() {
-		console.error(`why must I suffer in this way`);
 	}
 	express() {
 		console.error(`don't.`);

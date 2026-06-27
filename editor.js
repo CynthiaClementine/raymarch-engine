@@ -98,18 +98,18 @@ function transferPropertiesMat(oldMat, newMat) {
 }
 
 function deserialize(str) {
-	var isLoop = (str.slice(0, 4) == `LOOP`);
+	const groups = [`LOOP`, `GROUP-L`];
+	var isGroup = groups.includes(str.split(`~`)[0]);
 	var base, material, params;
 	var objs;
 	
-	if (isLoop) {
+	if (isGroup) {
 		str = str.replaceAll(`\t`, ``);
 		const lines = str.split(`\n||`);
 		objs = lines.slice(1).map(o => deserialize(o));
 		[base, params] = lines[0].split(`|`);
 		base = base.split(`~`);
 		params = params.split(`~`);
-		// return new Scene3dLoop({}+base[1], +base[2], +base[3], +base[4], objs);
 	} else {
 		//initial processing
 		var spl = str.split(`|`);
@@ -144,15 +144,11 @@ function deserialize(str) {
 	if (material) {
 		finalArgs.push(material, nature);
 	}
-	if (params) {
+	if (params && params != ``) {
 		finalArgs.push(...params.map(a => +a));
 	}
-	
-	if (isLoop) {
-		return new Scene3dLoop(...finalArgs, objs);
-	}
-	
-	return new type(...finalArgs);
+
+	return new type(...finalArgs, objs);
 }
 
 function deserializeMat(str) {
@@ -842,6 +838,10 @@ function editor_raycast() {
 		validPortals.sort((a, b) => a.distanceToPos(camera.pos) - b.distanceToPos(camera.pos));
 		ray.object = validPortals[0];
 	}
+	if (controls.alt) {
+		editor_deselect(ray.object);
+		return;
+	}
 	if (!controls.shift) {
 		editor_deselect(editor_selected);
 	}
@@ -871,7 +871,7 @@ function editor_deselect(object) {
 	}
 
 	//we're still here? then there's only one thing selected.. but the goal is NOT to deselect it. What?
-	console.error(`deselection error: trying to deselect`, object, `but the only object selected is`, editor_selected);
+	console.log(`deselection error: trying to deselect`, object, `but the only object selected is`, editor_selected);
 
 }
 
@@ -881,7 +881,7 @@ function editor_select(object) {
 		object = object.parent;
 	}
 	if (!object) {
-		console.error(`was unable to select ${object.constructor.name}`);
+		console.error(`was unable to select ${object}`);
 		return;
 	}
 
@@ -891,7 +891,7 @@ function editor_select(object) {
 	} else {
 		//player is NOT selected. We need to select multiple objects
 		if (editor_selected.type != TYPE_CLASS_LGROUP) {
-			editor_selected = new SceneCollectionLoose(editor_selected);
+			editor_selected = new SceneCollectionLoose({}, editor_selected);
 		}
 
 		editor_selected.addObj(object);
