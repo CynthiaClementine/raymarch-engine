@@ -218,7 +218,7 @@ var ray_safetyMult = 1;
 
 var render_crosshair = true;
 //goalN is used to change n. Changing n directly will mess up internal functions
-var render_n = 300;
+var render_n = 150;
 var render_nAutoRange = [120, 512];
 var render_lastScaleTime = -1;
 var render_colN = 60;

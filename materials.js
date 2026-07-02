@@ -196,7 +196,7 @@ class M_Light extends Material {
 	 */
 	constructor(r, g, b, luminosity) {
 		super(Color4(r, g, b, 255), 0);
-		this.epsilon = 1 / 256;
+		this.epsilon = 1 / 512;
 		this.lumi = luminosity;
 	}
 
@@ -208,6 +208,7 @@ class M_Light extends Material {
 	}
 
 	serializeGPU() {
+		//max. distance is sent to the GPU
 		return [this.type, [this.color[0] / 255, this.color[1] / 255, this.color[2] / 255, Math.sqrt(this.lumi / this.epsilon)]];
 	}
 }

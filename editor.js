@@ -539,7 +539,7 @@ function editor_initialize() {
 		new Slider(`group_matSpecial.slider_pz`, `editor_selected.material.offset[2]`, `offZ: `, -100,100, 1, -posLim,posLim),
 		
 		new Slider(`group_matSpecial.slider_m`, `editor_selected.mass`, `m: `, -10,10, 0.01, -9.99,9.99),
-		new Slider(`group_matSpecial.slider_lumi`, `editor_selected.lumi`, `m: `, -10,10, 0.01, -9.99,9.99),
+		new Slider(`group_matSpecial.slider_lumi`, `editor_selected.material.lumi`, `l: `, 0,255, 1),
 		new Slider(`group_matSpecial.slider_dens`, `editor_selected.material.density`, `d: `, 0.05,9.95, 0.05),
 		
 		new Dropdown(`dropdown_obj`, (val) => {

@@ -226,7 +226,7 @@ function createWorlds() {
 		// [-493,650,168, 2.355, -0.48],
 		// [85,607,-16, 4.903, -0.85],
 		// [967,53,-75, 6.124, 0.279],
-		[432,109,-386, 2.740,-0.915],
+		[714,93,86, 1.080,-0.650],
 		[	
 			`CUBE~[-100,330,100]~0~0~90~0|color:90~114~187|45`,
 			`PRISM-RHOMBUS~[-127,195,-191]~0~270~90~87|color:255~64~64|8~255~18~316`,
@@ -303,7 +303,9 @@ function createWorlds() {
 			`SPHERE~[468,-154,-731]~2~0~90~0|normal|299`,
 			`SPHERE~[274,-296,-1006]~2~0~90~0|color:255~0~255|299`,
 			`ELLIPSE~[314,-285,-182]~2~0~90~0|normal|211~212~505`,
-			`ELLIPSE~[640,-363,-36]~2~75~105~72|normal|211~212~505`
+			`ELLIPSE~[640,-363,-36]~2~75~105~72|normal|211~212~505`,
+			`SPHERE~[778,98,102]~0~0~90~0|light:207~247~255~255|10`,
+			`SPHERE~[803,66,270]~0~0~90~0|light:255~240~80~57|10`
 		],
 		0.4
 	);
@@ -929,5 +931,5 @@ function createWorlds() {
 	
 	console.log(`finished loading ${worldsByID.length} worlds.`);
 	
-	loading_world = worlds["darkBright"];
+	loading_world = worlds["start"];
 }
