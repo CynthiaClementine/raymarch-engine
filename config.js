@@ -42,6 +42,7 @@ const M_PORTAL =	20;
 const M_GRAVITY =	25;
 const M_MIRROR =	30;
 const M_LIGHT =		40;
+const M_TEXTURE =	50;
 
 const TYPE_CLASS_OBJ =		-1;
 const TYPE_CLASS_OBJAX =	-2;
@@ -112,6 +113,7 @@ var vertexBuffer;
 var posLoc;
 var gl;
 var gl_timer;
+var gl_numTextures;
 
 const frameTime = 1000 / 60;
 
@@ -218,7 +220,7 @@ var ray_safetyMult = 1;
 
 var render_crosshair = true;
 //goalN is used to change n. Changing n directly will mess up internal functions
-var render_n = 150;
+var render_n = 180;
 var render_nAutoRange = [120, 512];
 var render_lastScaleTime = -1;
 var render_colN = 60;
@@ -324,6 +326,7 @@ var texture_universe;
 var texture_universeArr;
 var texture_bvh;
 var texture_bvhArr;
+var texes = [];
 
 const universe_maxID = 20;
 
@@ -337,10 +340,7 @@ var uCamWorld;
 var uObjectCount;
 var uUniverseTex;
 var uUniverseBVH;
-
-var worker_num = 8;
-var worker_pool = [];
-var worker_ready = [];
+var uTexes = [];
 
 var loading_world;
 

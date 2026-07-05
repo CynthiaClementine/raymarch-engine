@@ -357,7 +357,27 @@ class M_Rubber extends Material {
 	}
 }
 
-var materialCloud = new M_Ghost(255, 255, 255, 26);
+class M_Texture extends Material {
+	static type = M_TEXTURE;
+	constructor(materialID) {
+		super(Color4(255, 0, 255, 255), 0.2);
+		this.material = materialID;
+	}
+
+	applyNearEffect(ray) {}
+	
+	applyHitEffect(ray) {
+		return true;
+	}
+
+	serialize() {
+		return `texture:${this.material}`;
+	}
+
+	serializeGPU() {
+		return [this.type, this.material];
+	}
+}
 
 
 
@@ -372,6 +392,7 @@ var map_strMat = {
 	"portal": M_Portal,
 	"gravity": M_Gravity,
 	"rubber": M_Rubber,
+	"texture": M_Texture,
 };
 var map_matStr = Object.fromEntries(Object.entries(map_strMat).map(a => [a[1].name, a[0]]));
 

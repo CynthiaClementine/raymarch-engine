@@ -130,6 +130,7 @@ uniform mat3 uCamRot;
 uniform int uCamWorld;
 uniform sampler2DArray uUniverseTex;
 uniform sampler2D uUniverseBVHs;
+uniform sampler2D uTex2;
 
 vec2 seed;
 
@@ -981,6 +982,26 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 			}
 			res = 1 + int((data0[3] * data0[3]) * gamma_reg / (stage[stg].totalDist * stage[stg].totalDist));
 		} break;
+		case M_TEXTURE: {
+			if (stg == 0) {
+				float sharpness = 0.5;
+			
+				mat4 mat = objData(stage[stg].world, stage[stg].closestInd);
+				vec3 objPos = mat[1].xyz;
+				vec3 currPos = stage[stg].path.spot.yzw;
+				vec3 relPos = 0.125 * (currPos - objPos) / 8.;
+				vec3 norm = abs(getNormal(currPos, stage[stg].world, stage[stg].closestInd));
+
+				mat3 uvs = mat3(
+					texture(uTex2, vec2(relPos.yz)).rgb,
+					texture(uTex2, vec2(relPos.xz)).rgb,
+					texture(uTex2, vec2(relPos.xy)).rgb
+				);
+				
+				groundColor = uvs * norm;
+			}
+			res = 1;
+		} break;
 		default: {
 			res = 1;
 		} break;
@@ -1504,7 +1525,7 @@ void drawVal(float val, vec2 pos) {
 }
 
 void drawWorld() {
-	vec2 uv = vec2(smoothstep(0.0, 1.0, vUV.x), vUV.y) * 1.05 - 0.025;
+	vec2 uv = vec2(smoothstep(0.0, 1.0, vUV.x * 0.5 + 0.5), vUV.y * 0.5 + 0.5) * 1.05 - 0.025;
 	if (uv[0] < 0.0 || uv[0] > 1.0 || uv[1] < 0.0 || uv[1] > 1.0) {
 		outColor = vec4(0.4, 0.3, 0.4, 1.0);
 		return;
@@ -1522,7 +1543,7 @@ void drawWorld() {
 }
 
 void drawBvh() {
-	vec2 uv = vec2(vUV.x, vUV.y) * 1.05 - 0.025;
+	vec2 uv = vec2(vUV.x * 0.5 + 0.5, vUV.y * 0.5 + 0.5) * 1.05 - 0.025;
 	if (uv[0] < 0.0 || uv[0] > 1.0 || uv[1] < 0.0 || uv[1] > 1.0) {
 		outColor = vec4(0.5, 0.2, 0.5, 1.0);
 		return;
@@ -1547,6 +1568,12 @@ void main() {
 	}
 	if (uDebug == 2) {
 		drawBvh();
+		return;
+	}
+	if (uDebug > 2) {
+		vec2 uv = vec2(vUV.x, vUV.y) * 1.05 - 0.025;
+		vec4 fetched = texture(uTex2, vec2(uv), 0.);
+		outColor = fetched;
 		return;
 	}
 	
@@ -1617,7 +1644,11 @@ void main() {
 	}
 
 	if (hit > 0) {
-		groundColor.rgb *= (stage[1].color.rgb + stage[2].color.rgb + stage[3].color.rgb) / gamma_max;
+		vec3 gamma = (stage[1].color.rgb + stage[2].color.rgb + stage[3].color.rgb) / gamma_max;
+		float ambient = w_ambientLight(stage[0].world);
+		gamma = ambient + (1. - ambient) * gamma;
+		gamma = clamp(gamma, 0.0, 1.5);
+		groundColor.rgb *= gamma;
 	}
 	applyColor(0, vec4(groundColor, 1.));
 
@@ -1627,20 +1658,5 @@ void main() {
 	
 	//send to screem
 	outColor = vec4(stage[0].color.rgb, 1.);
-	
-	// outColor = vec4(
-	// 	((lightIndices[0] > 1) ? 0.04 : 0.0) + stage[1].color[3] / gamma_max, 
-	// 	((lightIndices[0] > 2) ? 0.04 : 0.0) + stage[2].color[3] / gamma_max,
-	// 	((lightIndices[0] > 3) ? 0.04 : 0.0) + stage[3].color[3] / gamma_max,
-	// 1.);
-	// outColor = vec4(
-	// 	stage[1].totalDist / maxDist, 
-	// 	stage[2].totalDist / maxDist,
-	// 	stage[3].totalDist / maxDist,
-	// 1.);
-	// outColor = vec4(
-	// 	vec3(0.5 + stage[2].path.vel / 2.0),
-	// 1.);
-	
 	// outColor = vec4(float(objIndices[obj_maxNum - 1]) / 10., stage[0].color.gb, 1.0);
 }

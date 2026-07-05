@@ -30,6 +30,7 @@ async function setup() {
 		alert(`Float colors not supported. This program will not run correctly.`);
 		throw new Error("float colors not supported");
 	}
+	gl_numTextures = gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS);
 	
 	updateFOV(camera_FOV, false);
 
@@ -66,6 +67,7 @@ async function setup() {
 	setupGLState(vertexShaderCode, fragmentShaderCode);
 	createBVHTexture(); 
 	createObjectsTexture();
+	createExtraTextures();
 	
 	resize();
 	page_animation = window.requestAnimationFrame(main);

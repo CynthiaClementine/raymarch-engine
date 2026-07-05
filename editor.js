@@ -582,10 +582,13 @@ function editor_initialize() {
 				var mat = createDefaultMaterial(val, editor_selected.material.color);
 				editor_selected.material = mat;
 				loading_world.shouldRegen = true;
-				editor_select(editor_selected);
+				editor_updatePanelsFor(editor_selected);
 			}
-		
-			var type = editor_selected.material.constructor.name;
+
+			var type;
+			if (editor_selected.material) {
+				type = editor_selected.material.constructor.name;
+			}
 			return map_matStr[type];
 		}, Object.keys(map_strMat)),
 		
@@ -664,6 +667,7 @@ function editor_initialize() {
 		"portal": [textbox_world, slider_px, slider_py, slider_pz],
 		"gravity": [],
 		"rubber": [],
+		"texture": [],
 	}
 
 	editor_select(player);
