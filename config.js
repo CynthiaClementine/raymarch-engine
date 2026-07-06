@@ -322,13 +322,15 @@ const texture_rowsPerObj = 4;
 const texture_rowsPerMat = 3;
 const texture_rowsPerNode = 2;
 const texture_worldCols = 6;
+const texture_n = 64;
+const texture_maxID = 10;
 var texture_universe;
 var texture_universeArr;
 var texture_bvh;
 var texture_bvhArr;
-var texes = [];
+var texture_exes;
+var texture_exesArr;
 
-const universe_maxID = 20;
 
 //uniforms
 var uDebug;
@@ -340,11 +342,11 @@ var uCamWorld;
 var uObjectCount;
 var uUniverseTex;
 var uUniverseBVH;
-var uTexes = [];
+var uTexes;
 
 var loading_world;
 
 const world_maxObjs = 500;
-const world_objectChunks = Math.floor(Math.cbrt(10000));
+const world_maxID = 20;
 var worlds = {};
 var world_time = 0;

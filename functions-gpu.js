@@ -14,16 +14,15 @@ function compile(type, source) {
 }
 
 function createObjectsTexture() {
-	texture_universeArr = new Float32Array(universe_maxID * (world_maxObjs + texture_worldCols) * (texture_rowsPerObj + texture_rowsPerMat) * 4);
+	texture_universeArr = new Float32Array(world_maxID * (world_maxObjs + texture_worldCols) * (texture_rowsPerObj + texture_rowsPerMat) * 4);
 	texture_universe = gl.createTexture();
 	gl.uniform1i(uUniverseTex, 0);
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture_universe);
 	gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-	
 	gl.texImage3D(
 		gl.TEXTURE_2D_ARRAY, 0, gl.RGBA32F,
-		world_maxObjs + texture_worldCols, texture_rowsPerObj + texture_rowsPerMat, universe_maxID, 
+		world_maxObjs + texture_worldCols, texture_rowsPerObj + texture_rowsPerMat, world_maxID, 
 		0, gl.RGBA, gl.FLOAT, texture_universeArr
 	);
 	
@@ -32,16 +31,78 @@ function createObjectsTexture() {
 	gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 	
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture_universe);
-	
 	worldsByID.forEach(w => {
 		createGPUWorld(w);
 	});
 }
 
+var tempArr = [];
+
+function createExtraTextures() {
+	texture_exesArr = new Uint8Array(texture_n * texture_n * texture_maxID * 4);
+	texture_exes = gl.createTexture();
+	uTexes = gl.getUniformLocation(program, `uTex2`);
+	gl.uniform1i(uTexes, 2);
+	gl.activeTexture(gl.TEXTURE2);
+	gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture_exes);
+	//????????
+	gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+	gl.texImage3D(
+		gl.TEXTURE_2D_ARRAY, 0, gl.RGBA, 
+		texture_n, texture_n, texture_maxID,
+		0, 
+		gl.RGBA, gl.UNSIGNED_BYTE, 
+		texture_exesArr
+	);
+	
+	gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+	const texDir = `resources`;
+	const toLoad = [
+		`cobble_stone.png`,
+		`obama.png`,
+	];
+	if (toLoad.length >= texture_maxID) {
+		console.error(`Too many textures! Unable to load all of them!`);
+		toLoad = toLoad.slice(0, texture_maxID);
+	}
+
+	danvas = new OffscreenCanvas(texture_n, texture_n);
+	dtx = danvas.getContext(`2d`);
+	dtx.imageSmoothingEnabled = false;
+	
+	for (var r=0; r<toLoad.length; r++) {
+		const t = r;
+
+		const img = new Image();
+		img.src = `${texDir}/${toLoad[t]}`;
+		console.log(`src is ${img.src}`);
+		img.onload = () => {
+			console.log(`hi! ${t}`, img);
+			dtx.drawImage(img, 0, 0);
+			var dat = dtx.getImageData(0,0, texture_n,texture_n).data;
+			
+			tempArr[t] = dat;
+			gl.activeTexture(gl.TEXTURE2);
+			gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture_exes);
+			gl.texSubImage3D(
+				gl.TEXTURE_2D_ARRAY, 0, 
+				0, 0, t,
+				texture_n, texture_n, 1,
+				gl.RGBA, gl.UNSIGNED_BYTE, 
+				dat
+			);
+			// gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+		};
+		// gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+	}
+}
+
 function createBVHTexture() {
-	texture_bvhArr = new Float32Array(universe_maxID * texture_rowsPerNode * (2 * world_maxObjs) * 4);
+	texture_bvhArr = new Float32Array(world_maxID * texture_rowsPerNode * (2 * world_maxObjs) * 4);
 	texture_bvh = gl.createTexture();
 	gl.uniform1i(uUniverseBVH, 1);
 	gl.activeTexture(gl.TEXTURE1);
@@ -50,7 +111,7 @@ function createBVHTexture() {
 	
 	gl.texImage2D(
 		gl.TEXTURE_2D, 0, gl.RGBA32F,
-		texture_rowsPerNode * world_maxObjs, 2 * universe_maxID,
+		texture_rowsPerNode * world_maxObjs, 2 * world_maxID,
 		0, gl.RGBA, gl.FLOAT, texture_bvhArr
 	);
 	
@@ -61,80 +122,6 @@ function createBVHTexture() {
 	
 	gl.activeTexture(gl.TEXTURE1);
 	gl.bindTexture(gl.TEXTURE_2D, texture_bvh);
-}
-
-function createExtraTextures() {
-	const off = 2;
-	const texDir = `resources`;
-	const toLoad = [
-		`cobble_stone.png`
-	];
-
-	var texes = [];
-	var uTexes = [];
-
-	if (toLoad.length + off >= gl_numTextures) {
-		console.error(`Too many textures! Unable to load all of them!`);
-		toLoad = toLoad.slice(0, gl_numTextures - off);
-	}
-
-	for (var r=0; r<toLoad.length; r++) {
-		const t = r;
-		texes[t] = gl.createTexture();
-		uTexes[t] = gl.getUniformLocation(program, `uTex${t+off}`);
-		gl.uniform1i(uTexes[t], t + off);
-		gl.activeTexture(gl.TEXTURE0 + t + off);
-		gl.bindTexture(gl.TEXTURE_2D, texes[t]);
-
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	
-
-		//standard 1x1 placeholder pixel 
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 
-			1, 1, 0, 
-			gl.RGBA, gl.UNSIGNED_BYTE, Color4(0,0,255,255)
-		);
-
-		var img = new Image();
-		// console.log(`${texDir}/${toLoad[t]}`);
-		img.src = `${texDir}/${toLoad[t]}`;
-		img.onload = () => {
-			console.log(`hi! ${t} ${off}`);
-			gl.activeTexture(gl.TEXTURE0 + t + off);
-			gl.bindTexture(gl.TEXTURE_2D, texes[t]);
-			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-			gl.generateMipmap(gl.TEXTURE_2D);
-		};
-		// gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-	}
-
-
-
-
-
-	// // texture_bvhArr = new Float32Array(universe_maxID * texture_rowsPerNode * (2 * world_maxObjs) * 4);
-	// texture_bvh = gl.createTexture();
-	// gl.uniform1i(uUniverseBVH, 1);
-	// gl.activeTexture(gl.TEXTURE1);
-	// gl.bindTexture(gl.TEXTURE_2D, texture_bvh);
-	// gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-	
-	// gl.texImage2D(
-	// 	gl.TEXTURE_2D, 0, gl.RGBA32F,
-	// 	texture_rowsPerNode * world_maxObjs, 2 * universe_maxID,
-	// 	0, gl.RGBA, gl.FLOAT, texture_bvhArr
-	// );
-	
-	// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-	// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-	// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-	// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-	
-	// gl.activeTexture(gl.TEXTURE1);
-	// gl.bindTexture(gl.TEXTURE_2D, texture_bvh);
 }
 
 /**
@@ -317,7 +304,7 @@ function updateBvhTexture() {
 	gl.texSubImage2D(
 		gl.TEXTURE_2D, 0,
 		xOffset, yOffset,
-		world_maxObjs * texture_rowsPerNode, 2 * universe_maxID,
+		world_maxObjs * texture_rowsPerNode, 2 * world_maxID,
 		gl.RGBA, gl.FLOAT, texture_bvhArr
 	);
 }
@@ -333,7 +320,7 @@ function updateWorldTexture() {
 	gl.texSubImage3D(
 		gl.TEXTURE_2D_ARRAY, 0,
 		xOffset, yOffset, zOffset,
-		world_maxObjs + texture_worldCols, texture_rowsPerObj + texture_rowsPerMat, universe_maxID,
+		world_maxObjs + texture_worldCols, texture_rowsPerObj + texture_rowsPerMat, world_maxID,
 		gl.RGBA, gl.FLOAT, texture_universeArr
 	);
 }

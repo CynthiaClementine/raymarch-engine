@@ -96,7 +96,6 @@ precision highp float;
 precision highp sampler2DArray;
 
 
-
 in vec2 vUV;
 out vec4 outColor;
 
@@ -130,7 +129,7 @@ uniform mat3 uCamRot;
 uniform int uCamWorld;
 uniform sampler2DArray uUniverseTex;
 uniform sampler2D uUniverseBVHs;
-uniform sampler2D uTex2;
+uniform sampler2DArray uTex2;
 
 vec2 seed;
 
@@ -985,6 +984,8 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 		case M_TEXTURE: {
 			if (stg == 0) {
 				float sharpness = 0.5;
+				float material = data0[0];
+				bool relative = false;
 			
 				mat4 mat = objData(stage[stg].world, stage[stg].closestInd);
 				vec3 objPos = mat[1].xyz;
@@ -993,9 +994,9 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 				vec3 norm = abs(getNormal(currPos, stage[stg].world, stage[stg].closestInd));
 
 				mat3 uvs = mat3(
-					texture(uTex2, vec2(relPos.yz)).rgb,
-					texture(uTex2, vec2(relPos.xz)).rgb,
-					texture(uTex2, vec2(relPos.xy)).rgb
+					texture(uTex2, vec3(relPos.yz, material)).rgb,
+					texture(uTex2, vec3(relPos.xz, material)).rgb,
+					texture(uTex2, vec3(relPos.xy, material)).rgb
 				);
 				
 				groundColor = uvs * norm;
@@ -1572,7 +1573,7 @@ void main() {
 	}
 	if (uDebug > 2) {
 		vec2 uv = vec2(vUV.x, vUV.y) * 1.05 - 0.025;
-		vec4 fetched = texture(uTex2, vec2(uv), 0.);
+		vec4 fetched = texture(uTex2, vec3(uv, 0.0), 0.);
 		outColor = fetched;
 		return;
 	}

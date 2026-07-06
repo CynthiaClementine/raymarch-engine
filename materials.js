@@ -359,9 +359,12 @@ class M_Rubber extends Material {
 
 class M_Texture extends Material {
 	static type = M_TEXTURE;
-	constructor(materialID) {
+	constructor(materialID, scale, isRelative, blendFactor) {
 		super(Color4(255, 0, 255, 255), 0.2);
-		this.material = materialID;
+		this.mat = materialID;
+		this.scale = scale ?? 1.0;
+		this.rel = isRelative ?? true;
+		this.blend = blendFactor ?? 0.5;
 	}
 
 	applyNearEffect(ray) {}
@@ -371,11 +374,11 @@ class M_Texture extends Material {
 	}
 
 	serialize() {
-		return `texture:${this.material}`;
+		return `texture:${this.mat}~${this.scale}~${this.rel}~${this.blend}`;
 	}
 
 	serializeGPU() {
-		return [this.type, this.material];
+		return [this.type, [this.mat, this.scale, this.rel, this.blend]];
 	}
 }
 

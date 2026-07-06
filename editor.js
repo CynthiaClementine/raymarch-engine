@@ -542,6 +542,8 @@ function editor_initialize() {
 		new Slider(`group_matSpecial.slider_lumi`, `editor_selected.material.lumi`, `l: `, 0,255, 1),
 		new Slider(`group_matSpecial.slider_dens`, `editor_selected.material.density`, `d: `, 0.05,9.95, 0.05),
 		
+		new Slider(`group_matSpecial.slider_type`, `editor_selected.material.mat`, `t: `, 0,20, 1),
+		
 		new Dropdown(`dropdown_obj`, (val) => {
 			if (val) {
 				if (playerConstructors.includes(map_strObj[val])) {
@@ -667,7 +669,7 @@ function editor_initialize() {
 		"portal": [textbox_world, slider_px, slider_py, slider_pz],
 		"gravity": [],
 		"rubber": [],
-		"texture": [],
+		"texture": [slider_type],
 	}
 
 	editor_select(player);

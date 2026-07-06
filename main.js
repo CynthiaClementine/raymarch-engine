@@ -11,6 +11,9 @@ var gl;
 var banvas;
 var btx;
 
+var danvas;
+var dtx;
+
 async function setup() {
 	createWorlds();
 	canvas = document.getElementById(`glbox`);
