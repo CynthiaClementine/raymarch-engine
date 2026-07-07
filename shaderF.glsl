@@ -16,7 +16,7 @@
 #define gamma_reg 50.0
 
 #define maxLightDist 1000.0
-#define ray_numLights 3
+#define ray_numLights 4
 #define ray_maxBounces 22
 
 #define obj_maxNum 500
@@ -24,6 +24,8 @@
 
 #define fractal_iters 10
 #define shadow_steps 3.
+
+#define tex_scale 0.015625
 
 
 //shapes
@@ -136,6 +138,7 @@ vec2 seed;
 int objIndices[obj_maxNum];
 int lightIndices[ray_numLights];
 
+bool hit = false;
 int bounceCount = 0;
 float bvhTolerance = 8.0;
 float pixelGamma = 0.7;
@@ -143,6 +146,7 @@ float pixelGamma = 0.7;
 Raydata stage[ray_numLights+1] = Raydata[ray_numLights+1](
 	Raydata(0, 0, 0., 0., 0., 0, Path(vec4(0.), vec3(0.), vec4(0.)), 1., vec4(0.,0.,0.,0.)),
 	
+	Raydata(0, 0, 0., 0., 0., 0, Path(vec4(0.), vec3(0.), vec4(0.)), 1., vec4(1.,1.,1.,0.)),
 	Raydata(0, 0, 0., 0., 0., 0, Path(vec4(0.), vec3(0.), vec4(0.)), 1., vec4(1.,1.,1.,0.)),
 	Raydata(0, 0, 0., 0., 0., 0, Path(vec4(0.), vec3(0.), vec4(0.)), 1., vec4(1.,1.,1.,0.)),
 	Raydata(0, 0, 0., 0., 0., 0, Path(vec4(0.), vec3(0.), vec4(0.)), 1., vec4(1.,1.,1.,0.))
@@ -328,10 +332,6 @@ void applyColor(int stg, vec4 color) {
 	stage[stg].color.a += color.a * availableAlpha * 1.1;
 }
 
-void applyColorLight(vec4 color) {
-	groundColor = color.rgb;
-}
-
 float backgroundStarAmpl(vec3 dir, float lowLight, float highLight) {
 	vec2 uv;
 	if (abs(dir.y) > 0.81) {
@@ -396,8 +396,8 @@ void applyPreEffects(int stg) {
 	}
 }
 
-//postEffects always apply to stage 1 (but can take in data from either stage)
-void postEffect(int stg, vec4 data0, vec4 data1, vec4 data2) {
+//in this case, stg is just the hit value
+void postEffect(vec4 data0, vec4 data1, vec4 data2) {
 	int effectType = int(data0[0]);
 	vec3 arg0 = data0.gba;
 	switch (effectType) {
@@ -406,25 +406,25 @@ void postEffect(int stg, vec4 data0, vec4 data1, vec4 data2) {
 			if (stage[1].iters > 0) {
 				return;
 			}
-			applyColorLight(vec4(arg0, 0.0));
+			groundColor = arg0;
 		} return;
 		//bg_range
 		case E_BG_RANGE: {
-			if (stg > 0) {
+			if (hit) {
 				return;
 			}
-			applyColorLight(vec4(rand(arg0.r, data1.r), rand(arg0.g, data1.g), rand(arg0.b, data1.b), 0.0));
+			groundColor = vec3(rand(arg0.r, data1.r), rand(arg0.g, data1.g), rand(arg0.b, data1.b));
 		} return;
 		//bg_gradient
 		case E_GRADIENT: {
-			if (stg > 0) {
+			if (hit) {
 				return;
 			}
-			applyColorLight(vec4(0.1, 0.2, 0.3 + stage[0].path.vel[1] * 0.7, 0.0));
+			groundColor = vec3(0.1, 0.2, 0.3 + stage[0].path.vel[1] * 0.7);
 		} return;
 		//bg_fadeTo
 		case E_FADE: {
-			if (stg == 0) {
+			if (!hit) {
 				return;
 			}
 			float distPerc = stage[0].totalDist;
@@ -439,7 +439,7 @@ void postEffect(int stg, vec4 data0, vec4 data1, vec4 data2) {
 		} return;
 		//bg_fadeToRange
 		case E_FADE_RANGE: {
-			if (stg == 0) {
+			if (!hit) {
 				return;
 			}
 			vec3 col = vec3(rand(arg0.r, data1.r), rand(arg0.g, data1.g), rand(arg0.b, data1.b));
@@ -448,29 +448,36 @@ void postEffect(int stg, vec4 data0, vec4 data1, vec4 data2) {
 		} return;
 		//sun
 		case E_SUN: {
-			if (stg != 0) {
+			if (hit) {
 				return;
 			}
 			float sunSize = data1[0];
 			float dotted = max(dot(stage[0].path.vel, w_sunVec(stage[0].world)) - 1. + sunSize, 0.);
 			dotted = clamp(2. * dotted / sunSize, 0.0, 1.0);
 			if (dotted > 0.0) {
-				applyColorLight(vec4(mix(stage[0].color.rgb, arg0.rgb, dotted), 1.));
+				groundColor = mix(groundColor, arg0.rgb, dotted);
 			}
 		} return;
 		case E_ITERS: {
-			float gweh = 3. * (float(stage[0].iters) + float(stage[1].iters)) / float(maxIters);
+			float gweh = 3. * (
+				float(stage[0].iters) + 
+				float(stage[1].iters) + 
+				float(stage[2].iters) + 
+				float(stage[3].iters)
+				) / float(maxIters);
 				stage[0].color.rgba = vec4(
 					gweh * gweh, 
-					0.1 + stage[stg].color.g / 4., 
+					0.1 + groundColor.g / 4., 
 					float(bounceCount) / float(ray_maxBounces),
 					1.0
 				);
 				stage[1].color = stage[0].color;
 		} return;
 		case E_STARS: {
-			float f = backgroundStarAmpl(stage[0].path.vel, data1[0], data1[1]);
-			applyColorLight(vec4(mix(stage[0].color.rgb, arg0, f), 0.0));
+			if (!hit) {
+				float f = backgroundStarAmpl(stage[0].path.vel, data1[0], data1[1]);
+				groundColor = mix(stage[0].color.rgb, arg0, f);
+			}
 		} return;
 	}
 }
@@ -985,14 +992,17 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 			if (stg == 0) {
 				float sharpness = 0.5;
 				float material = data0[0];
-				bool relative = false;
+				float scale = data0[1];
+				float isRelative = data0[2];
+				float blend = data0[3];
 			
-				mat4 mat = objData(stage[stg].world, stage[stg].closestInd);
-				vec3 objPos = mat[1].xyz;
+				mat4 trix = objData(stage[stg].world, stage[stg].closestInd);
+				vec3 objPos = trix[1].xyz;
 				vec3 currPos = stage[stg].path.spot.yzw;
-				vec3 relPos = 0.125 * (currPos - objPos) / 8.;
+				vec3 relPos = scale * tex_scale * (currPos - isRelative*objPos);
 				vec3 norm = abs(getNormal(currPos, stage[stg].world, stage[stg].closestInd));
-
+				norm = normalize(vec3(pow(norm.x, blend), pow(norm.y, blend), pow(norm.z, blend)));
+				
 				mat3 uvs = mat3(
 					texture(uTex2, vec3(relPos.yz, material)).rgb,
 					texture(uTex2, vec3(relPos.xz, material)).rgb,
@@ -1149,8 +1159,9 @@ void calcLightPositions() {
 		if (dist > maxLightDist) {
 			continue;
 		}
-		float trueRange = matData(world, l)[0][3];
-		if (dist > trueRange) {
+		float lumi = matData(world, l)[0][3];
+		float expectedLumi = (lumi * lumi) * gamma_reg / (dist * dist);
+		if (expectedLumi < 75.0) {
 			continue;
 		}
 		float temp;
@@ -1159,10 +1170,10 @@ void calcLightPositions() {
 		//update closest dist list
 		for (int subInd=1; subInd<currLights; subInd+=1) {
 			//out-of-order swap
-			if (dist < dists[subInd]) {
+			if (expectedLumi < dists[subInd]) {
 				temp = dists[subInd];
-				dists[subInd] = dist;
-				dist = temp;
+				dists[subInd] = expectedLumi;
+				expectedLumi = temp;
 
 				temp2 = lightIndices[subInd];
 				lightIndices[subInd] = ind;
@@ -1170,6 +1181,7 @@ void calcLightPositions() {
 			}
 		}
 		lightIndices[currLights] = ind;
+		dists[currLights] = expectedLumi;
 		currLights = min(currLights + 1, ray_numLights);
 	}
 
@@ -1271,6 +1283,7 @@ void raymarch() {
 			if (stage[0].localDist < minDist) {
 				int res = applyHitEffect(0, oldLocalDist, type, matDat[0], matDat[1], matDat[2]);
 				if (res > 0) {
+					hit = true;
 					return;
 				}
 			} else {
@@ -1597,14 +1610,12 @@ void main() {
 	
 	//fetch world data
 	//??
-	int hit = 0;
 	
 	//stage 0
 	raymarch();
 	
 	// stage 1
-	if (stage[0].totalDist < maxDist && stage[0].iters + 1 < maxIters && stage[1].iters < maxIters) {
-		hit = 1;
+	if (hit && stage[1].iters < maxIters) {
 		//figure out proper starting position
 		vec3 normal = getNormal(stage[0].path.spot.yzw, stage[0].world, stage[0].closestInd);
 		vec3 reflected = reflect(stage[0].path.vel, normal);
@@ -1613,15 +1624,12 @@ void main() {
 		//figure out light positions
 		calcLightPositions();
 
-		
-
 		//it's hit an object, run shadow stage
 		shadow(1, startPos, normal, w_sunVec(stage[0].world));
 		for (int l=1; l<lightIndices[0]; l++) {
 			vec3 lPos = objData(stage[0].world, lightIndices[l])[1].xyz;
 			vec3 dir = normalize(lPos - startPos);
 			shadow(l+1, startPos, normal, dir);
-			// shadow(l+1, w_sunVec(stage[0].world));
 		}
 	}
 
@@ -1635,17 +1643,18 @@ void main() {
 	stage[1].color.rgb *= stage[1].color[3];
 	stage[2].color.rgb *= stage[2].color[3];
 	stage[3].color.rgb *= stage[3].color[3];
+	stage[4].color.rgb *= stage[4].color[3];
 	
 	// post effects go here??????? this is mint
 	// MAID!!!! FEtch me my textures~~!!
-	int effCount = int(w_effectCounts(stage[hit].world)[1]);
+	int effCount = int(w_effectCounts(stage[0].world)[1]);
 	for (int d=0; d<effCount; d++) {
-		mat4 dat = effectData(stage[hit].world, d, false);
-		postEffect(hit, dat[0], dat[1], dat[2]);
+		mat4 dat = effectData(stage[0].world, d, false);
+		postEffect(dat[0], dat[1], dat[2]);
 	}
 
-	if (hit > 0) {
-		vec3 gamma = (stage[1].color.rgb + stage[2].color.rgb + stage[3].color.rgb) / gamma_max;
+	if (hit) {
+		vec3 gamma = (stage[1].color.rgb + stage[2].color.rgb + stage[3].color.rgb + stage[4].color.rgb) / gamma_max;
 		float ambient = w_ambientLight(stage[0].world);
 		gamma = ambient + (1. - ambient) * gamma;
 		gamma = clamp(gamma, 0.0, 1.5);

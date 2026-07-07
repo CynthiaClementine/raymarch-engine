@@ -543,6 +543,16 @@ function editor_initialize() {
 		new Slider(`group_matSpecial.slider_dens`, `editor_selected.material.density`, `d: `, 0.05,9.95, 0.05),
 		
 		new Slider(`group_matSpecial.slider_type`, `editor_selected.material.mat`, `t: `, 0,20, 1),
+		new Slider(`group_matSpecial.slider_scale`, `editor_selected.material.scale`, `s: `, 0.05,9.95, 0.05),
+		new Slider(`group_matSpecial.slider_blend`, `editor_selected.material.blend`, `b: `, 0.5, 9.5, 0.125),
+		new Checkbox(`group_matSpecial.checkbox_rel`, `relative`, (val) => {
+			if (val != null) {
+				editor_selected.material.rel = val;
+				loading_world.shouldRegen = true;
+			}
+			return editor_selected.material.rel;
+		}),
+		
 		
 		new Dropdown(`dropdown_obj`, (val) => {
 			if (val) {
@@ -669,7 +679,7 @@ function editor_initialize() {
 		"portal": [textbox_world, slider_px, slider_py, slider_pz],
 		"gravity": [],
 		"rubber": [],
-		"texture": [slider_type],
+		"texture": [slider_type, slider_scale, checkbox_rel, slider_blend],
 	}
 
 	editor_select(player);

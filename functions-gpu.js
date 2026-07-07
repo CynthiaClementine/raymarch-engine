@@ -61,10 +61,7 @@ function createExtraTextures() {
 	gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
 
 	const texDir = `resources`;
-	const toLoad = [
-		`cobble_stone.png`,
-		`obama.png`,
-	];
+	var toLoad = texture_sources;
 	if (toLoad.length >= texture_maxID) {
 		console.error(`Too many textures! Unable to load all of them!`);
 		toLoad = toLoad.slice(0, texture_maxID);

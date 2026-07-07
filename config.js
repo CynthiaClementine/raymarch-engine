@@ -324,6 +324,11 @@ const texture_rowsPerNode = 2;
 const texture_worldCols = 6;
 const texture_n = 64;
 const texture_maxID = 10;
+const texture_sources = [
+	`cobble_stone.png`,
+	`obama.png`,
+	`wall_paper.png`
+];
 var texture_universe;
 var texture_universeArr;
 var texture_bvh;
