@@ -994,7 +994,7 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 				float material = data0[0];
 				float scale = data0[1];
 				float isRelative = data0[2];
-				float blend = data0[3];
+				float blend = (data0[3] > 5.) ? 10.*data0[3] - 45. : data0[3];
 			
 				mat4 trix = objData(stage[stg].world, stage[stg].closestInd);
 				vec3 objPos = trix[1].xyz;
