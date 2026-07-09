@@ -4,6 +4,8 @@
 const degToRad = (Math.PI / 180);
 
 const fencepost32 = 0xff0110ff;
+const pi = Math.PI;
+const tau = Math.PI * 2;
 
 //it's called scaryVariable because you don't know if you can remove it or not
 var scaryVariable = 0;
@@ -31,6 +33,7 @@ const N_ANTI =	2;
 const N_FOG =	4;
 const N_SMOOTH =8;
 const N_GRAVITY=16;
+const N_FIELD = 32;
 
 const M_COLOR =		0;
 const M_CONCRETE =	1;
@@ -51,6 +54,7 @@ const TYPE_CLASS_LOOP =		-4;
 const TYPE_CLASS_GROUP =	-5;
 const TYPE_CLASS_LGROUP =	-6;
 const TYPE_CLASS_SPUN =		-7;
+
 
 const TYPE_SPHERE =			0;
 const TYPE_ELLIPSE =		1;
@@ -73,6 +77,12 @@ const TYPE_PRISM_HEX =		53;
 const TYPE_PRISM_OCT =		55;
 const TYPE_FRACTAL =		70;
 const TYPE_TERRAIN =		71;
+
+//not groups, but not primitives
+const TYPE_MESH_DOT =		201;
+const TYPE_MESH_SKYBUNNY =	202;
+const TYPE_MESH_LAMPPOST =	203;
+const TYPE_TREE =			210;
 
 //other enums
 const ABSOLUTE = 0;

@@ -76,6 +76,7 @@
 //Surround interesting spacetime in a gravity object to ensure that rays don't just jump over it. 
 //The constraint on maximum step size is stored in data[3][0]
 #define N_GRAVITY	16
+#define N_FIELD		32
 
 //materials
 #define M_COLOR		0
@@ -142,6 +143,7 @@ bool hit = false;
 int bounceCount = 0;
 float bvhTolerance = 8.0;
 float pixelGamma = 0.7;
+float fudgeFactor = 1.0;
 
 Raydata stage[ray_numLights+1] = Raydata[ray_numLights+1](
 	Raydata(0, 0, 0., 0., 0., 0, Path(vec4(0.), vec3(0.), vec4(0.)), 1., vec4(0.,0.,0.,0.)),
@@ -158,7 +160,6 @@ void findHitPos(vec3, int, int, float, float);
 float fractalNoise(vec2, int, float, float, float, float);
 
 mat4 metric(vec4, vec3, float);
-mat4 metricInv(vec4, vec3, float);
 Path geodesicStep(Path, float, vec3, float);
 
 
@@ -220,20 +221,6 @@ float noise(vec2 pos) {
 				mix(randStable(i + vec2(0,1)), randStable(i + vec2(1,1)), f.x), f.y);
 }
 
-// float noise(vec3 pos) {
-// 	ivec2 i1 = ivec2(floor(pos.xy));
-// 	ivec2 i2 = ivec2(floor(pos.x), floor(pos.y + pos.z * 1000.));
-// 	vec3 f = fract(pos);
-// 	f = f * f * (3.0 - 2.0 * f);
-	
-// 	//bilinear interpolation on the corners
-// 	float top = mix(mix(randStable(i + ivec2(0,0)), randStable(i + ivec2(1,0)), f.x),
-// 					mix(randStable(i + ivec2(0,1)), randStable(i + ivec2(1,1)), f.x), f.y);
-					
-// 	float btm = mix(mix(randStable(i + ivec2(0,0)), randStable(i + ivec2(1,0)), f.x),
-// 					mix(randStable(i + ivec2(0,1)), randStable(i + ivec2(1,1)), f.x), f.y);
-// }
-
 vec2 rotate(vec2 pos, int deg) {
 	float angle = float(deg) * 0.01745329252;
 	float sn = sin(angle);
@@ -254,8 +241,6 @@ float smootherstep(float t) {
 float linearstep(float t) {
 	return clamp(2.0*t, 0.0, 1.0);
 }
-
-
 
 //texture fetch functions
 vec3 w_spawn(int worldID) {
@@ -303,10 +288,10 @@ int matType(int world, int id) {
 	return (floatBitsToInt(bits) >> 16);
 }
 
-mat4 effectData(int world, int effectIndex, bool isPre) {
-	vec4 data0 = texelFetch(uUniverseTex, ivec3(obj_maxNum + 1 + effectIndex, 4*int(isPre) + 0, world), 0);
-	vec4 data1 = texelFetch(uUniverseTex, ivec3(obj_maxNum + 1 + effectIndex, 4*int(isPre) + 1, world), 0);
-	vec4 data2 = texelFetch(uUniverseTex, ivec3(obj_maxNum + 1 + effectIndex, 4*int(isPre) + 2, world), 0);
+mat4 effectData(int world, int effectIndex) {
+	vec4 data0 = texelFetch(uUniverseTex, ivec3(obj_maxNum + 1 + effectIndex, 0, world), 0);
+	vec4 data1 = texelFetch(uUniverseTex, ivec3(obj_maxNum + 1 + effectIndex, 1, world), 0);
+	vec4 data2 = texelFetch(uUniverseTex, ivec3(obj_maxNum + 1 + effectIndex, 2, world), 0);
 	return mat4(data0, data1, data2, vec4(0.0));
 }
 
@@ -350,50 +335,6 @@ float backgroundStarAmpl(vec3 dir, float lowLight, float highLight) {
 	}
 	
 	return f;
-}
-
-void preEffect(int stg, vec4 data0, vec4 data1, vec4 data2) {
-	int effectType = int(data0[0]);
-	vec3 arg0 = data0.gba;
-	switch (effectType) {
-		//loop
-		case E_LOOP: {
-			teleport(stg, mod(stage[stg].path.spot.yzw, arg0[0]));
-		} break;
-		//brighten
-		case E_BRIGHTEN: {
-			if (stg != 0) {
-				return;
-			}
-			if (stage[stg].color.a >= 1.0 || stage[stg].localDist > nearDist) {
-				return;
-			}
-			stage[stg].color.rgb += arg0 * clamp(nearDist / stage[stg].localDist, 0.01, stage[stg].localDist * 4.);
-			//rescale to fit within normal bounds
-			float rescale = max(max(stage[stg].color.r, stage[stg].color.g), stage[stg].color.b);
-			if (rescale > 1.0) {
-				stage[stg].color.rgb /= rescale;
-			}
-			stage[stg].color.a += 2./255.;
-		} break;
-		//whiten
-		case E_WHITEN: {
-			stage[stg].color.rgb += vec3(1./255., 1./255., 1./255.);
-			stage[stg].color.a += 1.;
-		} break;
-		//spherize
-		// case E_SPHERIZE: {
-			
-		// } break;
-	}
-}
-
-void applyPreEffects(int stg) {
-	int effCount = int(w_effectCounts(stage[stg].world)[0]);
-	for (int d=0; d<effCount; d++) {
-		mat4 dat = effectData(stage[stg].world, d, true);
-		preEffect(stg, dat[0], dat[1], dat[2]);
-	}
 }
 
 //in this case, stg is just the hit value
@@ -1197,25 +1138,22 @@ float smoothMin(float d1, float d2, float k) {
 	return min(d1, d2) - h*h*h * (4. - h) * (k / 16.);
 }
 
+//given oldDist and a index/newDist/nature pairing, returns what the new sceneDist should be
+//also sets closestInd if necessary to set materials
 float applyDist(int stg, float oldDist, float newDist, int nature, int index) {
 	if ((nature & N_FOG) > 0) {
 		nature ^= N_FOG;
 	}
-
 	if (nature == N_NORMAL || (nature & N_GRAVITY) > 0) {
-		if (newDist < oldDist) {
-			stage[stg].closestInd = index;
-			return newDist;
-		}
-		return oldDist;
+		stage[stg].closestInd = (newDist < oldDist) ? index : stage[stg].closestInd;
+		return min(oldDist, newDist);
 	}
-	
 	if ((nature & N_GLOOPY) > 0) {
 		float trueNewDist = smoothMin(oldDist, newDist, 2.5);
 		if (trueNewDist < oldDist - minDist / 2.) {
 			stage[stg].closestInd = index;
-			return trueNewDist;
 		}
+		return min(trueNewDist, oldDist);
 	}
 	if ((nature & N_ANTI) > 0) {
 		newDist = -newDist;
@@ -1225,9 +1163,17 @@ float applyDist(int stg, float oldDist, float newDist, int nature, int index) {
 		float trueNewDist = max(oldDist, -newDist);
 		if (trueNewDist != oldDist) {
 			stage[stg].closestInd = index;
-			return trueNewDist;
 		}
+		//if it's different, return TND. if it's the same, return the old distance.. but it's the same so it doesn't matter.
+		return trueNewDist;
 	}
+	if ((nature & N_FIELD) > 0) {
+		if (newDist < 0.) {
+			stage[stg].closestInd = index;
+		}
+		return oldDist + newDist;
+	}
+	//shouldn't be possible but whatever
 	return oldDist;
 }
 
@@ -1290,14 +1236,14 @@ void raymarch() {
 				applyNearEffect(0, type, matDat[0], matDat[1], matDat[2]);
 			}
 		}
-		applyPreEffects(0);
 		
-		stage[0].path.spot.yzw += stage[0].path.vel * stage[0].localDist;
+		stage[0].path.spot.yzw += stage[0].path.vel * stage[0].localDist * fudgeFactor;
 		stage[0].totalDist += stage[0].localDist;
 		stage[0].distSinceBounce += stage[0].localDist;
 		if(stage[0].totalDist > maxDist || stage[0].color.a > 0.99) {
 			return;
 		}
+		// fudgeFactor += float(i)*0.0001;
 	}
 }
 
@@ -1344,7 +1290,6 @@ void shadow(int stg, vec3 startPos, vec3 normal, vec3 lightVec) {
 		stage[stg].totalDist += stage[stg].localDist;
 
 		//potentially add t cutoff here (far away objects won't cast shadows)
-		applyPreEffects(stg);
 	}
 
 	if (stg == 1) {
@@ -1445,7 +1390,6 @@ mat4 metric(vec4 spot, vec3 offset, float mass) {
 	spot -= vec4(0, offset);
 		
 	// Kerr-Newman metric in cartesian coordinates 
-	// (copied from https://michaelmoroz.github.io/TracingGeodesics/)
 	
 	// Angular momentum divided by mass
 	const float a = 0.0;
@@ -1463,10 +1407,6 @@ mat4 metric(vec4 spot, vec3 offset, float mass) {
 	return f*mat4(k.x*k, k.y*k, k.z*k, k.w*k)+diag(vec4(-1,1,1,1));
 }
 
-mat4 metricInv(vec4 spot, vec3 offset, float mass) {
-	return inverse(metric(spot, offset, mass));
-}
-
 float lengthSquare(mat4 metric, vec4 vel) {
 	float value = 0.;
 
@@ -1480,7 +1420,7 @@ float lengthSquare(mat4 metric, vec4 vel) {
 }
 
 float hamiltonian(vec4 spot, vec4 momentum, vec3 singularityPos, float mass) {
-	return lengthSquare(metricInv(spot, singularityPos, mass), momentum);
+	return lengthSquare(inverse(metric(spot, singularityPos, mass)), momentum);
 }
 
 vec4 metricPartialDerivatives(vec4 spot, vec4 momentum, mat4 metric, vec4 dxda, vec3 singularityPos, float mass) {
@@ -1649,7 +1589,7 @@ void main() {
 	// MAID!!!! FEtch me my textures~~!!
 	int effCount = int(w_effectCounts(stage[0].world)[1]);
 	for (int d=0; d<effCount; d++) {
-		mat4 dat = effectData(stage[0].world, d, false);
+		mat4 dat = effectData(stage[0].world, d);
 		postEffect(dat[0], dat[1], dat[2]);
 	}
 
