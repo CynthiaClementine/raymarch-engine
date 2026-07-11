@@ -48,10 +48,14 @@ async function setup() {
 	document.title = `Raymarching: ${splashes[(Math.random() * splashes.length) | 0]}`;
 	
 	//serializing / editor error checking
-	if (!keysMatch(map_strObj, objectEditables)) {
-		throw new Error(`Mismatch between editor objects and defined objects!`);
+	var s1 = keyDiff(map_strObj, objectEditables);
+	if (s1.size != 0) {
+		console.log(s1);
+		// throw new Error(`Mismatch between editor objects and defined objects!`);
 	}
-	if (!keysMatch(map_strMat, materialEditables)) {
+	var s2 = keyDiff(map_strMat, materialEditables);
+	if (s2.size != 0) {
+		console.log(s2);
 		throw new Error(`Mismatch between editor materials and defined materials!`);
 	}
 

@@ -362,8 +362,9 @@ function giveBounds(pos, rx, ry, rz, theta, phi, rot) {
 }
 
 //tests whether the keys in dictionary A and B are the same
-function keysMatch(dictA, dictB) {
+function keyDiff(dictA, dictB) {
 	var s = new Set();
+	var opp = new Set();
 	const aKeys = Object.keys(dictA);
 	const bKeys = Object.keys(dictB);
 	
@@ -377,14 +378,21 @@ function keysMatch(dictA, dictB) {
 	
 	for (var z=0; z<bKeys.length; z++) {
 		if (!s.delete(bKeys[z])) {
-			return false;
+			opp.add(bKeys[z]);
 		}
 		if (dictB[bKeys[z]] == -1) {
 			delete dictB[bKeys[z]];
 		}
 	}
+
+	opp.forEach(e => {
+		s.add(e);
+	});
+
+	console.log(`hi`);
+	console.log(dictA, dictB, s, opp);
 	
-	return (s.size == 0);
+	return s;
 }
 
 
