@@ -117,17 +117,6 @@ class Sliderify {
 
 
 
-
-
-
-
-
-
-function createReference(variableStr, object) {
-	window[variableStr] = object;
-	editor_controls.push(object);
-}
-
 //editor functions
 /**
 * creates a default object given a constructor type. For the list of types, see all TYPE_ declarations in config.js
@@ -294,129 +283,7 @@ function calcPlacePos() {
 }
 
 
-//classes
-class Slider {
-	/**
-	* @param {String} elemGroup name of the parent element
-	* @param {String} variable how to reference the variable to write to. Will be `eval`ed later.
-	* @param {String} label a string label to put before the numerical label
-	* @param {Number} min minimum slider value
-	* @param {Number} max maximum slider value
-	* @param {Number} stepSize step size between acceptable values
-	* @param {Number[]} sigFigs number of significant figures in the form `[beforeDecimal, afterDecimal, showSignBool]`
-	* @param {Number} numMin minimum variable value. If none is given, assumes the variable is an absolute variable.
-	* @param {Number} numMax maximum variable value
-	 */
-	constructor(elemGroup, variable, label, min, max, stepSize, numMin, numMax) {
-		var id = Math.random().toString().slice(2);
-		createReference(id, this);
-		createHTMLSliderAt(elemGroup, id);
-		this.label = label;
-		this.rel = !(Number.isNaN(+numMin));
-		
-		this.groupElem = document.getElementById(id);
-		this.valueElem = this.groupElem.children[0];
-		this.sliderElem = this.groupElem.children[1];
-		
-		this.numRange = [min , max];
-		this.varRange = this.rel ? [numMin, numMax] : [min, max];
-		this.step = stepSize;
-		this.sigFigs = Math.max(this.varRange[0].toString().length, this.varRange[1].toString().length);
-		this.displayPlus
-		this.var = variable;
-		
-		this.locked = false;
-		this.offsetLock = 0;
-		this.init();
-	}
-	
-	setVisibility(visible) {
-		this.groupElem.style = `display: ${visible ? "inline-block" : "none"}`;
-		var breakID = this.groupElem.id;
-		var breakElem = document.getElementById(`${breakID}_br`);
-		breakElem.style = `display: ${visible ? "inline-block" : "none"}`;
-	}
-	
-	value() {
-		return clamp(+this.sliderElem.value + (this.rel ? this.offsetLock : 0), ...this.varRange);
-	}
-
-	init() {
-		this.sliderElem.oninput = (() => {
-			this.updateValue();
-			this.updateDisplay();
-		}).bind(this);
-		this.sliderElem.onmousedown = this.mouseDown.bind(this);
-		this.sliderElem.onmouseup = this.mouseUp.bind(this);
-		this.sliderElem.setAttribute(`min`, this.numRange[0]);
-		this.sliderElem.setAttribute(`max`, this.numRange[1]);
-		this.sliderElem.setAttribute(`step`, this.step);
-		this.sliderElem.value = "0";
-		this.synchronize();
-	}
-	
-	mouseDown() {
-		this.locked = true;
-	}
-	
-	mouseUp() {
-		this.locked = false;
-		this.offsetLock = this.value();
-		if (this.rel) {
-			this.sliderElem.value = "0";
-			var self = this;
-			window.setTimeout(() => {
-				this.sliderElem.value = 0;
-			}, 0);
-		}
-	}
-	
-	synchronize() {
-		if (this.locked) {
-			return;
-		}
-		
-		try {
-			var setVal = Math.round(eval(this.var) / this.step) * this.step;
-			this.offsetLock = clamp(+(setVal.toFixed(this.sigFigs)), ...this.varRange);
-			if (!this.rel) {
-				this.sliderElem.value = this.offsetLock;
-			}
-		} catch (e) {
-			// console.error(e);
-		}
-		this.updateDisplay();
-	}
-
-	updateDisplay(e) {
-		var val = this.value();
-		var neg = false;
-		if (val < 0) {
-			neg = true;
-			val = -val;
-		}
-		val = val.toString().slice(0, this.sigFigs - neg).padStart(this.sigFigs - neg, `0`);
-		this.valueElem.innerHTML = this.label + (neg ? `-` : ``) + val;
-	}
-	
-	updateValue() {
-		var val = this.value();
-		try {
-			// console.log(`setting ${this.var} = ${clamp(val, this.varRange[0], this.varRange[1])};`);
-			eval(`${this.var} = ${clamp(val, ...this.varRange)};`);
-			if (this.var.includes(`editor_selected`) && editor_selected != player) {
-				loading_world.shouldRegen = true;
-				if (editor_selected.calc) {
-					editor_selected.calc();
-				}
-			}
-		} catch (e) {
-			console.error(`cannot send ${val} --> [${this.varRange}] --> ${this.var}`, e);
-		}
-	}
-}
-
-class SliderCustom extends Slider {
+class SliderCustom {
 	/**
 	* @param {HTMLElement} elemGroup the div containing the label and slider
 	* @param {String} label a label string to put before the numerical label
@@ -424,7 +291,7 @@ class SliderCustom extends Slider {
 	* @param {Number[]} valuesList array of possible slider values, from least to greatest
 	 */
 	constructor(elemGroup, label, updateFunc, valuesList) {
-		super(elemGroup, ``, label, 0, valuesList.length - 1, 1);
+		// super(elemGroup, ``, label, 0, valuesList.length - 1, 1);
 		this.validVals = valuesList;
 		this.updateFunc = updateFunc;
 	}
@@ -473,7 +340,7 @@ class SliderCustom extends Slider {
 
 class Dropdown {
 	constructor(dropdownElem, valueFunc, valueOptionsArr) {
-		createReference(dropdownElem, this);
+		editor_controls.push(this);
 		this.elem = document.getElementById(dropdownElem);
 		this.valFunc = valueFunc;
 		this.options = valueOptionsArr;
@@ -506,7 +373,7 @@ class Dropdown {
 
 class Textbox {
 	constructor(element, valueFunc) {
-		createReference(element, this);
+		editor_controls.push(this);
 		this.elem = document.getElementById(element);
 		this.valFunc = valueFunc;
 		this.init();
@@ -531,32 +398,32 @@ class Textbox {
 }
 
 class Checkbox {
-	constructor(element, label, valueFunc) {
-		var spl = element.split(`.`);
-		createReference(spl[1], this);
-		createHTMLCheckboxAt(spl[0], spl[1], label);
-		this.elem = document.getElementById(spl[1]);
+	constructor(label, get, set) {
+		editor_controls.push(this);
+		this.get = get;
+		this.set = set;
+
+		var dummy = document.createElement(`div`);
+		dummy.innerHTML = `
+		<label class="checkboxGroup">${label}
+			<input type="checkbox">
+			<span class="checkmark"></span>
+		</label>`;
+		this.elem = dummy.children[0];
+		group_nature.appendChild(this.elem);
+
 		this.checkElem = this.elem.children[0];
-		this.valFunc = valueFunc;
 		
-		this.init();
-	}
-	
-	setVisibility(visible) {
-		this.elem.style = `display: ${visible ? "inline-block" : "none"}`;
+		this.checkElem.checked = this.get();
+		this.elem.onchange = this.updateValue.bind(this);
 	}
 	
 	updateValue() {
-		this.valFunc(this.checkElem.checked);
+		this.set(this.checkElem.checked);
 	}
 	
 	synchronize() {
-		var val = this.valFunc();
-		this.checkElem.checked = val;
-	}
-	
-	init() {
-		this.elem.onchange = this.updateValue.bind(this);
+		this.checkElem.checked = this.get();
 	}
 }
 
@@ -568,18 +435,6 @@ function editor_initialize() {
 	var posLim = 99999;
 	var playerConstructors = [Player, Player_Debug, Player_Noclip];
 
-	function syncNature(val, nat) {
-		if (val != null) {
-			if (val) {
-				editor_selected.nature = editor_selected.nature | nat;
-			} else {
-				editor_selected.nature = editor_selected.nature & ~nat;
-			}
-			loading_world.shouldRegen = true;
-		}
-		return editor_selected.nature & nat;
-	}
-	
 	function syncC(val, id) {
 		if (val != null) {
 			editor_selected.c[id] = -((val * 2) - 1);
@@ -615,11 +470,11 @@ function editor_initialize() {
 	
 	//an assumption is made that every editable object uses the pos sliders + nature checkboxes, so they're omitted.
 	var xyz = [
-		`.rx (rx: ####) r100 u1`,
+		`.rx (<br>rx: ####) r100 u1`,
 		`.ry (ry: ####) r100 u1`,
 		`.rz (rz: ####) r100 u1`,
 	];
-	var sl_r = `.r (r:_ ####) r100 u1`;
+	var sl_r = `.r (<br>r:_ ####) r100 u1`;
 	var sl_rr = `.ringR (rr: ####) r100 u1`;
 	var sl_h = `.h (h: ±##) r100 u0.1`;
 
@@ -704,14 +559,14 @@ function editor_initialize() {
 		"normal":	[],
 		"portal": [
 			`___ .material.str`, 
-			`.material.offset.0 (<br>offX: ±###) r100 u1`,
+			`.material.offset.0 (offX: ±###) r100 u1`,
 			`.material.offset.1 (offY: ±###) r100 u1`,
 			`.material.offset.2 (offZ: ±###) r100 u1`
 		],
 		"gravity":	[],
 		"rubber":	[],
 		"texture":	[
-			`.material.mat (t: ##) 0—20 u1`,
+			`.material.mat (<br>t: ##) 0—20 u1`,
 			`.material.scale (s: #.##) 0.05—10 u0.05`,
 			`.material.blend (b: #.##) 0.25—9.5 u0.25`,
 			`C relative`, (val) => {
@@ -966,11 +821,6 @@ function editor_updatePanelsFor(obj) {
 		matName = obj.material.constructor.name;
 	}
 	
-	//hide all panels
-	editor_controls.forEach(c => {
-		c.setVisibility(false);
-	});
-	
 	//show the appropriate editor panel and appropriate material panel
 	
 	//default sliders everything should see
@@ -1011,7 +861,7 @@ function editor_updatePanelsFor(obj) {
 			label_obj.innerHTML = type;
 			return map_objStr[type];
 		},
-		`.pos.0 (x: ±####) r100 u1`,
+		`.pos.0 (<br>x: ±####) r100 u1`,
 		`.pos.1 (y: ±####) r100 u1`,
 		`.pos.2 (z: ±####) r100 u1`,
 	];
@@ -1021,13 +871,25 @@ function editor_updatePanelsFor(obj) {
 	var rotless = [Sphere, Shell, Capsule, Cylinder, Ring, Fractal, Player, Player_Debug, Player_Noclip];
 	
 	if (!thetaless.includes(cons)) {
-		shouldSee.push(`.theta (θ: #.###) 0—6.283 u0.01745`);
+		shouldSee.push(`.theta (<br>θ: #.###) 0—6.283 u0.01745`);
 	}
 	if (!philess.includes(cons)) {
 		shouldSee.push(`.phi (φ: ±#.###) -1.571—1.571 u0.01745`);
 	}
 	if (!rotless.includes(cons)) {
 		shouldSee.push(`.rot (ρ: #.###) 0—6.283 u0.01745`);
+	}
+
+	function syncNature(val, nat) {
+		if (val != null) {
+			if (val) {
+				editor_selected.nature = editor_selected.nature | nat;
+			} else {
+				editor_selected.nature = editor_selected.nature & ~nat;
+			}
+			loading_world.shouldRegen = true;
+		}
+		return editor_selected.nature & nat;
 	}
 	
 	if (obj != player && obj.type != TYPE_CLASS_LGROUP) {
@@ -1059,20 +921,7 @@ function editor_updatePanelsFor(obj) {
 		shouldSee = shouldSee.concat(materialEditables[map_matStr[matName]]);
 	}
 
-	shouldSee = editor_compile(shouldSee);
-
-	for (var c=0; c<shouldSee.length; c++) {
-		try {
-			shouldSee[c].setVisibility(true);
-		} catch (e) {
-			console.error(`could not set visibility for element ${c}:`, e);
-		}
-		try {
-			shouldSee[c].synchronize();
-		} catch (e) {
-			console.error(`could not synchronize element ${c}:`, e);
-		}
-	}
+	editor_controls = editor_compile(shouldSee);
 }
 
 function pathGet(path) {
@@ -1096,8 +945,8 @@ function pathSet(path, value) {
 }
 
 function editor_compile(arr) {
-	group_nature.innerHTML = ``;
 	var elements = [];
+	group_nature.innerHTML = ``;
 	for (var e=0; e<arr.length; e++) {
 		//figure out what type it is
 		if (arr[e].constructor.name != `String`) {
@@ -1107,6 +956,8 @@ function editor_compile(arr) {
 		}
 
 		var tok = arr[e].split(` `);
+
+		var label = (tok[1] ?? `(`).replaceAll(`_`, `&nbsp;`);
 		/* 
 			examples
 			.phi (θ: ±#.###) -1.571—1.571 u0.01745
@@ -1124,8 +975,7 @@ function editor_compile(arr) {
 
 		//checkboxes
 		if (tok[0] == `C`) {
-			get = arr[e+1];
-			set = arr[e+1];
+			elements.push(new Checkbox(label, arr[e+1], arr[e+1]));
 			e += 1;
 			continue;
 		}
@@ -1148,7 +998,7 @@ function editor_compile(arr) {
 		var max = 1e101;
 		var unit = 1;
 		var path = `` + tok[0];
-		var label = tok[1].slice(1).replaceAll(`_`, `&nbsp;`);
+		label = label.slice(1);
 
 		//token 2 is sigfigs
 		//TODO: this
@@ -1191,7 +1041,7 @@ function editor_compile(arr) {
 		}
 
 		console.log(path);
-		new Sliderify(label, min, max, unit, path);
+		elements.push(new Sliderify(label, min, max, unit, path));
 	}
 
 	return elements;
