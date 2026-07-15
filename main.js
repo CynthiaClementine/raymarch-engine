@@ -147,7 +147,8 @@ function tick() {
 		if (es.material) {
 			es.material.syncWith(es);
 		}
-		editor_controls.forEach(c => {
+		var ec = editor_controls;
+		[...(ec.set), ...(ec.world), ...(ec.obj), ...(ec.mat)].forEach(c => {
 			try {
 				c.synchronize();
 			} catch (e) {}
@@ -309,6 +310,9 @@ function handleKeyPress(a) {
 		return;
 	}
 	if (debug_listening) {
+		if (Array.from(document.querySelectorAll(`:hover`)).includes(editorPanelGroup)) {
+			return;
+		}
 		/*
 		all debug effects are activated by pressing ] and then another key.
 		DEBUG EFFECTS:
@@ -582,6 +586,7 @@ function handleMouseDown(a) {
 	}
 }
 
+var testOut = [];
 function handleMouseMove(a) {
 	if (editor_axis) {
 		//figure out how much to move by, which direction to move, and then move there

@@ -158,11 +158,19 @@ let controls = {
 }
 
 var debug_listening = false;
+
+
+/*
+	autoScale: the program will increase/decrease the resolution based on lag
+	bunnyTargets: you can see where SkyBunnies are targeting
+	collisionRaycast: uses CPU collision raycasts to create a second image layer in red
+	showLoopBounds: shows a wireframe around all Scene3dLoop objects
+	realCrosshair: ???????
+ */
 var debug_flags = {
 	autoScale: false,
 	bunnyTargets: false,
 	collisionRaycast: false,
-	showChunk: false,
 	showLoopBounds: false,
 	realCrosshair: true,
 };

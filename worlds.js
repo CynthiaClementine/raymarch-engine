@@ -4,7 +4,7 @@ class World {
 	 * @param {String} name 
 	 * @param {Function[]} preEffects effects applied at every stage of a ray's march
 	 * @param {Function[]} effects effects applied after a ray finishes its march
-	 * @param {Number[]} sunVector 
+	 * @param {Number[]} sunVector the angle of the sun in [theta, phi] form.
 	 * @param {Number[]} spawn 
 	 * @param {Scene3dObject[]} objects 
 	 * @param {Number|none} shadowPercent a number from 0 to 1 representing the brightness of shadowed areas. At 0, shadows do nothing. At 1, shadows are pure black.
@@ -17,7 +17,8 @@ class World {
 		this.postEffects = effects;
 		this.tickFunc = tickFunc;
 		
-		this.sunVector = sunVector;
+		this.svSet = sunVector;
+		this.sunVector = polToCart(sunVector[0], sunVector[1], 1);
 		this.spawn = spawn;
 		//objects is the set of base objects that makes the world, while expressed objects is everything that could currently contribute to the world SDF
 		//this is because a single object could be made of multiple overlapping SDFs, or an object could decide to unload itself and not contribute at all
@@ -98,6 +99,7 @@ class World {
 	}
 
 	generate() {
+		this.sunVector = polToCart(this.svSet[0], this.svSet[1], 1);
 		this.express();
 		this.bvh.generate();
 	}
@@ -154,9 +156,6 @@ class World {
 			if (this.tickFunc) {
 				this.tickFunc();
 			}
-			if (debug_flags.showChunk) {
-				this.shouldRegen = true;
-			}
 		}
 		if (this.shouldRegen) {
 			this.generate();
@@ -178,7 +177,7 @@ function createWorlds() {
 			[E_FADE_RANGE, Color(20, 20, 25), Color(40, 40, 45), 800],
 			[E_SUN, Color(255, 160, 140), 0.01],
 		],
-		polToCart(0.1, Math.PI * 0.47, 1),
+		[0.1, pi * 0.47],
 		[-1559,-37,-596, 6.798,0.412],
 		[
 			`BOX~[0,-100,0]~0~0~90~0|color:0~0~64|6000~50~6000`,
@@ -220,7 +219,7 @@ function createWorlds() {
 			[E_SUN, Color(255, 255, 240), 0.002]
 			// [bg_iters]
 		],
-		polToCart(0, 0.7, 1),
+		[0, 0.7],
 		// [268, 53, 64],
 		// [-493,650,168, 2.355, -0.48],
 		// [85,607,-16, 4.903, -0.85],
@@ -333,7 +332,7 @@ function createWorlds() {
 	new World("voxels", [], [
 			[E_BG, Color(80, 90, 80)],
 		],
-		polToCart(0.6, 1.2, 1),
+		[0.6, 1.2],
 		[64, 10, 115],
 		[
 			`VOXEL~[0,0,0]~0~0~90~0|color:60~127~35|200~-1~-1~-1~-1~-1~1~1~1`,
@@ -350,7 +349,7 @@ function createWorlds() {
 			[E_BG, Color(80, 90, 80)],
 			// [E_FADE, Color(80, 90, 120), 1000],
 		],
-		polToCart(0.6, 1.2, 1),
+		[0.6, 1.2],
 		[-91, 115, -172, 0.488, -0.54],
 		[
 		`TERRAIN~[0,0,0]~0~0~90~0|normal|8000~45~8000~30~0.02~6~1.99~0.35`,
@@ -363,7 +362,7 @@ function createWorlds() {
 	new World("fractal", [], [
 		[E_BG, Color(80, 90, 80)],
 	],
-	polToCart(0.6, 1.2, 1),
+	[0.6, 1.2],
 	[0, 57, -920], 
 	[	
 		// new Fractal({pos: Pos(0, 0, 0), theta: -0.12, phi: 0.5, rot: 0}, new M_Normal(), 0, 200, 1.7, -2.12, -2.75, 0.49),
@@ -407,7 +406,7 @@ function createWorlds() {
 		],[
 			[E_BG, Color(120, 120, 120)]
 		],
-		polToCart(0, 1.04, 1),
+		[0, 1.04],
 		[-19.85, 308.75, 241.36],
 		[
 			`BOX~[0,10,0]~0~0~90~0|color:64~255~150|1000~40~1000`,
@@ -470,7 +469,7 @@ function createWorlds() {
 			[E_FADE, Color(0,0,0), 1500],
 			[E_ITERS]
 		],
-		polToCart(0, Math.PI / 2, 1),
+		[0, pi / 2],
 		[197,349,-403],
 		[
 			`LINE~[-2,117,-636]~0~0~90~0|color:255~224~255|118~6~11~8`,
@@ -688,7 +687,7 @@ function createWorlds() {
 			[E_BG, Color(255,227,245)],
 			// [bg_fadeTo, Color(255,227,245), 1200]
 		],
-		polToCart(0.6, 0.4, 1),
+		[0.6, 0.4],
 		[60.2, 100, 60.2],
 		[
 			`ELLIPSE~[-170,673,129]~0~0~90~0|ghost:58~96~30~163|189~209~319`,
@@ -710,7 +709,7 @@ function createWorlds() {
 			[E_FADE_OLD, Color(255, 227, 245), 900],
 			// [bg_fadeTo, Color(255, 227, 245), 1200],
 		],
-		polToCart(0.6, 0.4, 1),
+		[0.6, 0.4],
 		[60.2,100,60.2],
 		[
 			`LOOP~[0,0,0]~X~0~90~0|67~67~67~120
@@ -753,7 +752,7 @@ function createWorlds() {
 			[E_SUN, Color(255, 200, 170), 0.003],
 			[E_SUN, Color(255, 255, 255), 0.001],
 		],
-		polToCart(0.2, 0.7, 1),
+		[0.2, 0.7],
 		[-101, 400, 101],
 		[	`CUBE~[-100,330,100]~0~0~90~0|rubber|45`,
 			`BOX~[-118,100,165]~0~0~90~0|mirror:0~149~234~34|3200~80~3200`,
@@ -777,7 +776,7 @@ function createWorlds() {
 			[E_SUN, Color(255, 200, 170), 0.003],
 			[E_SUN, Color(255, 255, 255), 0.001]
 		],
-		polToCart(0.2, 0.7, 1),
+		[0.2, 0.7],
 		[-101, 400, 101],
 		[	`BOX~[0,0,0]~0~0~90~0|mirror:0~149~234~34|10000~70~300`,
 			`CAPSULE~[100,80,60]~0~0~0~0|color:255~240~200|15~10`,  `CAPSULE~[100,80,-60]~0~0~0~0|color:255~240~200|15~10`,
@@ -808,7 +807,7 @@ function createWorlds() {
 			[E_FADE, Color4(128, 128, 128, 128), 100],
 			[E_BG, Color(184, 255, 249)]
 		],
-		polToCart(1.4, Math.PI * 0.4, 1),
+		[1.4, pi * 0.4],
 		[0, 0, 0],
 		[	`CYLINDER~[0,-19,0]~0~0~0~0|color:255~255~255|200~20`,
 			`BOX~[86,1,-8]~0~0~90~0|color:255~255~255|100~2~5`,
@@ -832,7 +831,7 @@ function createWorlds() {
 			[E_BG, Color(60, 0, 60)],
 			[E_STARS, Color(255, 255, 255), 0.25, 0.4],
 		],
-		polToCart(0.6, 0.9, 1),
+		[0.6, 0.9],
 		[60.2,100,60.2],
 		[
 			`SINGULARITY~[-1,3,1]~4~0~90~0||236~9.99`,
@@ -854,7 +853,7 @@ function createWorlds() {
 			[E_BG, Color(0, 0, 128)],
 			[E_FADE, Color(64, 64, 0), 1200]
 		],
-		polToCart(2.35, -1.04, 1),
+		[2.35, -1.04],
 		[0.2,50,0.2],
 		[
 			`BOX~[0,0,0]~0~0~90~0|color:255~255~255|610~610~1210`,
@@ -950,7 +949,7 @@ function createWorlds() {
 			[E_FADE, Color4(128, 128, 128, 128), 200],
 			[E_BG, Color(20, 1, 30)]
 		],
-		polToCart(1.4, Math.PI * 0.3, 1),
+		[1.4, pi * 0.3],
 		[0, 0, 0],
 		[	
 			`BOX~[86,-7,-24]~0~0~90~0|color:255~255~255|200~20~200`,
@@ -1007,7 +1006,7 @@ function createWorlds() {
 		[E_SUN, Color(169, 40, 25), 0.03],
 		[E_FADE, Color(28, 3, 54), 1000],
 	],
-	polToCart(0.2, 0.1, 1),
+	[0.2, 0.1],
 	// [0, 0, 0],
 	[54,-68,-175, 5.260,0.8],
 	[	

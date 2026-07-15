@@ -4,7 +4,7 @@ var editor_initBuffer = null;
 
 
 class Sliderify {
-	constructor(label, min, max, step, path) {
+	constructor(destination, label, min, max, step, path) {
 		var self = this;
 		this.min = parseFloat(min || -10000);
 		this.max = parseFloat(max || 10000);
@@ -28,7 +28,7 @@ class Sliderify {
 		this.elText = text_in;
 		this.elSpan = span_in;
 
-		group_nature.appendChild(wrapper);
+		destination.appendChild(wrapper);
 		
 		this.round = this.decimalPlaces(step);
 		var step = parseFloat(step);
@@ -340,7 +340,6 @@ class SliderCustom {
 
 class Dropdown {
 	constructor(dropdownElem, valueFunc, valueOptionsArr) {
-		editor_controls.push(this);
 		this.elem = document.getElementById(dropdownElem);
 		this.valFunc = valueFunc;
 		this.options = valueOptionsArr;
@@ -373,7 +372,6 @@ class Dropdown {
 
 class Textbox {
 	constructor(element, valueFunc) {
-		editor_controls.push(this);
 		this.elem = document.getElementById(element);
 		this.valFunc = valueFunc;
 		this.init();
@@ -398,8 +396,7 @@ class Textbox {
 }
 
 class Checkbox {
-	constructor(label, get, set) {
-		editor_controls.push(this);
+	constructor(destination, label, get, set) {
 		this.get = get;
 		this.set = set;
 
@@ -410,7 +407,7 @@ class Checkbox {
 			<span class="checkmark"></span>
 		</label>`;
 		this.elem = dummy.children[0];
-		group_nature.appendChild(this.elem);
+		destination.appendChild(this.elem);
 
 		this.checkElem = this.elem.children[0];
 		
@@ -427,14 +424,16 @@ class Checkbox {
 	}
 }
 
-var editor_controls = [];
+var editor_controls = {
+	set: [],
+	world: [],
+	obj: [],
+	mat: []
+};
 var objectEditables = {};
 var materialEditables = {};
 
 function editor_initialize() {
-	var posLim = 99999;
-	var playerConstructors = [Player, Player_Debug, Player_Noclip];
-
 	function syncC(val, id) {
 		if (val != null) {
 			editor_selected.c[id] = -((val * 2) - 1);
@@ -448,7 +447,6 @@ function editor_initialize() {
 	/**
 		sliders start with the name of the variable they're editing. The syntax is
 
-		
 		VARNAME (DISPLAY [±][###.##]) rNUM [vNUM [NUM] [NUM]] MIN—MAX uNUM 
 			VARNAME is the full name of the variable. If it starts with a dot, editor_selected is automatically prepended
 			± indicates to display a sign before the number readout
@@ -460,12 +458,11 @@ function editor_initialize() {
 			ex: v40 50 60—70 u2 indicates only the values [40,50,60,62,64,66,68,70]
 
 
-
-
 		C [NAME] [CODE] indicates a checkbox
 
-		|NAME| indicates a dropdown
-			fields of the dropdown are listed in an array at location NAME
+		|NAME| [CODE] indicates a button
+
+		___ VARNAME indicates a text input
 	 */
 	
 	//an assumption is made that every editable object uses the pos sliders + nature checkboxes, so they're omitted.
@@ -539,9 +536,6 @@ function editor_initialize() {
 		"SKYBUNNY": [],
 		"LAMPPOST": [],
 	};
-
-
-	
 	
 	var rgb = [
 		`.material.color.0 (<br>r: ###) 0—255 u1`,
@@ -579,17 +573,92 @@ function editor_initialize() {
 		],
 	}
 
+	editor_controls.set = ec_compile([
+		`camera_FOV (fov: ###) v20 40 60 80—120 u2`,
+		`render_goalN (px:_ ##) 40—1440 v40 60 80 100 120 150 180 240 300 360 512 720 1080 1440`
+	], group_settings);
+
+	editor_controls.world = ec_compile([
+		`loading_world.svSet.0 (sθ: #.###) -9999—9999 u0.01745`,
+		`loading_world.svSet.1 (sφ: #.###) -9999—9999 u0.01745`,
+		`loading_world.ambientLight (amb: #.##) 0—1 u0.01`,
+	
+		`loading_world.postEffects.0.1.0 (<br>r: ###) 0—255 u1`,
+		`loading_world.postEffects.0.1.1 (g: ###) 0—255 u1`,
+		`loading_world.postEffects.0.1.2 (b: ###) 0—255 u1`
+	], group_world);
+
 	editor_select(player);
 }
 
+function editor_preAdd() {
+	overlay.style.display = `flex`;
+	overlay.onclick = () => {
+		overlay.style.display = `none`;
+	};
+	//set up object addition grid
+
+	const pullFrom = Object.keys(map_strObj);
+	const rows = Math.sqrt(pullFrom.length) | 0;
+
+	grid.innerHTML = ``;
+	grid.style[`grid-template-columns`] = `repeat(${rows}, 160px)`;
+
+	for (var i=0; i<pullFrom.length; i++) {
+		const val = pullFrom[i];
+		if (!map_strObj[val].canCreate) {
+			continue;
+		}
+		const btn = document.createElement(`button`);
+		btn.className = `grid-button`;
+		btn.innerHTML = val;
+		btn.onclick = () => {
+			editor_addObj(map_strObj[val].type);
+			overlay.style.display = `none`;
+		};
+		grid.appendChild(btn);
+	}
+}
+
+function editor_preMat() {
+	overlay.style.display = `flex`;
+	overlay.onclick = () => {
+		overlay.style.display = `none`;
+	};
+	//set up object addition grid
+
+	const pullFrom = Object.keys(map_strMat);
+	const rows = Math.sqrt(pullFrom.length) | 0;
+
+	grid.innerHTML = ``;
+	grid.style[`grid-template-columns`] = `repeat(${rows}, 160px)`;
+
+	for (var i=0; i<pullFrom.length; i++) {
+		const val = pullFrom[i];
+		const btn = document.createElement(`button`);
+		btn.className = `grid-button`;
+		btn.innerHTML = val;
+		btn.onclick = () => {
+			editor_addObj(map_strObj[val].type);
+			overlay.style.display = `none`;
+		};
+		grid.appendChild(btn);
+	}
+}
+
+function editor_setMaterial(val) {
+	var mat = createDefaultMaterial(val, editor_selected.material.color);
+	editor_selected.material = mat;
+	loading_world.shouldRegen = true;
+	editor_updatePanelsFor(editor_selected);
+}
 
 
 /**
 * creates an object and adds it to the loading world. Returns said object.
-* @param e an event handle. Nothing is done with this, leave as null.
 * @param {Integer} objType the type of the object
  */
-function editor_addObj(e, objType) {
+function editor_addObj(objType) {
 	var obj = createDefaultObject(objType);
 	obj.pos = calcPlacePos();
 	loading_world.objects.push(obj);
@@ -820,48 +889,17 @@ function editor_updatePanelsFor(obj) {
 	if (obj.material) {
 		matName = obj.material.constructor.name;
 	}
+
+	label_world.innerHTML = loading_world.name ?? `[!]`;
+	label_obj.innerHTML = map_objStr[editor_selected.constructor.name] ?? `[!]`;
 	
 	//show the appropriate editor panel and appropriate material panel
 	
 	//default sliders everything should see
+
+	
 	var shouldSee = [
-		  `camera_FOV (fov: ###) v20 40 60 80—120 u2`,
-		`render_goalN (px:_ ##) 40—1440 v40 60 80 100 120 150 180 240 300 360 512 720 1080 1440`,
-		`|Object.keys(map_strObj)|`, (val) => {
-			if (val) {
-				if (playerConstructors.includes(map_strObj[val])) {
-					//if it's a type of player, convert the player to that type
-					const oldPlayer = player;
-					player = new map_strObj[val](player.world, player.pos);
-					player.dPos = oldPlayer.dPos;
-					player.theta = oldPlayer.theta;
-					player.phi = oldPlayer.phi;
-					editor_deselect(editor_selected);
-				} else {
-					//change the constructor. If nothing's selected, act as a plus button
-					var ind = loading_world.objects.indexOf(editor_selected);
-					if (ind < 0) {
-						ind = loading_world.objects.length;
-						editor_addObj(null, TYPE_SPHERE);
-					}
-					
-					const oldObj = loading_world.objects[ind];
-					const newType = map_strObj[val].type;
-					const newObj = createDefaultObject(newType);
-					loading_world.objects[ind] = newObj;
-					transferProperties(oldObj, newObj);
-					loading_world.shouldRegen = true;
-					editor_deselect(editor_selected);
-					editor_select(newObj);
-				}
-			}
-			
-			//idk whatever
-			var type = editor_selected.constructor.name;
-			label_obj.innerHTML = type;
-			return map_objStr[type];
-		},
-		`.pos.0 (<br>x: ±####) r100 u1`,
+		`.pos.0 (x: ±####) r100 u1`,
 		`.pos.1 (y: ±####) r100 u1`,
 		`.pos.2 (z: ±####) r100 u1`,
 	];
@@ -903,25 +941,18 @@ function editor_updatePanelsFor(obj) {
 	}
 	
 	shouldSee = shouldSee.concat(objectEditables[map_objStr[consName]]);
-	if (matName) {
-		shouldSee.push(`|Object.keys(map_strMat)|`, (val) => {
-			if (val) {
-				var mat = createDefaultMaterial(val, editor_selected.material.color);
-				editor_selected.material = mat;
-				loading_world.shouldRegen = true;
-				editor_updatePanelsFor(editor_selected);
-			}
+	editor_controls.obj = ec_compile(shouldSee, group_nature);
 
-			var type;
-			if (editor_selected.material) {
-				type = editor_selected.material.constructor.name;
-			}
-			return map_matStr[type];
-		});
+	shouldSee = [];
+	label_material.innerHTML = `[!]`;
+	if (matName) {
+		label_material.innerHTML = matName;
+	
+		shouldSee.push(`|Change Material| editor_preMat()`);
 		shouldSee = shouldSee.concat(materialEditables[map_matStr[matName]]);
 	}
 
-	editor_controls = editor_compile(shouldSee);
+	editor_controls.mat = ec_compile(shouldSee, group_matSpecial);
 }
 
 function pathGet(path) {
@@ -944,9 +975,16 @@ function pathSet(path, value) {
 	return pathGet(path);
 }
 
-function editor_compile(arr) {
+/**
+ * compiles an array of custom elements into real interactable HTML/JS elements that edit properties.
+ * makes the HTML elements children of the destination node, and returns an array of all the JS objects.
+ * @param {String[]} arr the array of elements. For syntax, see my brain.
+ * @param {HTMLElement} destination the place to put completed objects
+ */
+function ec_compile(arr, destination) {
+	console.log(arr, destination);
 	var elements = [];
-	group_nature.innerHTML = ``;
+	destination.innerHTML = ``;
 	for (var e=0; e<arr.length; e++) {
 		//figure out what type it is
 		if (arr[e].constructor.name != `String`) {
@@ -975,7 +1013,7 @@ function editor_compile(arr) {
 
 		//checkboxes
 		if (tok[0] == `C`) {
-			elements.push(new Checkbox(label, arr[e+1], arr[e+1]));
+			elements.push(new Checkbox(destination, label, arr[e+1], arr[e+1]));
 			e += 1;
 			continue;
 		}
@@ -1041,10 +1079,14 @@ function editor_compile(arr) {
 		}
 
 		console.log(path);
-		elements.push(new Sliderify(label, min, max, unit, path));
+		elements.push(new Sliderify(destination, label, min, max, unit, path));
 	}
 
 	return elements;
+}
+
+function ec_compileSlider() {
+
 }
 
 function editor_updateHolp() {

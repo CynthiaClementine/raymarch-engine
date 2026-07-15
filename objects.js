@@ -20,6 +20,7 @@ Meta-Objects:
 //main object contract
 class Scene3dObject {
 	static type = TYPE_CLASS_OBJ;
+	static canCreate = true;
 	/**
 	 * creates a basic scene3dObject. This is an abstract class, you can't put it into the world.
 	 * @param {Object} posRot an object containing pos, theta, phi, and rot, in radians. This comprises the standard transform.
