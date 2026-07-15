@@ -595,10 +595,9 @@ function handleMouseMove(a) {
 		return;
 	}
 	var dTheta = a.movementX * controls.sensitivity;
-	player.theta += dTheta;
-	player.phi -= (a.movementY) * controls.sensitivity;
-	var phiLimit = (camera_projFunc == projectPanini) ? Math.PI * 0.2 : Math.PI * 0.49;
-	player.phi = clamp(player.phi, -phiLimit, phiLimit);
+	var phiLimit = (camera_projFunc == projectPanini) ? pi * 0.2 : pi * 0.49;
+	player.theta = modulate(player.theta + dTheta, tau);
+	player.phi = clamp(player.phi - a.movementY * controls.sensitivity, -phiLimit, phiLimit);
 
 	editor_updateHolp();
 	

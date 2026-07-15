@@ -3,109 +3,106 @@ var editor_initBuffer = null;
 
 
 
-
-
 class Sliderify {
-	constructor(label, min, max, step) {
+	constructor(label, min, max, step, path) {
 		var self = this;
-		var defaultVal = `24.66`;
+		this.min = parseFloat(min || -10000);
+		this.max = parseFloat(max || 10000);
+		this.step = step || 1;
+		this.get = () => {return pathGet(path);};
+		this.set = (v) => {return pathSet(path, v);};
+		this.scrollDelta = 0;
+		this.scrollThresh = 3;
+		this.rValue = this.get();
 		var dummy = document.createElement(`div`);
 		dummy.innerHTML = `
 			<div class="range-wrap">
 					<label>${label}</label>
-					<input class="direct-text-input" value="${defaultVal}" style="display: none;">
-					<span class="range-value">${defaultVal}</span>
-					<input type="range" min="${min}" max="${max}" step="${step}" style="display: none;" value="${defaultVal}">
+					<input class="direct-text-input" value="0" style="display: none;">
+					<span class="range-value">0</span>
 			</div>`;
 
 		var wrapper = dummy.children[0];
 		var text_in = wrapper.children[1];
 		var span_in = wrapper.children[2];
-		var range_in = wrapper.children[3];
 		this.elText = text_in;
 		this.elSpan = span_in;
-		this.elRange = range_in;
 
 		group_nature.appendChild(wrapper);
 		
-		var initial_step = range_in.getAttribute(`step`) || 1;
-		this.round = this.decimalPlaces(initial_step);
-		var step = parseFloat(initial_step);
+		this.round = this.decimalPlaces(step);
+		var step = parseFloat(step);
 		// How many decimal places does the step attribute have?
 	
 	
 		// We use the 'round' variable to make sure the number 
 		// displays as a float or an integer where necessary
-		
-	
-		this.max = parseFloat(range_in.getAttribute(`max`) || 10000);
-		this.min = parseFloat(range_in.getAttribute(`min`) || -10000);
-	
 		var round_factor = (10 ** this.round);
 		
-		span_in.onwheel = (evt) => {
-			// Stop the page scrollkng up and down
+		wrapper.onwheel = (evt) => {
 			evt.preventDefault();
+
+			//capture scroll and only let it through after the buffer overflows
+			self.scrollDelta += evt.deltaY / self.scrollThresh;
+			var whole = self.scrollDelta | 0;
+			if (whole == 0) {
+				return;
+			}
+
+			self.scrollDelta -= whole;
+			
 			// Add the scrolled multiplied by the step
-			calc = parseFloat(range_in.value) + (evt.deltaY * step);
-			console.log(round_factor, range_in.value, evt.deltaY, step);
+			var calc = parseFloat(self.rValue) + (whole * step);
 			calc = Math.round(calc*round_factor) / round_factor;
-			// Keep it inside the bounds
-			self.highLowRound(calc);
+			self.applyInput(calc);
 		}
 
 		span_in.onclick = () => {
-			//TODO: AAAAAAAAAA
-			
 			span_in.style.display = `none`;
 			text_in.style.display = `inline-block`;
 			text_in.focus();
 		}
 
 		text_in.onblur = () => {
-			var calc = parseFloat(text_in.value);
-			self.highLowRound(calc);
 			text_in.style.display = `none`;
 			span_in.style.display = `inline-block`;
+			var calc = parseFloat(text_in.value);
+			self.applyInput(calc);
 		}
 		
 		// Call the calculate function on startup
-		var calc = parseFloat(defaultVal);
-		this.highLowRound(calc);
-	
-		range_in.style.display = `none`;
-	
+		this.applyInput(this.rValue);
 	}
 
 	// A very scrappy function to quickly work out how many 
 	// decimal places the 'step' attribute of the range is using
 	decimalPlaces(number) {
 		var stringNumber = String(number);
-		if (stringNumber.indexOf(".") < 0) {
+		var decimals = stringNumber.split('.')[1];
+		if (decimals == undefined) {
 			return 0;
-		} else {
-			var decimals = stringNumber.split('.')[1];
-			if (typeof(decimals) == undefined) {
-				return 0;
-			}		
-			return decimals.length;
-		}
+		}		
+		return decimals.length;
 	}
 
-	// By its very nature the range control has minimum and maximums
-	// that need to be taken into account. This function makes sure we
-	// don't accidentally input a value higher than or lower than
-	highLowRound(calc) {
-		console.log(this.min, this.max, calc);
+	// don't input a value outside the allowed range
+	applyInput(calc) {
+		var oldCalc = calc;
 		calc = clamp(calc, this.min, this.max);
 		if (this.round > 0) {
 			calc = calc.toFixed(this.round);
 		} else {
 			calc = parseInt(calc);
 		}
-		this.elRange.value = calc;
-		this.elText.innerHTML = calc;
+		if (Number.isNaN(calc) || calc == `NaN`) {
+			console.log(`NaN detected in slider!!!!`);
+			return;
+		}
+		this.rValue = calc;
+		this.elText.value = calc;
 		this.elSpan.innerHTML = calc;
+		this.set(parseFloat(calc));
+		loading_world.shouldRegen = true;
 		return calc;
 	}
 }
@@ -692,7 +689,7 @@ function editor_initialize() {
 	
 	
 	var rgb = [
-		`.material.color.0 (r: ###) 0—255 u1`,
+		`.material.color.0 (<br>r: ###) 0—255 u1`,
 		`.material.color.1 (g: ###) 0—255 u1`,
 		`.material.color.2 (b: ###) 0—255 u1`
 	];
@@ -707,7 +704,7 @@ function editor_initialize() {
 		"normal":	[],
 		"portal": [
 			`___ .material.str`, 
-			`.material.offset.0 (offX: ±###) r100 u1`,
+			`.material.offset.0 (<br>offX: ±###) r100 u1`,
 			`.material.offset.1 (offY: ±###) r100 u1`,
 			`.material.offset.2 (offZ: ±###) r100 u1`
 		],
@@ -979,7 +976,7 @@ function editor_updatePanelsFor(obj) {
 	//default sliders everything should see
 	var shouldSee = [
 		  `camera_FOV (fov: ###) v20 40 60 80—120 u2`,
-		`render_goalN (px:_ ##) v40 60 80 100 120 150 180 240 300 360 512 720 1080 1440`,
+		`render_goalN (px:_ ##) 40—1440 v40 60 80 100 120 150 180 240 300 360 512 720 1080 1440`,
 		`|Object.keys(map_strObj)|`, (val) => {
 			if (val) {
 				if (playerConstructors.includes(map_strObj[val])) {
@@ -1021,7 +1018,7 @@ function editor_updatePanelsFor(obj) {
 	
 	var thetaless = [Sphere, Shell];
 	var philess = [Sphere, Shell];
-	var rotless = [Sphere, Shell, Capsule, Cylinder, Ring, Fractal];
+	var rotless = [Sphere, Shell, Capsule, Cylinder, Ring, Fractal, Player, Player_Debug, Player_Noclip];
 	
 	if (!thetaless.includes(cons)) {
 		shouldSee.push(`.theta (θ: #.###) 0—6.283 u0.01745`);
@@ -1078,11 +1075,30 @@ function editor_updatePanelsFor(obj) {
 	}
 }
 
+function pathGet(path) {
+	var p = window;
+	var spl = path.split(`.`);
+	for (var loc of spl) {
+		p = p[loc];
+	}
+	return p;
+}
+
+function pathSet(path, value) {
+	var p = window;
+	var spl = path.split(`.`);
+	var last = spl.pop();
+	for (var loc of spl) {
+		p = p[loc];
+	}
+	p[last] = value;
+	return pathGet(path);
+}
+
 function editor_compile(arr) {
 	group_nature.innerHTML = ``;
 	var elements = [];
 	for (var e=0; e<arr.length; e++) {
-		console.log(arr[3]);
 		//figure out what type it is
 		if (arr[e].constructor.name != `String`) {
 			//console.log(arr, e);
@@ -1108,16 +1124,22 @@ function editor_compile(arr) {
 
 		//checkboxes
 		if (tok[0] == `C`) {
+			get = arr[e+1];
+			set = arr[e+1];
+			e += 1;
 			continue;
 		}
 
 		//dropdowns
 		if (tok[0][0] == `|`) {
+			get = arr[e+1];
+			set = arr[e+1];
+			e += 1;
 			continue;
 		}
 
 		//sliders:
-		if (tok[0] == `.`) {
+		if (tok[0][0] == `.`) {
 			tok[0] = `editor_selected` + tok[0];
 		}
 		
@@ -1125,13 +1147,11 @@ function editor_compile(arr) {
 		var min = -1e101;
 		var max = 1e101;
 		var unit = 1;
-		var label = `X:`;
-		
-
-		//token 1 is label
-		label = tok[1].slice(1).replaceAll(`_`, `&nbsp;`);
+		var path = `` + tok[0];
+		var label = tok[1].slice(1).replaceAll(`_`, `&nbsp;`);
 
 		//token 2 is sigfigs
+		//TODO: this
 
 		//tokens 3 and onwards are more freeform
 		var quanta = [];
@@ -1168,12 +1188,10 @@ function editor_compile(arr) {
 				[min, max] = tok[a].split(`—`);
 				max = +max;
 			}
-
-			
 		}
 
-		console.log(min, max, quanta, unit);
-		new Sliderify(label, min, max, unit);
+		console.log(path);
+		new Sliderify(label, min, max, unit, path);
 	}
 
 	return elements;
