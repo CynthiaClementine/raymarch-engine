@@ -120,12 +120,26 @@ class Sliderify {
 //editor functions
 /**
 * creates a default object given a constructor type. For the list of types, see all TYPE_ declarations in config.js
-* @param {Integer|undefined} objType an integer representing the type of object to create. If left undefined, defaults to 0
+* @param {Integer} objType an integer representing the type of object to create. If left undefined, defaults to 0
  */
 function createDefaultObject(objType) {
 	objType = objType ?? TYPE_SPHERE;
 	var type = map_typeObj[objType];
 	return new type({pos: Pos(0, 0, 0), theta: 0, phi: 0, rot: 0}, createDefaultMaterial(), 0, 10, 10, 10, 1, 12, 6, 10, 10, 10, 10, 10);
+}
+
+/**
+ * creates a default object, then directly applies properties to it based on an input list of properties
+ * @param {Integer} objType an integer representing the type of object to create. If left undefined, defaults to 0
+ * @param {Object} properties an object containing properties to apply
+ */
+function createDescribedObject(objType, properties) {
+	var obj = createDefaultObject(objType);
+	Object.keys(properties).forEach(k => {
+		obj[k] = properties[k];
+	});
+	
+	return obj;
 }
 
 /**
@@ -471,7 +485,7 @@ function editor_initialize() {
 		`.ry (ry: ####) r100 u1`,
 		`.rz (rz: ####) r100 u1`,
 	];
-	var sl_r = `.r (<br>r:_ ####) r100 u1`;
+	var sl_r = `.r (<br>r:_ ####) 0—1e101 r100 u1`;
 	var sl_rr = `.ringR (rr: ####) r100 u1`;
 	var sl_h = `.h (h: ±##) r100 u0.1`;
 
@@ -501,9 +515,10 @@ function editor_initialize() {
 			`.b (b: ##.##) 0—20 u0.05`, 
 			sl_h
 		],
-		"LINE":				[...xyz, sl_r],
+		"LINE":				[sl_r],
 		"LOOP":				[...xyz, `.d (d:_ ####) r100 u1`],
 		"OCTAHEDRON":		[...xyz],
+		"POINT":			[],
 		"PRISM-RHOMBUS":	[...xyz, `.skew (skew: ±##) r50 -500—500 u1`],
 		"PRISM-OCTAGON":	[...xyz],
 		"PRISM-HEXAGON":	[...xyz],
@@ -519,6 +534,7 @@ function editor_initialize() {
 			`.freq (freq: #.##) 0.01—40 u0.01`, 
 			`.b (b: ##.##) 0—20 u0.05`,
 		],
+		"TRI": [sl_r],
 		"VOXEL": [
 			sl_r, 
 			`C`, (val) => {return syncC(val, 0);}, 
@@ -538,7 +554,7 @@ function editor_initialize() {
 	};
 	
 	var rgb = [
-		`.material.color.0 (<br>r: ###) 0—255 u1`,
+		`.material.color.0 (r: ###) 0—255 u1`,
 		`.material.color.1 (g: ###) 0—255 u1`,
 		`.material.color.2 (b: ###) 0—255 u1`
 	];
@@ -610,7 +626,7 @@ function editor_preAdd() {
 			continue;
 		}
 		const btn = document.createElement(`button`);
-		btn.className = `grid-button`;
+		btn.className = `grid-button-${+map_strObj[val].canCreate}`;
 		btn.innerHTML = val;
 		btn.onclick = () => {
 			editor_addObj(map_strObj[val].type);
@@ -858,13 +874,17 @@ function editor_deselect(object) {
 }
 
 function editor_select(object) {
+	if (!object) {
+		console.error(`cannot select nothing!`);
+		return;
+	}
 	//only select top-level collections
+	var initialObj = object;
 	while (object && object.parent) {
 		object = object.parent;
 	}
-	if (!object) {
-		console.error(`was unable to select ${object}`);
-		return;
+	if (object.selectFrom) {
+		object = object.selectFrom(initialObj);
 	}
 
 	//if the player's selected, this is the first object and therefore easy.
@@ -904,9 +924,12 @@ function editor_updatePanelsFor(obj) {
 		`.pos.2 (z: ±####) r100 u1`,
 	];
 	
-	var thetaless = [Sphere, Shell];
-	var philess = [Sphere, Shell];
-	var rotless = [Sphere, Shell, Capsule, Cylinder, Ring, Fractal, Player, Player_Debug, Player_Noclip];
+	var thetaless = [Sphere, Shell, Point];
+	var philess = [Sphere, Shell, Point];
+	var rotless = [Sphere, Shell, Capsule, Cylinder, Ring, Fractal, 
+		Player, Player_Debug, Player_Noclip, Point,
+		Lamppost
+	];
 	
 	if (!thetaless.includes(cons)) {
 		shouldSee.push(`.theta (<br>θ: #.###) 0—6.283 u0.01745`);
@@ -982,12 +1005,11 @@ function pathSet(path, value) {
  * @param {HTMLElement} destination the place to put completed objects
  */
 function ec_compile(arr, destination) {
-	console.log(arr, destination);
 	var elements = [];
 	destination.innerHTML = ``;
 	for (var e=0; e<arr.length; e++) {
 		//figure out what type it is
-		if (arr[e].constructor.name != `String`) {
+		if (arr[e] == undefined || arr[e].constructor.name != `String`) {
 			//console.log(arr, e);
 			//throw new Error(`should not be able to parse a function on its own!`);
 			continue;
@@ -1078,7 +1100,6 @@ function ec_compile(arr, destination) {
 			}
 		}
 
-		console.log(path);
 		elements.push(new Sliderify(destination, label, min, max, unit, path));
 	}
 

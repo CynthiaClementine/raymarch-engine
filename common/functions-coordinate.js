@@ -3,6 +3,7 @@ like functions-math, but dealing with multi-dimensional problems instead of sing
 
 INDEX
 cartToPol(x, y, z);
+magnitude(vector);
 clipToZ0(polyPoints, tolerance, invertClipDirection);
 polToCart(theta, phi, radius);
 polToXY(startX, startY, angle, magnitude);
@@ -17,6 +18,10 @@ function cartToPol(x, y, z) {
 	var phi = Math.atan(y / Math.sqrt((z * z) + (x * x)));
 	
 	return [theta, phi, rad];
+}
+
+function cross(a, b) {
+	return [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]];
 }
 
 function magnitude(vector) {

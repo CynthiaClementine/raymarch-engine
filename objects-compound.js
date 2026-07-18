@@ -231,10 +231,12 @@ var map_strObj = {
 	"SINGULARITY": Singularity,
 	"SPHERE": Sphere,
 	"TERRAIN": Terrain,
+	"TRI": Triangle,
 	"VOXEL": Voxel,
 	
 	"DOTDOTDOT": DotDotDot,
 	"SKYBUNNY": SkyBunny,
+	"LAMPPOST": Lamppost,
 	
 	//in here for editor purposes
 	"PLAYER": Player,

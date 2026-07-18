@@ -142,6 +142,7 @@ function tick() {
 		
 		//idk where to put this
 		if (!isPlayer && es.tick) {
+			console.log(`ticking selected ${es.constructor.name}`);
 			es.tick();
 		}
 		if (es.material) {
@@ -513,6 +514,7 @@ function handleKeyPress(a) {
 		
 		case "BracketRight":
 			debug_listening = !debug_listening;
+			loading_world.shouldRegen = true;
 			break;
 	}
 }

@@ -41,6 +41,7 @@
 #define VOXEL		13
 #define CUBE		14
 #define LINE		20
+#define TRIANGLE	21
 #define DISH		22
 #define OCTAHEDRON	30
 #define RING		40
@@ -508,6 +509,20 @@ float prismSDF(vec3 point, int type, float data1, vec4 data2) {
 
 
 //SDFs
+float triSDF(vec3 p, float r, vec3 b, vec3 c) {
+	//assumes A is at 0, and then everything else is a relative offset
+	vec3 pb = p - b, pc = p - c;
+	vec3 ba = b, cb = c - b, ac = -c;
+	
+	vec3 nor = cross(ba, ac);
+	vec3 d1 = ba * clamp(dot(ba, p) / dot(ba, ba), 0., 1.) - p;
+	vec3 d2 = cb * clamp(dot(cb, pb) / dot(cb, cb), 0., 1.) - pb;
+	vec3 d3 = ac * clamp(dot(ac, pc) / dot(ac, ac), 0., 1.) - pc;
+	float k0 = min(min(dot(d1, d1), dot(d2, d2)), dot(d3, d3));
+	float k1 = dot(nor, p) * dot(nor, p) / dot(nor, nor);
+	float t = sign(dot(cross(ba, nor), p)) + sign(dot(cross(cb, nor), pb)) + sign(dot(cross(ac, nor), pc));
+	return sqrt((t < 2.) ? k0 : k1) - r;
+}
 float boxSDF(vec3 point, vec4 data2) {
 	float r = 0.4;
 	vec3 q = abs(point) - data2.xyz + vec3(r);
@@ -766,6 +781,8 @@ float objSDF(vec3 p, int world, int index) {
 			{d = shellSDF(p, data[1][3], data[2]);} break;
 		case TERRAIN:
 			{d = terrainSDF(p, data[1][3], data[2], data[3]);} break;
+		case TRIANGLE:
+			{d = triSDF(p, data[1][3], data[2].xyz, data[3].xyz);} break;
 		case VOXEL:
 			{d = voxelSDF(p, data[1][3], data[2], data[3]);} break;
 		default:

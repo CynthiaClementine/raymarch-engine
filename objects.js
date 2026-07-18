@@ -286,6 +286,7 @@ class Scene3dLoop {
 
 class SceneCollection {
 	static type = TYPE_CLASS_GROUP;
+	static canCreate = true+1;
 	/**
 	* An object that contains other serialized objects. 
 	* When editing, basic translations / rotations can be applied to all the objects in the collection.
@@ -980,9 +981,7 @@ class Line extends Scene3dObject {
 	static type = TYPE_LINE;
 	constructor(posRot, material, nature, rx, ry, rz, thickness) {
 		super(posRot, material, nature);
-		this.rx = rx;
-		this.ry = ry;
-		this.rz = rz;
+		this.offP = Pos(rx, ry, rz);
 		this.posEnd = Pos(
 			this.pos[0] + rx,
 			this.pos[1] + ry,
@@ -996,27 +995,60 @@ class Line extends Scene3dObject {
 			this.rot = 0;
 		}
 		this.r = thickness;
-		this.posData = [
-			[this.pos, ABSOLUTE],
-			[this.posEnd, RELATIVE]
-		];
+		// this.posData = [
+		// 	[this.pos, ABSOLUTE],
+		// 	[this.posEnd, RELATIVE]
+		// ];
 	}
 
-	posIndex(pos) {
-		
+	express() {
+		this.refresh();
+		var base = [this];
+		if (debug_listening) {
+			// var o1 = createDefaultObject();
+			var o2 = createDefaultObject();
+			// o1.r = this.r * 1.5;
+			// o1.pos = this.pos;
+			// o1.parent = this;
+			o2.r = this.r * 1.5;
+			o2.pos = this.posEnd;
+			o2.parent = this;
+			base.push(o2);
+		}
+		return base;
+	}
+
+	selectFrom(obj) {
+		if (obj == this) {
+			return this;
+		}
+		const endDist = getDistancePos(obj.pos, this.posEnd);
+		const startDist = getDistancePos(obj.pos, this.pos);
+		if (endDist < startDist) {
+			return new Point(this.offP, this.pos);
+		} else {
+			return new Point(this.pos);
+		}
+	}
+
+	refresh() {
+		const off = this.offP;
+		this.posEnd = Pos(this.pos[0] + off[0], this.pos[1] + off[1], this.pos[2] + off[2]);
 	}
 	
 	bounds() {
-		this.posEnd = Pos(this.pos[0] + this.rx, this.pos[1] + this.ry, this.pos[2] + this.rz);
+		this.refresh();
+		const p = this.pos;
+		const pE = this.posEnd;
 		const r = this.r;
 		return augmentBounds([Pos(
-			Math.min(this.pos[0] - r, this.posEnd[0] - r),
-			Math.min(this.pos[1] - r, this.posEnd[1] - r),
-			Math.min(this.pos[2] - r, this.posEnd[2] - r),
+			Math.min(p[0] - r, pE[0] - r),
+			Math.min(p[1] - r, pE[1] - r),
+			Math.min(p[2] - r, pE[2] - r),
 		), Pos (
-			Math.max(this.pos[0] + r, this.posEnd[0] + r),
-			Math.max(this.pos[1] + r, this.posEnd[1] + r),
-			Math.max(this.pos[2] + r, this.posEnd[2] + r),
+			Math.max(p[0] + r, pE[0] + r),
+			Math.max(p[1] + r, pE[1] + r),
+			Math.max(p[2] + r, pE[2] + r),
 		)], this.gloopiness * 2 + this.smoothness);
 	}
 	
@@ -1025,7 +1057,7 @@ class Line extends Scene3dObject {
 		//then closest = linterp(A, B, lambda)
 		//dist = dist to closest
 		const base = this.pos;
-		const lineVec = [this.rx, this.ry, this.rz];
+		const lineVec = this.offP;
 		const lineDot = dot(lineVec, lineVec);
 		const apVec = [pos[0] - base[0], pos[1] - base[1], pos[2] - base[2]];
 		const l = clamp(dot(apVec, lineVec) / lineDot, 0, 1);
@@ -1035,11 +1067,152 @@ class Line extends Scene3dObject {
 	}
 	
 	serialize() {
-		return `LINE${super.serialize()}${this.rx}~${this.ry}~${this.rz}~${this.r}`;
+		return `LINE${super.serialize()}${this.offP[0]}~${this.offP[1]}~${this.offP[2]}~${this.r}`;
 	}
 	
 	serializeGPU() {
-		return [null, this.rx, this.ry, this.rz, this.r];
+		return [null, ...this.offP, this.r];
+	}
+}
+
+//editor-only class 
+class Point {
+	constructor(pos, offset) {
+		offset = offset ?? Pos(0, 0, 0);
+		this.pos = Pos(pos[0] + offset[0], pos[1] + offset[1], pos[2] + offset[2]);
+		this.store = pos;
+		this.offset = offset;
+		this.theta = 0;
+		this.phi = 0;
+		this.rot = 0;
+
+		this.nature = N_NORMAL;
+	}
+
+	tick() {
+		this.store[0] = this.pos[0] - this.offset[0];
+		this.store[1] = this.pos[1] - this.offset[1];
+		this.store[2] = this.pos[2] - this.offset[2];
+		loading_world.shouldRegen = true;
+	}
+}
+
+class Triangle extends Scene3dObject {
+	static type = TYPE_TRIANGLE;
+	constructor(posRot, material, nature, p2x, p2y, p2z, thickness, p3x, p3y, p3z) {
+		super(posRot, material, nature);
+		this.p1 = this.pos;
+		this.off2 = Pos(p2x, p2y, p2z);
+		this.off3 = Pos(p3x, p3y, p3z);
+		this.p2 = Pos(this.pos[0] + p2x, this.pos[1] + p2y, this.pos[2] + p2z);
+		this.p3 = Pos(this.pos[0] + p3x, this.pos[1] + p3y, this.pos[2] + p3z);
+		
+		if (this.theta || this.phi || this.rot) {
+			console.error(`${this.serialize()}: Lines should not be rotated!`);
+			this.theta = 0;
+			this.phi = 0;
+			this.rot = 0;
+		}
+		this.r = thickness;
+		// this.posData = [
+		// 	[this.pos, ABSOLUTE],
+		// 	[this.off2, RELATIVE],
+		// 	[this.off3, RELATIVE],
+		// ];
+	}
+
+	refresh() {
+		const p = this.pos;
+		this.p2 = Pos(p[0] + this.off2[0], p[1] + this.off2[1], p[2] + this.off2[2]);
+		this.p3 = Pos(p[0] + this.off3[0], p[1] + this.off3[1], p[2] + this.off3[2]);
+	}
+
+	express() {
+		this.refresh();
+		var base = [this];
+		if (debug_listening) {
+			base.push(createDescribedObject(TYPE_SPHERE, {
+				r: this.r * 1.5,
+				parent: this,
+				pos: this.p2,
+			}));
+			base.push(createDescribedObject(TYPE_SPHERE, {
+				r: this.r * 1.5,
+				parent: this,
+				pos: this.p3,
+			}));
+		}
+		return base;
+	}
+
+	selectFrom(obj) {
+		if (obj == this) {
+			return this;
+		}
+
+		//point 2
+		if (getDistancePos(obj.pos, this.p2) < 1) {
+			return new Point(this.off2, this.pos);
+		}
+
+		//point 3
+		if (getDistancePos(obj.pos, this.p3) < 1) {
+			return new Point(this.off3, this.pos);
+		}
+
+		return this;
+	}
+	
+	bounds() {
+		this.refresh();
+		return augmentBounds([Pos(
+			Math.min(this.pos[0], this.p2[0], this.p3[0]),
+			Math.min(this.pos[1], this.p2[1], this.p3[1]),
+			Math.min(this.pos[2], this.p2[2], this.p3[2]),
+		), Pos (
+			Math.max(this.pos[0], this.p2[0], this.p3[0]),
+			Math.max(this.pos[1], this.p2[1], this.p3[1]),
+			Math.max(this.pos[2], this.p2[2], this.p3[2]),
+		)], this.r + this.gloopiness * 2 + this.smoothness);
+	}
+	
+	//ough
+	distanceToPos(pos) {
+		const a = this.pos;
+		const b = this.p2;
+		const c = this.p3;
+		const pa = [pos[0] - a[0], pos[1] - a[1], pos[2] - a[2]];
+		const pb = [pos[0] - b[0], pos[1] - b[1], pos[2] - b[2]];
+		const pc = [pos[0] - c[0], pos[1] - c[1], pos[2] - c[2]];
+		const ba = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+		const cb = [c[0] - b[0], c[1] - b[1], c[2] - b[2]];
+		const ac = [a[0] - c[0], a[1] - c[1], a[2] - c[2]];
+
+		const nor = cross(ba, ac);
+
+		const s1 = Math.sign(dot(cross(ba, nor), pa));
+		const s2 = Math.sign(dot(cross(cb, nor), pb));
+		const s3 = Math.sign(dot(cross(ac, nor), pc));
+
+		if (s1 + s2 + s3 < 2) {
+			//outside tri
+			const d1 = segmentDist2(ba, pa);
+			const d2 = segmentDist2(cb, pb);
+			const d3 = segmentDist2(ac, pc);
+			return Math.sqrt(Math.min(d1, d2, d3));
+		}
+
+		//inside tri
+		const nd = dot(nor, pa);
+		return Math.sqrt((nd * nd) / dot(nor, nor));
+	}
+	
+	serialize() {
+		return `TRI${super.serialize()}${this.off2[0]}~${this.off2[1]}~${this.off2[2]}~${this.r}~${this.off3[0]}~${this.off3[1]}~${this.off3[2]}`;
+	}
+	
+	serializeGPU() {
+		return [this.r, this.off2[0], this.off2[1], this.off2[2], fencepost32, this.off3[0], this.off3[1], this.off3[2]];
 	}
 }
 

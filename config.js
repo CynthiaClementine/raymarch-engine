@@ -69,6 +69,7 @@ const TYPE_GYROID =			12;
 const TYPE_VOXEL =			13;
 const TYPE_CUBE =			14;
 const TYPE_LINE =			20;
+const TYPE_TRIANGLE =		21;
 const TYPE_DISH =			22;
 const TYPE_OCTAHEDRON =		30;
 const TYPE_RING =			40;

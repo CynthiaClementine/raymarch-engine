@@ -617,6 +617,15 @@ function printPos(pos) {
 }
 
 /**
+ * gives the squared distance to a segment, from point p.
+ */
+function segmentDist2(seg, p) {
+	const t = clamp(dot(seg, p) / dot(seg, seg), 0, 1);
+	const proj = [p[0] - seg[0]*t, p[1] - seg[1]*t, p[2] - seg[2]*t];
+	return dot(proj, proj);
+}
+
+/**
  * Returns the image of a given point when transformed by the given offset / angles
  * @param {Number[]} point the point to transform
  * @param {Number[]} offset the Pos to transform by
