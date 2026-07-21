@@ -655,7 +655,7 @@ function editor_preMat() {
 		btn.className = `grid-button`;
 		btn.innerHTML = val;
 		btn.onclick = () => {
-			editor_addObj(map_strObj[val].type);
+			editor_setMaterial(val);
 			overlay.style.display = `none`;
 		};
 		grid.appendChild(btn);
@@ -971,7 +971,7 @@ function editor_updatePanelsFor(obj) {
 	if (matName) {
 		label_material.innerHTML = matName;
 	
-		shouldSee.push(`|Change Material| editor_preMat()`);
+		shouldSee.push(`|Change_Material| editor_preMat`);
 		shouldSee = shouldSee.concat(materialEditables[map_matStr[matName]]);
 	}
 
@@ -1040,11 +1040,14 @@ function ec_compile(arr, destination) {
 			continue;
 		}
 
-		//dropdowns
+		//buttons
 		if (tok[0][0] == `|`) {
-			get = arr[e+1];
-			set = arr[e+1];
-			e += 1;
+			label = tok[0].slice(1, -1).replaceAll(`_`, ` `);
+			var evt = tok[1];
+			var el = document.createElement(`button`);
+			el.innerHTML = label;
+			el.onclick = window[evt];
+			destination.appendChild(el);
 			continue;
 		}
 

@@ -1,6 +1,12 @@
 #version 300 es
 
+//SEE: http://www.humus.name/Articles/Persson_LowLevelThinking.pdf
+//     http://www.humus.name/Articles/Persson_LowlevelShaderOptimization.pdf
+
 //constants
+#define PI 3.14159265359
+#define TAU 6.2831853072
+#define PHI 1.6180339887
 #define fencepost 4278259968.
 #define grav_constant 6.674
 
@@ -29,11 +35,12 @@
 
 
 //shapes
-#define SPHERE		0
+#define SPHERE		5
 #define ELLIPSE		1
 #define CAPSULE		2
 #define CYLINDER	3
 #define SHELL		4
+#define BLOB		0
 #define SINGULARITY	9
 #define BOX			10
 #define BOXFRAME	11
@@ -418,7 +425,7 @@ void postEffect(vec4 data0, vec4 data1, vec4 data2) {
 		case E_STARS: {
 			if (!hit) {
 				float f = backgroundStarAmpl(stage[0].path.vel, data1[0], data1[1]);
-				groundColor = mix(stage[0].color.rgb, arg0, f);
+				groundColor = mix(groundColor, arg0, f);
 			}
 		} return;
 	}
@@ -434,7 +441,7 @@ float hexagonSDF(vec2 point, float r) {
 	point -= 2. * min(dot(magicNums.xy, point), 0.) * magicNums.xy;
 	point.x -= clamp(point.x, -magicNums[2] * r, magicNums[2] * r);
 	point.y -= r;
-	return length(point) * sign(point.y);
+	return (point.y > 0.) ? length(point) : -length(point);
 }
 
 float octagonSDF(vec2 point, float r) {
@@ -444,7 +451,7 @@ float octagonSDF(vec2 point, float r) {
 	point -= 2. * min(dot(vec2(-magicNums.x, magicNums.y), point), 0.) * vec2(-magicNums.x, magicNums.y);
 	point.x -= clamp(point.x, -magicNums.z * r, magicNums.z * r);
 	point.y -= r;
-	return length(point) * sign(point.y);
+	return (point.y > 0.) ? length(point) : -length(point);
 }
 
 
@@ -486,7 +493,7 @@ float rhombusSDF(vec2 point, vec2 r, float skew) {
 	d0 = min(d0, vv);
 	d1 = min(d1, widt * hegt - abs(s));
 	
-	return sqrt(d0) * sign(-d1);
+	return (d1 < 0.) ? sqrt(d0) : -sqrt(d0);
 }
 
 float prismSDF(vec3 point, int type, float data1, vec4 data2) {
@@ -529,6 +536,24 @@ float boxSDF(vec3 point, vec4 data2) {
 	return length(max(q, vec3(0.))) + min(max(q.x, max(q.y, q.z)), 0.) - r;
 }
 
+float blobSDF(vec3 p, float r) {
+	r *= 0.75;
+	p = abs(p) / r;
+	if (p.x < max(p.y, p.z)) {
+		p = p.yzx;
+	}
+	if (p.x < max(p.y, p.z)) {
+		p = p.yzx;
+	}
+	float b = max(max(max(
+		dot(p, vec3(1./sqrt(3.))),
+		dot(p.xz, normalize(vec2(PHI+1., 1.)))),
+		dot(p.yx, normalize(vec2(1., PHI)))),
+		dot(p.xz, normalize(vec2(1., PHI))));
+	float l = length(p);
+	return r * (l - 1.5 - 0.2 * 0.75 * cos(min(sqrt(1.01 - b / l)*(4.*PI), PI)));
+}
+
 float capsuleSDF(vec3 point, float data1, vec4 data2) {
 	vec3 q = vec3(point.x, point.y, point.z - clamp(point.z, -data2[0], data2[0]));
 	return length(q) - data1;
@@ -544,17 +569,14 @@ float cylinderSDF(vec3 point, float data1, vec4 data2) {
 float dishSDF(vec3 point, float data1, vec4 data2) {
 	float rba = data2[3] - data1;
 	float baba = dot(data2.xyz, data2.xyz);
-	float papa = dot(point, point);
 	float paba = dot(point, data2.xyz) / baba;
-	float x = sqrt(papa - paba * paba * baba);
-	// float cax = max(0.0, x - select(data2[3], data1, paba < 0.5));
+	float x = sqrt(dot(point, point) - paba * paba * baba);
 	float cax = max(0.0, x - ((paba < 0.5) ? data1 : data2[3]));
 	float cay = abs(paba - 0.5) - 0.5;
 	float k = rba * rba + baba;
 	float f = clamp((rba * (x - data1) + paba * baba) / k, 0.0, 1.0);
 	float cbx = x - data1 - f * rba;
 	float cby = paba - f;
-	// float s = select(1., -1., cbx < 0.0 && cay < 0.0);
 	float s = ((cbx < 0.0 && cay < 0.0) ? -1.0 : 1.0);
 	return s * sqrt(min(cax * cax + cay * cay * baba, cbx * cbx + cby * cby * baba));
 }
@@ -747,6 +769,8 @@ float objSDF(vec3 p, int world, int index) {
 	p.xy = rotate(p.xy, -rot);
 	
 	switch (type) {
+		case BLOB:
+			{d = blobSDF(p, data[1][3]);} break;
 		case CAPSULE:
 			{d = capsuleSDF(p, data[1][3], data[2]);} break;
 		case CYLINDER:
@@ -1008,7 +1032,6 @@ void applyNearEffect(int stg, int matType, vec4 data0, vec4 data1, vec4 data2) {
 			}
 			//swarzchild radius
 			if (r < grav_constant * abs(data0[3])) {
-			// if (stage[stg].iters > 200) {
 				applyColor(stg, vec4(vec3(sign(-data0[3])), 1.0));
 				return;
 			}
@@ -1185,6 +1208,9 @@ float applyDist(int stg, float oldDist, float newDist, int nature, int index) {
 		return trueNewDist;
 	}
 	if ((nature & N_FIELD) > 0) {
+		if (newDist > nearDist) {
+			return oldDist;
+		}
 		if (newDist < 0.) {
 			stage[stg].closestInd = index;
 		}
