@@ -21,6 +21,16 @@ var mesh_lamppost = [
 	`SPHERE~[1,62,44]~0~0~90~0|light:255~235~162~255|4`,
 ];
 
+var mesh_turtle = [
+	`SPHERE~[0,-6,0]~0~0~90~0|color:31~104~59|23`,
+	`BOX~[0,-14,1]~2~0~90~0|color:0~162~44|30~15~30`,
+	`ELLIPSE~[0,3,21]~0~0~90~0|color:85~29~0|7~4~7`,
+	`ELLIPSE~[17.931272506713867,2,-8.143157958984375]~0~332~90~0|color:85~29~0|7~2~2`,
+	`ELLIPSE~[19.931272506713867,2,4.856842041015625]~0~21~90~0|color:85~29~0|7~2~2`,
+	`ELLIPSE~[21.933889389038086,15,-16.16176986694336]~0~21~90~0|color:85~29~0|7~2~2`,
+	`ELLIPSE~[19.933889389038086,15,-29.16176986694336]~0~332~90~0|color:85~29~0|7~2~2`,
+];
+
 
 
 class DotDotDot extends SceneCollection {
@@ -211,11 +221,13 @@ class Tree extends SceneCollection {
 
 
 var map_strObj = {
+	"BLOB": Blob,
 	"BOX": Box,
 	"BOX-FRAME": BoxFrame,
 	"BOX-MOVING": Box_Moving,
 	"CUBE": Cube,
 	"CAPSULE": Capsule,
+	"CATENARY": Catenary,
 	"CYLINDER": Cylinder,
 	"DISH": Dish,
 	"ELLIPSE": Ellipsoid,

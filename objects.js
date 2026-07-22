@@ -634,27 +634,6 @@ class Capsule extends Scene3dObject {
 	}
 }
 
-class Cone extends Scene3dObject {
-	static type = TYPE_CONE;
-	constructor(posRot, material, nature, r, h) {
-		super(posRot, material, nature);
-		this.r = r;
-		this.h = h;
-	}
-	
-	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, this.r, this.r, this.h, this.theta, this.phi, this.rot),
-		this.gloopiness * 2 + this.smoothness);
-	}
-	
-	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
-		
-	}
-}
-
-
 //cube, standard object
 class Cube extends Scene3dObject {
 	static type = TYPE_CUBE;
@@ -1042,14 +1021,14 @@ class Line extends Scene3dObject {
 		const pE = this.posEnd;
 		const r = this.r;
 		return augmentBounds([Pos(
-			Math.min(p[0] - r, pE[0] - r),
-			Math.min(p[1] - r, pE[1] - r),
-			Math.min(p[2] - r, pE[2] - r),
+			Math.min(p[0], pE[0]),
+			Math.min(p[1], pE[1]),
+			Math.min(p[2], pE[2]),
 		), Pos (
-			Math.max(p[0] + r, pE[0] + r),
-			Math.max(p[1] + r, pE[1] + r),
-			Math.max(p[2] + r, pE[2] + r),
-		)], this.gloopiness * 2 + this.smoothness);
+			Math.max(p[0], pE[0]),
+			Math.max(p[1], pE[1]),
+			Math.max(p[2], pE[2]),
+		)], r + this.gloopiness * 2 + this.smoothness);
 	}
 	
 	distanceToPos(pos) {
@@ -1072,6 +1051,127 @@ class Line extends Scene3dObject {
 	
 	serializeGPU() {
 		return [null, ...this.offP, this.r];
+	}
+}
+
+
+
+class Catenary extends Line {
+	static type = TYPE_CATENARY;
+	constructor(posRot, material, nature, rx, ry, rz, thickness, arclen) {
+		super(posRot, material, nature, rx, ry, rz, thickness);
+		this.arclen = arclen;
+		this.pts = 9;
+		this.pointSet = [];
+		
+	}
+
+	bounds() {
+		var yMin = 1e101;
+		var yMax = -1e101;
+		this.pointSet.forEach(p => {
+			yMin = Math.min(yMin, p[1]);
+			yMax = Math.max(yMax, p[1]);
+		});
+
+		return augmentBounds([
+			Pos(
+				Math.min(this.pos[0], this.posEnd[0]),
+				yMin,
+				Math.min(this.pos[2], this.posEnd[2]),
+			), Pos(
+				Math.max(this.pos[0], this.posEnd[0]),
+				yMax,
+				Math.max(this.pos[2], this.posEnd[2]),
+			)
+		], r + this.gloopiness * 2 + this.smoothness);
+	}
+
+	express() {
+		this.refresh();
+		const ps = this.pointSet;
+		var base = super.express().slice(1);
+		for (var v=1; v<ps.length; v++) {
+			const o = new Line({pos: ps[v-1]}, this.material, this.nature, 
+				ps[v][0] - ps[v-1][0], ps[v][1] - ps[v-1][1], ps[v][2] - ps[v-1][2], 
+				this.r);
+			o.parent = this;
+			base.push(o);
+		}
+		return base;
+	}
+
+	refresh() {
+		super.refresh();
+		/*the goal here is to approximate a catenary with straight lines. In order to do that we pick points on the catenary and then connect them
+		but how to get points? How to get the catenary? 
+		first simplify the case: a catenary has 3 degrees of freedom. The start point, end point, and length give us enough info to solve.
+		Hyperbolic functions are messy so there's a little newton's method along the way. Other than that it's not too bad
+
+		*/
+
+		//set up: parametrize
+		var vec = [this.offP[0], this.offP[2]];
+		var dx = Math.sqrt(vec[0]**2 + vec[1]**2);
+		var vecHat = [vec[0], vec[2]];
+		var h = this.offP[1] / dx;
+		var L = this.arclen / dx;
+
+		//calculate correct catenary: y=(a cosh((x-b)/a) + c)
+		var r = Math.sqrt(L*L - h*h);
+		//at r=0 the curve is a straight line. At r<0 the curve cannot exist
+		if (r < 0.5) {
+			//simplify to the straight line case, fix parameters for later
+			this.arclen = 1.05 * Math.hypot(...this.offP);
+			this.pointSet = [this.pos, this.posEnd];
+			console.log(`cannot construct catenary!`);
+			r = 0.5;
+		} else {
+			var A = Math.sqrt(6 * r - 1);
+
+			//solve for A ):
+			A = A - (Math.sinh(A) - r*A) / (Math.cosh(A) - r);
+			A = A - (Math.sinh(A) - r*A) / (Math.cosh(A) - r);
+			A = A - (Math.sinh(A) - r*A) / (Math.cosh(A) - r);
+			A = A - (Math.sinh(A) - r*A) / (Math.cosh(A) - r);
+	
+			var a = 0.5 / A;
+			var b = 0.5 - a * Math.atanh(h / L);
+			var c = -a * Math.cosh(-b / a);
+
+			this.pointSet = [this.pos];
+			for (var e=1; e<this.pts; e++) {
+				const t = e / this.pts;
+				const result = (a * Math.cosh((t - b) / a) + c);
+				this.pointSet[e] = [
+					linterp(this.pos[0], this.posEnd[0], t),
+					this.pos[1] + dx * result,
+					linterp(this.pos[2], this.posEnd[2], t),
+				];
+			}
+			this.pointSet[this.pts] = this.posEnd;
+			
+			
+		}
+	}
+
+	selectFrom(obj) {
+		const endDist = getDistancePos(obj.pos, this.posEnd);
+		const startDist = getDistancePos(obj.pos, this.pos);
+		if (obj.type == TYPE_LINE) {
+			return this;
+		}
+		if (endDist < this.r) {
+			return new Point(this.offP, this.pos);
+		} 
+		if (startDist < this.r) {
+			return new Point(this.pos);
+		}
+		return this;
+	}
+
+	serialize() {
+		return `CATENARY${super.serialize().slice(4)}~${this.arclen}`;
 	}
 }
 
@@ -1504,6 +1604,17 @@ class Sphere extends Scene3dObject {
 	
 	serializeGPU() {
 		return [this.r];
+	}
+}
+
+class Blob extends Sphere {
+	static type = TYPE_BLOB;
+	constructor(posRot, material, nature, r) {
+		super(posRot, material, nature, r);
+	}
+
+	serialize() {
+		return `BLOB${super.serialize().slice(6)}`;
 	}
 }
 

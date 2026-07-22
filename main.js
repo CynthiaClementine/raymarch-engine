@@ -298,8 +298,9 @@ function handleWorkerMsg(e) {
 function screenshot() {
 	var url = canvas.toDataURL(`image/png`);
 	var link = document.createElement("a");
+	var dateStr = new Date().toString();
 	link.href = url;
-	link.download = `render ${months[date.getMonth()]}-${date.getDate()}-${date.getFullYear()}.png`;
+	link.download = `render ${dateStr.slice(4, 24)}.png`;
 	document.body.appendChild(link);
 	link.click();
 	document.body.removeChild(link);

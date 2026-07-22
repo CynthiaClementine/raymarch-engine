@@ -76,9 +76,7 @@ function createExtraTextures() {
 
 		const img = new Image();
 		img.src = `${texDir}/${toLoad[t]}`;
-		console.log(`src is ${img.src}`);
 		img.onload = () => {
-			console.log(`hi! ${t}`, img);
 			dtx.drawImage(img, 0, 0);
 			var dat = dtx.getImageData(0,0, texture_n,texture_n).data;
 			

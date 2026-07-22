@@ -35,12 +35,12 @@
 
 
 //shapes
-#define SPHERE		5
+#define SPHERE		0
 #define ELLIPSE		1
 #define CAPSULE		2
 #define CYLINDER	3
 #define SHELL		4
-#define BLOB		0
+#define BLOB		5
 #define SINGULARITY	9
 #define BOX			10
 #define BOXFRAME	11
@@ -378,13 +378,14 @@ void postEffect(vec4 data0, vec4 data1, vec4 data2) {
 			}
 			float distPerc = stage[0].totalDist;
 			vec3 transmittance = vec3(0.5 + 0.5 * arg0.rgb);
-			// stage[0].color.rgb = mix(stage[1].color.rgb, arg0.rgb, clamp(exp(-5. + 5.*distPerc), 0., 1.));
-			stage[0].color.rgb = mix(stage[1].color.rgb, arg0.rgb, clamp(1. - exp(-distPerc * transmittance / data1[0]), 0., 1.));
+			transmittance = clamp(1. - exp(-distPerc * transmittance / data1[0]), 0., 1.);
+			groundColor = mix(groundColor, arg0.rgb, transmittance);
 		} return;
 		//bg_fadeToOld
 		case E_FADE_OLD: {
 			float distPerc = clamp((stage[0].totalDist + stage[1].totalDist) / data1[0], 0.0, 0.9);
-			stage[0].color.rgb = mix(stage[0].color.rgb, arg0.rgb, distPerc * distPerc);
+			groundColor = mix(groundColor, arg0.rgb, distPerc*distPerc);
+			stage[2].color.rgb = vec3(gamma_max*distPerc*distPerc);
 		} return;
 		//bg_fadeToRange
 		case E_FADE_RANGE: {
