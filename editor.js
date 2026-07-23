@@ -550,8 +550,9 @@ function editor_initialize() {
 		
 		"GROUP-L":	[],
 		"DOTDOTDOT":[],
-		"SKYBUNNY": [],
 		"LAMPPOST": [],
+		"SKYBUNNY": [],
+		"WORM": [],
 	};
 	
 	var rgb = [

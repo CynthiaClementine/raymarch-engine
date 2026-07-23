@@ -432,6 +432,81 @@ function proj(a, b) {
 	return [b[0] * mult, b[1] * mult, b[2] * mult];
 }
 
+/**
+ * performs the Forward And Backward Reaching Inverse Kinematic algorithm,
+ * given an array of vectors (relative Pos[] starting at 0,0) points the vectors to a specified end point.
+ * @param {Pos[]} vectorSet
+ * @param {Pos} targetPoint
+ * @param {Integer} iterations
+ */
+function fabrik(vectorSet, targetPoint, iterations) {
+	//	1. mark A and B
+	//	2. pull end of chain to B
+	//		trace backwards for all S
+	//		S end = B
+	//		S start points from S start -> B
+	//	3. pull start of chain to A
+	//	4. repeat 2, 3
+
+	//STEP 1: setup
+	//in this case start is always [0,0,0] and all vectors are RELATIVE. So that makes it.. simpler?
+	var endSet = [[...vectorSet[0]]];
+	var lenSet = [Math.hypot(...vectorSet[0])];
+
+	for (var g=1; g<vectorSet.length; g++) {
+		lenSet[g] = Math.hypot(...vectorSet[g]);
+		endSet[g] = [
+			endSet[g-1][0] + vectorSet[g][0], 
+			endSet[g-1][1] + vectorSet[g][1], 
+			endSet[g-1][2] + vectorSet[g][2]
+		];
+	}
+
+	for (var w=0; w<iterations; w++) {
+		//STEP 2: pull vectors to end
+		endSet[vectorSet.length-1] = targetPoint;
+		for (var g=vectorSet.length-1; g>0; g--) {
+			//L = norm(B-A)
+			var pointVec = normalize([
+				endSet[g][0] - endSet[g-1][0],
+				endSet[g][1] - endSet[g-1][1],
+				endSet[g][2] - endSet[g-1][2]
+			]);
+			//A = B - L*l
+			endSet[g-1][0] = endSet[g][0] - pointVec[0] * lenSet[g];
+			endSet[g-1][1] = endSet[g][1] - pointVec[1] * lenSet[g];
+			endSet[g-1][2] = endSet[g][2] - pointVec[2] * lenSet[g];
+		}
+	
+		//STEP 3: pull vectors to start
+		endSet[-1] = [0,0,0];
+		for (var g=0; g<vectorSet.length; g++) {
+			//L = norm(B - A)
+			var pointVec = normalize([
+				endSet[g][0] - endSet[g-1][0],
+				endSet[g][1] - endSet[g-1][1],
+				endSet[g][2] - endSet[g-1][2],
+			]);
+			//B = A + L*l
+			endSet[g][0] = endSet[g-1][0] + pointVec[0] * lenSet[g]
+			endSet[g][1] = endSet[g-1][1] + pointVec[1] * lenSet[g]
+			endSet[g][2] = endSet[g-1][2] + pointVec[2] * lenSet[g]
+		}
+	}
+
+	//STEP 4: un-setup
+	var finals = [];
+	for (var h=0; h<vectorSet.length; h++) {
+		finals[h] = [
+			endSet[h][0] - endSet[h-1][0],
+			endSet[h][1] - endSet[h-1][1],
+			endSet[h][2] - endSet[h-1][2],
+		];
+	}
+
+	return finals;
+}
+
 
 //TODO: remove this and put in the fragment shader, where it's actually useful
 

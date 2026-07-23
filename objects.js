@@ -1107,7 +1107,6 @@ class Catenary extends Line {
 		but how to get points? How to get the catenary? 
 		first simplify the case: a catenary has 3 degrees of freedom. The start point, end point, and length give us enough info to solve.
 		Hyperbolic functions are messy so there's a little newton's method along the way. Other than that it's not too bad
-
 		*/
 
 		//set up: parametrize
@@ -1120,7 +1119,7 @@ class Catenary extends Line {
 		//calculate correct catenary: y=(a cosh((x-b)/a) + c)
 		var r = Math.sqrt(L*L - h*h);
 		//at r=0 the curve is a straight line. At r<0 the curve cannot exist
-		if (r < 0.5) {
+		if (r < 0.6) {
 			//simplify to the straight line case, fix parameters for later
 			this.arclen = 1.05 * Math.hypot(...this.offP);
 			this.pointSet = [this.pos, this.posEnd];
@@ -1150,8 +1149,6 @@ class Catenary extends Line {
 				];
 			}
 			this.pointSet[this.pts] = this.posEnd;
-			
-			
 		}
 	}
 

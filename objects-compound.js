@@ -45,7 +45,7 @@ class DotDotDot extends SceneCollection {
 }
 
 class SkyBunny extends SceneCollection {
-	static type = TYPE_MESH_SKYBUNNY;
+	static type = TYPE_ENT_SKYBUNNY;
 	constructor(posRot) {
 		super(posRot, mesh_skyBunny);
 		
@@ -209,8 +209,73 @@ class Tree extends SceneCollection {
 			});
 			currVecs = newCurrs;
 		}
+	}
+}
 
+class Worm extends SceneCollection {
+	static type = TYPE_ENT_WORM;
+	constructor(posRot, material, nature, range) {
+		super(posRot, []);
+		this.range = 80;
+		this.segments = 6;
+		this.endPos = Pos(0, this.range, 0);
+
+		this.vecs = [];
+		this.r = 3.5;
+		for (var v=0; v<this.segments; v++) {
+			this.vecs[v] = Pos(0, this.range / this.segments, 0);
+		}
+	}
+
+	animate(objGroup) {
+		var refPos = Pos(0, 0, 0);
+		for (var v=0; v<this.vecs.length; v++) {
+			var o = new Line({pos: refPos}, new M_Color(40, 0, 40), N_NORMAL, ...this.vecs[v], this.r);
+			o.parent = this;
+			objGroup.push(o);
+			refPos = Pos(
+				refPos[0] + this.vecs[v][0],
+				refPos[1] + this.vecs[v][1],
+				refPos[2] + this.vecs[v][2],
+			);
+		}
+		var head = new Sphere({pos: this.endPos}, new M_Color(60, 0, 40), N_NORMAL, this.r * 1.5);
+		head.parent = this;
+		objGroup.push(head);
+	}
+
+	tick() {
+		//uhh target player I guess.
+		var len = getDistancePos(player.pos, this.pos);
+		var goalLen = Math.max(len - player.width * 4, 0);
+		var targ = Pos(
+			camera.pos[0] - this.pos[0],
+			camera.pos[1] - this.pos[1],
+			camera.pos[2] - this.pos[2]
+		);
+		targ[0] *= goalLen / len;
+		targ[1] *= goalLen / len;
+		targ[2] *= goalLen / len;
 		
+		var dTarg = [
+			targ[0] - this.endPos[0],
+			targ[1] - this.endPos[1],
+			targ[2] - this.endPos[2],
+		];
+		if (Math.hypot(...dTarg) > 1) {
+			dTarg = normalize(dTarg);
+		} else {
+			dTarg[0] *= 0.6; dTarg[1] *= 0.6; dTarg[2] *= 0.6;
+		}
+		this.endPos[0] += dTarg[0];
+		this.endPos[1] += dTarg[1];
+		this.endPos[2] += dTarg[2];
+		this.vecs = fabrik(this.vecs, this.endPos, 1);
+		loading_world.shouldRegen = true;
+	}
+
+	serialize() {
+	`return WORM${super.serializeKernel()}`;
 	}
 }
 
@@ -249,6 +314,7 @@ var map_strObj = {
 	"DOTDOTDOT": DotDotDot,
 	"SKYBUNNY": SkyBunny,
 	"LAMPPOST": Lamppost,
+	"WORM": Worm,
 	
 	//in here for editor purposes
 	"PLAYER": Player,

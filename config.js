@@ -82,9 +82,11 @@ const TYPE_TERRAIN =		71;
 
 //not groups, but not primitives
 const TYPE_MESH_DOT =		201;
-const TYPE_MESH_SKYBUNNY =	202;
 const TYPE_MESH_LAMPPOST =	203;
 const TYPE_TREE =			210;
+
+const TYPE_ENT_SKYBUNNY =	250;
+const TYPE_ENT_WORM =		251;
 
 //other enums
 const ABSOLUTE = 0;
