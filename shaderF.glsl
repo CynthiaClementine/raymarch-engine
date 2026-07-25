@@ -80,6 +80,7 @@
 #define N_GLOOPY	1
 #define N_ANTI		2
 #define N_FOG		4
+#define N_SMOOTH	8
 // Gravity objects allow rays to pass through them but constrains the maximum step size that they can take. 
 //Surround interesting spacetime in a gravity object to ensure that rays don't just jump over it. 
 //The constraint on maximum step size is stored in data[3][0]
@@ -151,7 +152,7 @@ bool hit = false;
 int bounceCount = 0;
 float bvhTolerance = 8.0;
 float pixelGamma = 0.7;
-float fudgeFactor = 1.0;
+float fudgeFactor = 1.001;
 
 Raydata stage[ray_numLights+1] = Raydata[ray_numLights+1](
 	Raydata(0, 0, 0., 0., 0., 0, Path(vec4(0.), vec3(0.), vec4(0.)), 1., vec4(0.,0.,0.,0.)),
@@ -243,7 +244,13 @@ vec2 rotate(vec2 pos, float rad) {
 }
 
 float smootherstep(float t) {
-	return 6.0*t*t*t*t*t - 15.0 * t*t*t*t + 10.0*t*t*t;
+	float t3 = t*t*t;
+	return 6.0*t*t*t3 - 15.0 * t*t3 + 10.0*t3;
+}
+
+float smoothererstep(float t) {
+	float t4 = t*t*t*t;
+	return -20.0*t*t*t*t4 + 70.0*t*t*t4 - 84.0*t*t4 + 35.0*t4;
 }
 
 float linearstep(float t) {
@@ -272,9 +279,9 @@ vec2 w_effectCounts(int worldID) {
 }
 
 mat4 objData(int world, int index) {
-	//data0 is: ID, materialID, nature, __
+	//data0 is: matType|objType, nature, theta|phi|rot, smoothness|gloopiness OR loopX|loopY|loopZ
 	//data1 is x, y, z, r
-	//data2 is //rx, ry, rz, ?
+	//data2 is rx, ry, rz, ?
 	//data3 and data4 are more misc. 
 	//num, world, index
 	vec4 data0 = texelFetch(uUniverseTex, ivec3(index, 0, world), 0);
@@ -352,7 +359,7 @@ void postEffect(vec4 data0, vec4 data1, vec4 data2) {
 	switch (effectType) {
 		//bg
 		case E_BG: {
-			if (stage[1].iters > 0) {
+			if (hit) {
 				return;
 			}
 			groundColor = arg0;
@@ -394,7 +401,7 @@ void postEffect(vec4 data0, vec4 data1, vec4 data2) {
 			}
 			vec3 col = vec3(rand(arg0.r, data1.r), rand(arg0.g, data1.g), rand(arg0.b, data1.b));
 			float distPerc = clamp(stage[0].totalDist / data1[3], 0.0, 0.9);
-			stage[0].color.rgb = mix(stage[0].color.rgb, col, distPerc * distPerc);
+			groundColor = mix(groundColor, col, distPerc * distPerc);
 		} return;
 		//sun
 		case E_SUN: {
@@ -421,7 +428,6 @@ void postEffect(vec4 data0, vec4 data1, vec4 data2) {
 					float(bounceCount) / float(ray_maxBounces),
 					1.0
 				);
-				stage[1].color = stage[0].color;
 		} return;
 		case E_STARS: {
 			if (!hit) {
@@ -1182,16 +1188,21 @@ float smoothMin(float d1, float d2, float k) {
 //given oldDist and a index/newDist/nature pairing, returns what the new sceneDist should be
 //also sets closestInd if necessary to set materials
 float applyDist(int stg, float oldDist, float newDist, int nature, int index) {
+	int gAmt = floatBitsToInt(objData(stage[stg].world, index)[0][3]);
 	if ((nature & N_FOG) > 0) {
 		nature ^= N_FOG;
+	}
+	if ((nature & N_SMOOTH) > 0) {
+		newDist -= float(gAmt & 0xFFFF) * (((nature & N_ANTI) > 0) ? -0.5 : 0.5);
+		nature ^= N_SMOOTH;
 	}
 	if (nature == N_NORMAL || (nature & N_GRAVITY) > 0) {
 		stage[stg].closestInd = (newDist < oldDist) ? index : stage[stg].closestInd;
 		return min(oldDist, newDist);
 	}
 	if ((nature & N_GLOOPY) > 0) {
-		float trueNewDist = smoothMin(oldDist, newDist, 2.5);
-		if (trueNewDist < oldDist - minDist / 2.) {
+		float trueNewDist = smoothMin(oldDist, newDist, 0.25*float((gAmt >> 16) & 0xFFFF));
+		if (trueNewDist < minDist * -0.5 + oldDist) {
 			stage[stg].closestInd = index;
 		}
 		return min(trueNewDist, oldDist);

@@ -98,9 +98,40 @@ class World {
 		}
 	}
 
+	fixBounds(reset) {
+		if (reset) {
+			this.expObjs.forEach(o => {
+				o.gloopExt = 0;
+			});
+			return;
+		}
+		
+		/*there are some things that push SDFs outside of their normal bounds. These are Gloopy objects and Smooth objects.
+		Smooth objects are simple, because they just enhance a single object's bounds. 
+		However, Gloopy objects expand the bounds of anything they touch, and so make sense as global state.
+		*/
+		const max = Math.max;
+		const bvh = this.bvh;
+		this.expObjs.forEach(o => {
+			if (o.nature & N_GLOOP) {
+				o.gloopExt = max(o.gloopExt, o.gloopiness);
+				//find all objects within twice the gloopy range and make sure their extGloop value is proper
+				var box = o.bounds();
+				var affected = bvh.objectsInBox(box[0], box[1]);
+				affected.forEach(a => {
+					a.gloopExt = max(a.gloopExt, o.gloopiness);
+				});
+			}
+		});
+	}
+
 	generate() {
 		this.sunVector = polToCart(this.svSet[0], this.svSet[1], 1);
 		this.express();
+		//TODO: this is a terrible way to do this. Do it differently
+		this.fixBounds(true);
+		this.bvh.generate();
+		this.fixBounds(false);
 		this.bvh.generate();
 	}
 	
@@ -216,7 +247,8 @@ function createWorlds() {
 			// [world_brighten, [1, 1, 1, 1]]
 		],[
 			[E_BG, Color(100, 90, 70)],
-			[E_SUN, Color(255, 255, 240), 0.002]
+			[E_SUN, Color(255, 255, 240), 0.002],
+			[E_FADE, Color(100, 90, 70), 1000]
 			// [bg_iters]
 		],
 		[0, 0.7],
@@ -477,7 +509,8 @@ function createWorlds() {
 			`CUBE~[-128,414,-67]~0~0~90~0|color:255~64~64|60`,
 			`RING~[-2700,2070,970]~0~187~142~0|color:128~255~255|1001~50`,
 			`BLOB~[-2700,2070,970]~0~0~90~0|color:255~0~98|668`,
-			`RING~[-2700,2070,970]~0~62~158~0|color:128~255~255|1157~50`
+			`RING~[-2700,2070,970]~0~62~158~0|color:128~255~255|1157~50`,
+			`WORM~[-104,155,406]~X~0~90~0||`
 		]
 	);
 	

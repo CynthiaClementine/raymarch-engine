@@ -501,7 +501,7 @@ function editor_initialize() {
 		"CATENARY":		[sl_r, `.arclen (L: ###.#) 1—9999 u0.1`],
 		"CUBE":			[sl_r],
 		"CYLINDER":		[sl_r, sl_h],
-		"DISH":			[...xyz, sl_r, sl_rr],
+		"DISH":			[sl_r, sl_rr],
 		"ELLIPSE":		[...xyz],
 		"FRACTAL": [
 			sl_r, 
@@ -958,10 +958,13 @@ function editor_updatePanelsFor(obj) {
 	if (obj != player && obj.type != TYPE_CLASS_LGROUP) {
 		shouldSee = shouldSee.concat(
 			`C Gloop`,		(val) => {return syncNature(val, N_GLOOP);},
+			`C Smooth`,		(val) => {return syncNature(val, N_SMOOTH);},
 			`C Anti`,		(val) => {return syncNature(val, N_ANTI);},
 			`C Fog`,		(val) => {return syncNature(val, N_FOG);},
 			`C Gravity`,	(val) => {return syncNature(val, N_GRAVITY);},
 			`C Field`,		(val) => {return syncNature(val, N_FIELD);},
+			`.smoothness (Smooth: ##.#) 1—9999 u0.5`,
+			`.gloopiness (Gloopy: ##.#) 1—9999 u0.5`,
 		);
 	}
 	

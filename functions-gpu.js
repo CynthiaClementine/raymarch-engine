@@ -348,17 +348,18 @@ function setObject(worldOff, rowOff, objInd, objRef) {
 	//bit packing to fit the common params into row 0
 	buf32_int[0] = ((type & 0xFFFF) << 0) | ((material & 0xFFFF) << 16);
 	const typeMat = buf32_float[0];
+	buf32_int[0] = ((2*objRef.smoothness & 0xFFFF) << 0) | ((2*objRef.gloopiness & 0xFFFF) << 16);
+	const gloopiSmooth = buf32_float[0];
 	const rotation = packageRot(theta, phi, rot);
-	
 	
 	// Row 0: object type + material type, nature, unused
 	var base = worldOff + objInd * 4;
 	data[base + 0] = typeMat;
 	data[base + 1] = nature;
 	data[base + 2] = rotation;
-	data[base + 3] = fencepost32;
+	data[base + 3] = gloopiSmooth;
 	if (objRef.constructor.type == TYPE_CLASS_LOOP) {
-		//replace fencepost with loop counts
+		//replace with loop counts
 		buf32_int[0] = ((objRef.rx & 0x3FF) << 20) | ((objRef.ry & 0x3FF) << 10) | ((objRef.rz & 0x3FF) << 0)
 		data[base + 3] = buf32_float[0];
 	}

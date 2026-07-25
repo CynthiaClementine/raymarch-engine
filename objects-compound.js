@@ -31,7 +31,39 @@ var mesh_turtle = [
 	`ELLIPSE~[19.933889389038086,15,-29.16176986694336]~0~332~90~0|color:85~29~0|7~2~2`,
 ];
 
+class Rail extends SceneCollection {
+	constructor(posRot, objects, positions, tStart, isReversible, isVelocityNormal) {
+		super(posRot, objects);
+		this.posList = positions ?? [[0,0,0]];
+		this.lenList = [];
+		this.reverses = isReversible;
+		this.lenParametrize = isVelocityNormal;
+		this.tStart = tStart;
+		this.t = tStart;
+	}
 
+	refresh() {
+		//calculate lenList
+	}
+
+	posFromT(t) {
+		t = t % 2;
+		if (t >= 1) {
+			t = this.reverses ? (2 - t) : (t - 1);
+		}
+
+		
+		
+	}
+
+	tick() {
+	
+	}
+
+	serialize() {
+		return `RAIL~`;
+	}
+}
 
 class DotDotDot extends SceneCollection {
 	static type = TYPE_MESH_DOT;
@@ -275,7 +307,7 @@ class Worm extends SceneCollection {
 	}
 
 	serialize() {
-	`return WORM${super.serializeKernel()}`;
+		return `WORM${super.serializeKernel()}`;
 	}
 }
 
