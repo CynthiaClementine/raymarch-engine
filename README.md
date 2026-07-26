@@ -6,11 +6,13 @@ My required common functions are duplicated here. This is not great. But I figur
 
 ## current goals
 - optimizing?
-- fix post-effects
 - gloopy objects finally working again
+	- currently 95% working, still have some edge cases to work out
 - better editing (sisyphean task)
 
 ## finished past goals
 - multiple light sources
+- smooth objects
+- post-effects FIXED
 - figure out why the page is sometimes excessively slow to load
 	- it's windows
