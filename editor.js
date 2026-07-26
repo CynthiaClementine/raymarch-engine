@@ -243,7 +243,13 @@ function deserialize(str) {
 		throw new Error(`cannot deserialize type "${type}"!`);
 	}
 	pos = JSON.parse(pos);
-	[nature, theta, phi, rot] = [+nature, +theta, +phi, +rot];
+	var gloop, smooth;
+	if (!nature.includes(`.`)) {
+		[nature, gloop, smooth] = [+nature, 1, 1];
+	} else {
+		[nature, gloop, smooth] = nature.split(`.`).map(a => +a);
+	}
+	[theta, phi, rot] = [+theta, +phi, +rot];
 	var posRotObj = {
 		pos: Pos(...pos),
 		theta: theta * degToRad,
@@ -253,7 +259,7 @@ function deserialize(str) {
 	
 	var finalArgs = [posRotObj];
 	if (material) {
-		finalArgs.push(material, nature);
+		finalArgs.push(material, [nature, gloop, smooth]);
 	}
 	if (params && params != ``) {
 		finalArgs.push(...params.map(a => +a));

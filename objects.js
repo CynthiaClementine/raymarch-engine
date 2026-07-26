@@ -25,17 +25,23 @@ class Scene3dObject {
 	 * creates a basic scene3dObject. This is an abstract class, you can't put it into the world.
 	 * @param {Object} posRot an object containing pos, theta, phi, and rot, in radians. This comprises the standard transform.
 	 * @param {Material} material the object's material. C
-	 * @param {Integer|null} nature A bitmask representing the nature(s) of the object. 0 by default.
+	 * @param {Integer|Number[]} nature A bitmask representing the nature(s) of the object. 0 by default.
 	 */
 	constructor(posRot, material, nature) {
-		this.pos = posRot.pos;
-		this.material = material;
-		this.nature = nature ?? N_NORMAL;
 		this.type = this.constructor.type;
 		
-		this.gloopiness = 1;
+		this.pos = posRot.pos;
+		this.material = material;
+		
+		nature = nature ?? N_NORMAL;
+		if (!nature.length) {
+			nature = [nature, 1, 1];
+		}
+		this.nature = nature[0];
+		this.gloopiness = nature[1];
+		this.smoothness = nature[2];
 		this.gloopExt = 0;
-		this.smoothness = 1;
+		
 
 		this.theta = posRot.theta ?? 0;
 		this.phi = posRot.phi ?? 0;
@@ -81,7 +87,11 @@ class Scene3dObject {
 			radians /= degToRad;
 			return modulate(Math.round(radians), 360);
 		}
-		const nature = `${this.nature}.${this.gloopiness}.${this.smoothness}`;
+
+		var nature = `${this.nature}`;
+		if (this.nature != N_NORMAL && this.gloopiness != 1 || this.smoothness != 1) {
+			nature = `${this.nature}.${2*this.gloopiness}.${2*this.smoothness}`;
+		}
 		return `~[${this.pos}]~${nature}~${deg(t)}~${deg(p + (Math.PI / 2))}~${deg(r)}|${this.material.serialize()}|`;
 	}
 	

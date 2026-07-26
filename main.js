@@ -579,7 +579,6 @@ function handleMouseDown(a) {
 		if (debug_listening) {
 			editor_raycast();
 		}
-		controls.shouldDrag = true;
 		return;
 	}
 
@@ -617,7 +616,6 @@ function handleMouseMove(a) {
 
 function handleMouseUp(a) {
 	controls.mButton = 0;
-	controls.shouldDrag = false;
 }
 
 function handleWheel(a) {

@@ -43,12 +43,18 @@ function applyColor(paintColor, baseColor) {
 /**
 * returns an updated signed distance based on an old/new distance and an object's nature.
  */
-function applyDist(oldDist, testDist, nature) {
+function applyDist(oldDist, testDist, nature, gloopiness, smoothness) {
+	if (nature & N_SMOOTH) {
+		testDist -= smoothness;
+	}
 	if (nature & N_FOG || nature & N_GRAVITY) {
 		testDist = Math.max(testDist, ray_nearDist * 0.9);
 	}
 	if (nature & N_ANTI) {
 		return Math.max(-testDist, oldDist);
+	}
+	if (nature & N_GLOOP) {
+		return Math.min(smoothMin(oldDist, testDist, gloopiness / 2), oldDist);
 	}
 	return Math.min(testDist, oldDist);
 }
@@ -804,7 +810,7 @@ function sceneSDF(sceneCollection, pos) {
 	var testDist;
 	sceneCollection.forEach(o => {
 		testDist = o.distanceToPos(pos);
-		testDist = applyDist(dist, testDist, o.nature);
+		testDist = applyDist(dist, testDist, o.nature, o.gloopiness, o.smoothness);
 		if (testDist != dist) {
 			dist = testDist;
 			distObj = o;
