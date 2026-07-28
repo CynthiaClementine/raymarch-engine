@@ -52,7 +52,10 @@
 #define DISH		22
 #define OCTAHEDRON	30
 #define RING		40
+#define RING_BOX	41
+#define RING_TRI	42
 #define PRISM_RHOMB	51
+#define PRISM_TRI	52
 #define PRISM_HEX	53
 #define PRISM_OCT	55
 #define FRACTAL		70
@@ -442,6 +445,30 @@ void postEffect(vec4 data0, vec4 data1, vec4 data2) {
 
 
 //2d SDFs
+float circleSDF(vec2 point, float r) {
+	return length(point) - r;
+}
+
+float squircleSDF() {
+	return 1.1;
+}
+
+float rectSDF(vec2 point, float rx, float ry) {
+	point = abs(point) - vec2(rx, ry);
+	return length(max(point, 0.)) + min(max(point.x, point.y), 0.);
+}
+
+float isoTriSDF(vec2 p, vec2 wh) {
+	p.y += wh.y / 1.5;
+	p.x = abs(p.x);
+	vec2 a = p - wh * clamp(dot(p, wh) / dot(wh, wh), 0., 1.);
+	vec2 b = p - wh * vec2(clamp(p.x / wh.x, 0., 1.), 1.);
+	float k = sign(wh.y);
+	float d = min(dot(a, a), dot(b, b));
+	float s = max(k*(p.x*wh.y - p.y*wh.x), k * (p.y-wh.y));
+	return sqrt(d) * sign(s);
+}
+
 float hexagonSDF(vec2 point, float r) {
 	vec3 magicNums = vec3(-0.86603, 0.5, 0.57735);
 	point = abs(point);
@@ -461,6 +488,11 @@ float octagonSDF(vec2 point, float r) {
 	return (point.y > 0.) ? length(point) : -length(point);
 }
 
+float vesicaSDF(vec2 p, float r, float d) {
+	p = abs(p);
+	float b = sqrt(r*r - d*d);
+	return ((p.y-b)*d > p.x * b) ? length(p - vec2(0.0,b)) * sign(d) : length(p - vec2(-d,0.)) - r;
+}
 
 float rhombusSDF(vec2 point, vec2 r, float skew) {
 	float relX = point.x;
@@ -504,7 +536,7 @@ float rhombusSDF(vec2 point, vec2 r, float skew) {
 }
 
 float prismSDF(vec3 point, int type, float data1, vec4 data2) {
-	//data1: [x, y, z, null]
+	//data1: [1][3]
 	float shapeDist = 9999.;
 	//data2: [rx, ry, rz, skew]
 	switch (type) {
@@ -519,6 +551,22 @@ float prismSDF(vec3 point, int type, float data1, vec4 data2) {
 	float negPart = min(max(shapeDist, vertDist), 0.);
 	float posPart = length(vec2(max(shapeDist, 0.), max(vertDist, 0.)));
 	return negPart + posPart;
+}
+
+float spunSDF(vec3 point, int type, float data1, vec4 data2) {
+	point.xy = abs(point.xy);
+	vec2 trueP = vec2(length(point.xy) - data1, point.z);
+	float shapeDist = 9999.;
+
+	switch (type) {
+		case RING:		{shapeDist = circleSDF(trueP, data2[0]);} break;
+		case RING_BOX:	{shapeDist = rectSDF(trueP, data2[0], data2[1]);} break;
+		case RING_TRI:	{shapeDist = isoTriSDF(trueP, data2.xy);} break;
+		default:
+			break;
+	}
+
+	return shapeDist;
 }
 
 
@@ -665,12 +713,6 @@ float octahedronSDF(vec3 point, float data1, vec4 data2) {
 	return abs(1. + dot(coeffs, point)) / length(coeffs);
 }
 
-float ringSDF(vec3 point, float data1, vec4 data2) {
-	vec3 dist = abs(point);
-	float q = length(dist.xy) - data2[0];
-	return sqrt(q * q + dist.z * dist.z) - data2[1];
-}
-
 float shellSDF(vec3 point, float data1, vec4 data2) {
 	float sphereD = length(point) - data2[0];
 	return abs(sphereD) - data2[1];
@@ -800,7 +842,9 @@ float objSDF(vec3 p, int world, int index) {
 		case OCTAHEDRON:
 			{d = octahedronSDF(p, data[1][3], data[2]);} break;
 		case RING:
-			{d = ringSDF(p, data[1][3], data[2]);} break;
+		case RING_BOX:
+		case RING_TRI:
+			{d = spunSDF(p, type, data[1][3], data[2]);} break;
 		case PRISM_RHOMB:
 		case PRISM_HEX:
 		case PRISM_OCT: 

@@ -159,31 +159,6 @@ class Prism extends Scene3dObject_Axes {
 	}
 }
 
-class Spun extends Scene3dObject {
-	static type = TYPE_CLASS_SPUN;
-	constructor(posRot, material, nature, r, h) {
-		super(posRot, material, nature);
-		this.r = r;
-		this.h = h;
-	}
-	
-	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, this.r, this.r, this.h, this.theta, this.phi, 0), 
-		this.gloopiness + this.gloopExt + this.smoothness);
-	}
-	
-	sdf2D(relX, relY) {
-		console.error(`2d SDF is not defined for object ${this.constructor.name}!`);
-		return -1;
-	}
-	
-	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, 0);
-		const relX = Math.sqrt(relPos[0] * relPos[0] + relPos[2] * relPos[2]);
-	}
-}
-
 class Scene3dLoop {
 	static type = TYPE_CLASS_LOOP;
 	/**
@@ -1463,18 +1438,23 @@ class Ramp extends PrismRhombus {
 	}
 }
 
-class Ring extends Scene3dObject {
-	static type = TYPE_RING;
-	constructor(posRot, material, nature, r, ringR) {
+class Spun extends Scene3dObject {
+	static type = TYPE_CLASS_SPUN;
+	constructor(posRot, material, nature, r, rx, ry) {
 		super(posRot, material, nature);
 		this.r = r;
-		this.ringR = ringR;
+		this.rx = rx;
+		this.ry = ry;
 	}
 	
 	bounds() {
 		return augmentBounds(
-			giveBounds(this.pos, this.r + this.ringR, this.r + this.ringR, this.ringR, this.theta, this.phi, this.rot),
+			giveBounds(this.pos, this.r + Math.abs(this.rx), this.r + Math.abs(this.rx), Math.abs(this.ry), this.theta, this.phi, this.rot),
 		this.gloopiness + this.gloopExt + this.smoothness);
+	}
+
+	sdf2D(relX, relY) {
+		return -1;
 	}
 
 	distanceToPos(pos) {
@@ -1483,15 +1463,84 @@ class Ring extends Scene3dObject {
 		const distY = Math.abs(relPos[1]);
 		const distZ = Math.abs(relPos[2]);
 		const q = Math.sqrt(distX * distX + distY * distY) - this.r;
-		return Math.sqrt(q * q + distZ * distZ) - this.ringR;
+		return this.sdf2D(q, distZ);
 	}
-	
+
 	serialize() {
-		return `RING${super.serialize()}${this.r}~${this.ringR}`;
+		return `${super.serialize()}${this.r}`;
+	}
+
+	serializeGPU() {
+		return [this.r, this.rx, this.ry];
+	}
+}
+
+class Ring extends Spun {
+	static type = TYPE_RING;
+	constructor(posRot, material, nature, r, ringR) {
+		super(posRot, material, nature, r, ringR, ringR);
+		this.ringR = ringR;
+	}
+
+	sdf2D(relX, relY) {
+		return Math.sqrt(relX*relX + relY*relY) - this.ringR;
+	}
+
+	bounds() {
+		this.rx = this.ringR;
+		this.ry = this.ringR;
+		return super.bounds();
+	}
+
+	serialize() {
+		return `RING${super.serialize()}~${this.ringR}`;
 	}
 	
 	serializeGPU() {
-		return [null, this.r, this.ringR];
+		return [this.r, this.ringR];
+	}
+}
+
+class RingBox extends Spun {
+	static type = TYPE_RING_BOX;
+
+	sdf2D(relX, relY) {
+		relX = Math.abs(relX) - this.rx;
+		relY = Math.abs(relY) - this.ry;
+		const dExt = Math.sqrt(Math.max(relX, 0) ** 2 + Math.max(relY, 0) ** 2);
+		const dInt = Math.min(Math.max(relX, relY), 0);
+		return dExt + dInt;
+	}
+	
+	serialize() {
+		return `RING-BOX${super.serialize()}~${this.rx}~${this.ry}`;
+	}
+}
+
+class RingTri extends Spun {
+	static type = TYPE_RING_TRI;
+
+	sdf2D(relX, relY) {
+		const w = this.rx;
+		const h = this.ry;
+		relX = Math.abs(relX);
+		relY += h / 1.5;
+
+		const buf1 = clamp((relX*w + relY*h) / (w*w + h*h), 0, 1);
+
+		const ax = relX - w * buf1;
+		const ay = relY - h * buf1;
+
+		const bx = relX - w * clamp(relX / w, 0, 1);
+		const by = relY - h;
+		const k = Math.sign(h);
+		const d = Math.min(ax*ax + ay*ay, bx*bx + by*by);
+		const s = Math.max(k*(relX*h - relY*w), k*(relY - h));
+		return Math.sqrt(d) * Math.sign(s) - 0.1;
+	}
+	
+	serialize() {
+		return `RING-TRI${super.serialize()}~${this.rx}~${this.ry}`;
 	}
 }
 

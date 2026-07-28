@@ -491,6 +491,7 @@ function editor_initialize() {
 		`.ry (ry: ####) r100 u1`,
 		`.rz (rz: ####) r100 u1`,
 	];
+	var pr_xy = [`.rx (rx: ####) r100 u1`, `.ry (ry: ####) r100 u1`];
 	var sl_r = `.r (<br>r:_ ####) 0—1e101 r100 u1`;
 	var sl_rr = `.ringR (rr: ####) r100 u1`;
 	var sl_h = `.h (h: ±##) r100 u0.1`;
@@ -530,6 +531,8 @@ function editor_initialize() {
 		"PRISM-OCTAGON":[...xyz],
 		"PRISM-HEXAGON":[...xyz],
 		"RING":			[sl_r, sl_rr],
+		"RING-BOX":		[sl_r, ...pr_xy],
+		"RING-TRI":		[sl_r, ...pr_xy],
 		"SPHERE":		[sl_r],
 		"SINGULARITY":	[sl_r, `.mass (m: ±##.##) -10—10 u0.01`],
 		"SHELL":		[sl_r, sl_h],
