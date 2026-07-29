@@ -54,7 +54,11 @@ function applyDist(oldDist, testDist, nature, gloopiness, smoothness) {
 		return Math.max(-testDist, oldDist);
 	}
 	if (nature & N_GLOOP) {
-		return Math.min(smoothMin(oldDist, testDist, gloopiness / 2), oldDist);
+		var res = Math.min(smoothMin(oldDist, testDist, gloopiness / 2), oldDist);
+		if (nature & N_FOG && res < 0) {
+			console.log(oldDist, testDist, res);
+		}
+		return res;
 	}
 	return Math.min(testDist, oldDist);
 }

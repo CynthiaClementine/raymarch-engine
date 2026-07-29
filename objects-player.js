@@ -462,8 +462,8 @@ class Player {
 	portalTest(obj, coords) {
 		var mat = obj.material;
 		if (obj.distanceToPos(coords) < ray_nearDist && mat.constructor.name == "M_Portal") {
-			if (mat.newWorld) {
-				this.world = mat.newWorld;
+			if (worlds[mat.str]) {
+				this.world = worlds[mat.str];
 				coords[0] += mat.offset[0];
 				coords[1] += mat.offset[1];
 				coords[2] += mat.offset[2];

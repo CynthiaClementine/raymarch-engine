@@ -66,8 +66,7 @@ class Sliderify {
 		text_in.onblur = () => {
 			text_in.style.display = `none`;
 			span_in.style.display = `inline-block`;
-			var calc = parseFloat(text_in.value);
-			self.applyInput(calc);
+			self.applyInput(text_in.value);
 		}
 		
 		// Call the calculate function on startup
@@ -104,6 +103,48 @@ class Sliderify {
 		this.set(parseFloat(calc));
 		loading_world.shouldRegen = true;
 		return calc;
+	}
+}
+
+class Textbox {
+	constructor(destination, label, path) {
+		var self = this;
+		this.get = () => {return pathGet(path);};
+		this.set = (v) => {return pathSet(path, v);};
+		var dummy = document.createElement(`div`);
+		dummy.innerHTML = `
+			<div class="range-wrap">
+					<label>${label}</label>
+					<input class="direct-text-input" value="0" style="display: none;">
+					<span class="range-value">${this.get()}</span>
+			</div>`;
+
+		var wrapper = dummy.children[0];
+		var text_in = wrapper.children[1];
+		var span_in = wrapper.children[2];
+		this.elText = text_in;
+		this.elSpan = span_in;
+		destination.appendChild(wrapper);
+
+		span_in.onclick = () => {
+			span_in.style.display = `none`;
+			text_in.style.display = `inline-block`;
+			text_in.focus();
+		}
+
+		text_in.onblur = () => {
+			text_in.style.display = `none`;
+			span_in.style.display = `inline-block`;
+			self.applyInput(text_in.value);
+		}
+	}
+
+	applyInput(val) {
+		this.elText.value = val;
+		this.elSpan.innerHTML = val;
+		this.set(val);
+		loading_world.shouldRegen = true;
+		return val;
 	}
 }
 
@@ -302,119 +343,6 @@ function calcPlacePos() {
 	return Pos(r(camera.pos[0] + offset[0]), r(camera.pos[1] + offset[1]), r(camera.pos[2] + offset[2]));
 }
 
-
-class SliderCustom {
-	/**
-	* @param {HTMLElement} elemGroup the div containing the label and slider
-	* @param {String} label a label string to put before the numerical label
-	* @param {Function} updateFunc how to reference the variable to write to. Will be `eval`ed later.
-	* @param {Number[]} valuesList array of possible slider values, from least to greatest
-	 */
-	constructor(elemGroup, label, updateFunc, valuesList) {
-		// super(elemGroup, ``, label, 0, valuesList.length - 1, 1);
-		this.validVals = valuesList;
-		this.updateFunc = updateFunc;
-	}
-	
-	synchronize() {
-		if (!this.validVals) {
-			return;
-		}
-		//TODO: fix -1 propagating
-		var ind;
-		var res = this.updateFunc();
-		for (var i=0; i<this.validVals.length; i++) {
-			if (this.validVals[i] == res) {
-				ind = i;
-				i = this.validVals.length;
-			}
-			//passed it, linearly interpolate between the last two values
-			else if (this.validVals[i] > res) {
-				ind = getPercentage(this.validVals[i - 1], this.validVals[i], res);
-				if (ind < 0 || ind > 1) {
-					console.log(`oops. ${ind}`);
-				}
-				ind += i - 1;
-				i = this.validVals.length;
-			}
-		}
-		this.offsetLock = ind;
-		this.sliderElem.value = this.offsetLock;
-		this.updateDisplay();
-	}
-	
-	updateDisplay(e) {
-		if (this.validVals.indexOf(this.updateFunc()) < 0) {
-			this.valueElem.innerHTML = this.label + (this.updateFunc()+``).padStart(3, "0");
-		} else {
-			this.valueElem.innerHTML = this.label + (this.validVals[+this.sliderElem.value]+``).padStart(3, "0");
-		}
-	}
-	
-	updateValue(e) {
-		this.offsetLock = this.value();
-		this.updateFunc(this.validVals[this.offsetLock]);
-		this.updateDisplay();
-	}
-}
-
-class Dropdown {
-	constructor(dropdownElem, valueFunc, valueOptionsArr) {
-		this.elem = document.getElementById(dropdownElem);
-		this.valFunc = valueFunc;
-		this.options = valueOptionsArr;
-		this.init();
-	}
-	
-	updateValue() {
-		this.valFunc(this.elem.value);
-	}
-	
-	synchronize() {
-		var val = this.valFunc();
-		this.elem.value = val;
-	}
-	
-	setVisibility(visible) {
-		this.elem.style = `display: ${visible ? "inline-block" : "none"}`;
-	}
-	
-	init() {
-		this.options.forEach(o => {
-			var optElem = document.createElement(`option`);
-			optElem.value = o;
-			optElem.text = o;
-			this.elem.appendChild(optElem);
-		});
-		this.elem.onchange = this.updateValue.bind(this);
-	}
-}
-
-class Textbox {
-	constructor(element, valueFunc) {
-		this.elem = document.getElementById(element);
-		this.valFunc = valueFunc;
-		this.init();
-	}
-	
-	setVisibility(visible) {
-		this.elem.style = `display: ${visible ? "inline-block" : "none"}`;
-	}
-	
-	updateValue() {
-		this.valFunc(this.elem.value);
-	}
-	
-	synchronize() {
-		var val = this.valFunc();
-		this.elem.value = val;
-	}
-	
-	init() {
-		this.elem.onchange = this.updateValue.bind(this);
-	}
-}
-
 class Checkbox {
 	constructor(destination, label, get, set) {
 		this.get = get;
@@ -539,9 +467,9 @@ function editor_initialize() {
 		"TERRAIN": [
 			...xyz, 
 			`.n (n: #) 1—7 u1`, 
-			`.ampl (ampl: ###.##) 0.01—40 u0.01`, 
+			`.ampl (ampl: ###.##) 0.01—400 u0.01`, 
 			`.a (a: #.##) 0.01—2 u0.01`, 
-			`.freq (freq: #.##) 0.01—40 u0.01`, 
+			`.freq (freq: #.##) 0.001—9 u0.001`, 
 			`.b (b: ##.##) 0—20 u0.05`,
 		],
 		"TRI": [sl_r],
@@ -579,10 +507,10 @@ function editor_initialize() {
 		"mirror":	[...rgba],
 		"normal":	[],
 		"portal": [
-			`___ .material.str`, 
 			`.material.offset.0 (offX: ±###) r100 u1`,
 			`.material.offset.1 (offY: ±###) r100 u1`,
-			`.material.offset.2 (offZ: ±###) r100 u1`
+			`.material.offset.2 (offZ: ±###) r100 u1`,
+			`___ dest: .material.str`,
 		],
 		"gravity":	[],
 		"rubber":	[],
@@ -1043,7 +971,10 @@ function ec_compile(arr, destination) {
 
 		//text boxes
 		if (tok[0] == `___`) {
-
+			if (tok[2][0] == `.`) {
+				tok[2] = `editor_selected` + tok[2];
+			}
+			elements.push(new Textbox(destination, label, tok[2]));
 			continue;
 		}
 

@@ -239,21 +239,12 @@ class M_Portal extends Material {
 		super(Color4(255, 255, 255, 255), 0);
 		this.str = newWorldName;
 		this.offset = Pos(...posOffset);
-		this.newWorld = null;
-		var self = this;
-		setTimeout(() => {
-			self.sync();
-		}, 5);
-	}
-	
-	sync() {
-		this.newWorld = worlds[this.str];
 	}
 	
 	applyNearEffect(ray) {
 		//move tracking rays earlier
-		if (this.newWorld && !ray.color) {
-			ray.world = this.newWorld;
+		if (worlds[this.str] && !ray.color) {
+			ray.world = worlds[this.str];
 			ray.pos[0] += this.offset[0];
 			ray.pos[1] += this.offset[1];
 			ray.pos[2] += this.offset[2];
@@ -262,8 +253,8 @@ class M_Portal extends Material {
 	
 	applyHitEffect(ray) {
 		// this.applyNearEffect(ray);
-		if (this.newWorld) {
-			ray.world = this.newWorld;
+		if (worlds[this.str]) {
+			ray.world = worlds[this.str];
 			ray.pos[0] += this.offset[0];
 			ray.pos[1] += this.offset[1];
 			ray.pos[2] += this.offset[2];
@@ -273,11 +264,8 @@ class M_Portal extends Material {
 	}
 	
 	tick() {
-		if (!this.newWorld) {
-			this.sync();
-		}
-		if (this.newWorld && this.newWorld != loading_world) {
-			this.newWorld.tick();
+		if (worlds[this.str] && worlds[this.str] != loading_world) {
+			worlds[this.str].tick();
 		}
 	}
 	

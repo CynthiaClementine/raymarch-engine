@@ -1233,19 +1233,19 @@ float smoothMin(float d1, float d2, float k) {
 //also sets closestInd if necessary to set materials
 float applyDist(int stg, float oldDist, float newDist, int nature, int index) {
 	int gAmt = floatBitsToInt(objData(stage[stg].world, index)[0][3]);
-	if ((nature & N_FOG) > 0) {
-		nature ^= N_FOG;
-	}
 	if ((nature & N_SMOOTH) > 0) {
 		newDist -= float(gAmt & 0xFFFF) * (((nature & N_ANTI) > 0) ? -0.5 : 0.5);
 		nature ^= N_SMOOTH;
 	}
-	if (nature == N_NORMAL || (nature & N_GRAVITY) > 0) {
+	if ((nature & ~N_FOG) == N_NORMAL || (nature & N_GRAVITY) > 0) {
 		stage[stg].closestInd = (newDist < oldDist) ? index : stage[stg].closestInd;
 		return min(oldDist, newDist);
 	}
 	if ((nature & N_GLOOPY) > 0) {
 		float trueNewDist = smoothMin(oldDist, newDist, 0.25*float((gAmt >> 16) & 0xFFFF));
+		if ((nature & N_FOG) > 0) {
+			trueNewDist = max(trueNewDist, nearDist - minDist);
+		}
 		if (trueNewDist < minDist * -0.5 + oldDist) {
 			stage[stg].closestInd = index;
 		}
