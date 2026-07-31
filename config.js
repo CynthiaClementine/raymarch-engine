@@ -376,7 +376,7 @@ var uTexes;
 
 var loading_world;
 
-const world_maxObjs = 500;
+const world_maxObjs = 2 ** 9;
 const world_maxID = 20;
 var worlds = {};
 var world_time = 0;

@@ -97,6 +97,7 @@ function createExtraTextures() {
 }
 
 function createBVHTexture() {
+	//should be 40x1000x4 = 160,000
 	texture_bvhArr = new Float32Array(world_maxID * texture_rowsPerNode * (2 * world_maxObjs) * 4);
 	texture_bvh = gl.createTexture();
 	gl.uniform1i(uUniverseBVH, 1);
@@ -106,7 +107,7 @@ function createBVHTexture() {
 	
 	gl.texImage2D(
 		gl.TEXTURE_2D, 0, gl.RGBA32F,
-		texture_rowsPerNode * world_maxObjs, 2 * world_maxID,
+		2 * world_maxObjs, texture_rowsPerNode * world_maxID,
 		0, gl.RGBA, gl.FLOAT, texture_bvhArr
 	);
 	
@@ -114,8 +115,6 @@ function createBVHTexture() {
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-	
-	gl.activeTexture(gl.TEXTURE1);
 	gl.bindTexture(gl.TEXTURE_2D, texture_bvh);
 }
 

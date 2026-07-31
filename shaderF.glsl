@@ -25,7 +25,7 @@
 #define ray_numLights 4
 #define ray_maxBounces 22
 
-#define obj_maxNum 500
+#define obj_maxNum 512
 
 
 #define fractal_iters 10
@@ -1125,7 +1125,7 @@ void calcSceneObjs(int stg, float tolerance) {
 	//traverse tree
 	int currNode = 0;
 	//there are 2*objs nodes in the tree. At maximum, we explore every one of them
-	int len = 2 * w_objCount(stage[stg].world);
+	int len = 4 * w_objCount(stage[stg].world);
 	int explored = 0;
 	for (int f=0; f<len; f++) {
 		//valid node checks
@@ -1565,7 +1565,7 @@ Path geodesicStep(Path current, float maxStep, vec3 singularityPos, float mass) 
 }
 
 //actual fragment shader: what's done for a pixel
-void drawVal(float val, vec2 pos) {
+void drawVal(float val, ivec2 pos) {
 	if (val < 0.0) {
 		outColor = vec4(-val, 0., 0., 1.0);
 		return;
@@ -1578,7 +1578,7 @@ void drawVal(float val, vec2 pos) {
 		}
 		return;
 	}
-	if (mod(pos[0] / 10., 1.) < 0.03 || fract(pos[1]) < 0.02) {
+	if (pos[0] % 10 < 1 || pos[1] % 10 < 1) {
 		return;
 	}
 	outColor = vec4(0.25, 0.1, 0.25, 1.0);
@@ -1595,11 +1595,12 @@ void drawWorld() {
 	
 	vec2 texPos = vec2((worldWidth + 1.) * uv.x, (worldHeight + 1.) * uv.y);
 	int subpx = int(floor(mod(texPos[1], 1.0) * 4.0));
+
+	ivec2 iTexPos = ivec2(texPos);
 	
-	
-	vec4 fetched = texelFetch(uUniverseTex, ivec3(int(texPos.x), int(texPos.y), uCamWorld), 0);
+	vec4 fetched = texelFetch(uUniverseTex, ivec3(iTexPos, uCamWorld), 0);
 	float val = fetched[subpx];
-	drawVal(val, texPos);
+	drawVal(val, iTexPos);
 }
 
 void drawBvh() {
@@ -1608,16 +1609,17 @@ void drawBvh() {
 		outColor = vec4(0.5, 0.2, 0.5, 1.0);
 		return;
 	}
-	float width = float(obj_maxNum);
+	float width = 2.*float(obj_maxNum);
 	float height = 40.;
 	
 	vec2 texPos = vec2((width + 1.) * uv.x, (height + 1.) * uv.y);
+	ivec2 iTexPos = ivec2(texPos);
 	int subpx = int(floor(mod(texPos[1], 1.0) * 4.0));
 	
 	
-	vec4 fetched = texelFetch(uUniverseBVHs, ivec2(int(texPos.x), int(texPos.y)), 0);
+	vec4 fetched = texelFetch(uUniverseBVHs, ivec2(iTexPos), 0);
 	float val = fetched[subpx];
-	drawVal(val, texPos);
+	drawVal(val, iTexPos);
 }
 
 void main() {
