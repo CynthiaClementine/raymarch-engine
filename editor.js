@@ -490,6 +490,14 @@ function editor_initialize() {
 		"LAMPPOST": [],
 		"SKYBUNNY": [],
 		"WORM": [],
+		"TREE": [
+			`.seed (seed: #) 0—30 u1`,
+			`.ampl (ampl: ###.#) 0.1—300 u0.1`, 
+			`.rr (brnc: #.##) 1.00—4.00 u0.05`, 
+			`.a (wobl: #.##) 0.02—0.98 u0.01`, 
+			`.b (gain: #.##) 0.05—1 u0.05`,
+			`.iters (n: #) 1—4 u1`,
+		]
 	};
 	
 	var rgb = [

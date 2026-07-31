@@ -215,21 +215,20 @@ function setWorldAttribs(world, worldOff, rowOff) {
 	data[base + 2] = world.sunVector[2];
 	data[base + 3] = world.ambientLight;
 	base += rowOff;
-	data[base + 0] = world.preEffects.length;
+	data[base + 0] = 0;
 	data[base + 1] = world.postEffects.length;
 	
 	//5 pixels free to do ???? whatever with I guess
 }
 
-function setEffects(world, worldOff, rowOff, doPreEffects) {
-	var effArr = doPreEffects ? world.preEffects : world.postEffects;
+function setEffects(world, worldOff, rowOff) {
+	var effArr = world.postEffects;
 
 	//loop trhough all post-effects
 	for (var w=0; w<effArr.length; w++) {
 		const eff = effArr[w];
 		const id = eff[0];
 		var base = worldOff + (world_maxObjs + 1 + w) * 4;
-		base += doPreEffects * rowOff * 4;
 		
 		const data = texture_universeArr;
 		

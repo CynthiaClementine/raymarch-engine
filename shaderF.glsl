@@ -1061,7 +1061,9 @@ void applyNearEffect(int stg, int matType, vec4 data0, vec4 data1, vec4 data2) {
 		//ghost
 		case M_GHOST: {
 			if (stg == 0) {
-				applyColor(stg, data0);
+				applyColor(stg, vec4(data0.rgb, data0.a * 0.03125 * stage[stg].localDist));
+			} else {
+				stage[stg].color[3] = max(stage[stg].color[3] - data0.a * 0.03125 * stage[stg].localDist, 0.);
 			}
 		} return;
 		case M_GRAVITY: {
@@ -1368,15 +1370,20 @@ void shadow(int stg, vec3 startPos, vec3 normal, vec3 lightVec) {
 		// if (stg == 2) {
 		// 	outColor = vec4(vec3(float(i) / 120.), 1.);
 		// }
-		if (stage[stg].localDist < minDist) {
+		if (stage[stg].localDist < nearDist) {
 			mat4 matDat = matData(stage[stg].world, stage[stg].closestInd);
 			int type = matType(stage[stg].world, stage[stg].closestInd);
-			int res = applyHitEffect(stg, stage[stg].localDist, type, matDat[0], matDat[1], matDat[2]);
-			if (res > 0) {
-				//IN HERE THE GAMMA IS RESCALED TO THE LIGHT COLOR
-				stage[stg].color[3] *= float(res - 1);
-				// stage[stg].color[3] = 500.0;
-				return;
+			
+			if (stage[stg].localDist < minDist) {
+				int res = applyHitEffect(stg, stage[stg].localDist, type, matDat[0], matDat[1], matDat[2]);
+				if (res > 0) {
+					//IN HERE THE GAMMA IS RESCALED TO THE LIGHT COLOR
+					stage[stg].color[3] *= float(res - 1);
+					// stage[stg].color[3] = 500.0;
+					return;
+				}
+			} else {
+				applyNearEffect(stg, type, matDat[0], matDat[1], matDat[2]);
 			}
 		}
 

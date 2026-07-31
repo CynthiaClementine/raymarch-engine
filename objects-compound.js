@@ -204,15 +204,32 @@ class Lamppost extends SceneCollection {
 //procedurally generated tree of branches
 class Tree extends SceneCollection {
 	static type = TYPE_TREE;
-	constructor(posRot, seed, trunkAmpl, branchFactor, wobbleAmount, gain) {
+	constructor(posRot, material, seed, trunkAmpl, branchFactor, wobbleAmount, gain, iters) {
 		super(posRot, []);
+		this.material = material;
 		this.seed = seed;
 		this.crand = seed;
 		this.ampl = trunkAmpl;
-		this.rr = branchFactor;
-		this.a = wobbleAmount;
+		this.rr = clamp(branchFactor, 0, 4);
+		this.a = clamp(wobbleAmount, 0, 1);
 		this.b = gain;
-		this.iters = 4;
+		this.iters = clamp(iters, 1, 4);
+
+		this.bbStore = [Pos(...this.pos), Pos(...this.pos)];
+	}
+
+	includeBoundsP(point, r) {
+		const min = Math.min;
+		const max = Math.max;
+		var bbs = this.bbStore;
+		for (var d=0; d<3; d++) {
+			bbs[0][d] = min(bbs[0][d], point[d] - r);
+			bbs[1][d] = max(bbs[1][d], point[d] + r);
+		}
+	}
+
+	bounds() {
+		return [Pos(...this.bbStore[0]), Pos(...this.bbStore[1])];
 	}
 
 	rand(a, b) {
@@ -222,25 +239,65 @@ class Tree extends SceneCollection {
 
 	//starting with a blank group, generate self
 	animate(objGroup) {
-		var currVecs = [[Pos(...this.pos), polToCart(this.rand(0, tau), this.rand(pi/2, pi/4), 1)]];
+		const _a = this.a;
+		const _rr = this.rr;
 
-		var newCurrs = [];
+		var material = this.material;
+		
+		this.crand = this.seed;
 		var ampl = this.ampl;
+		this.bbStore = [Pos(-ampl, -ampl, -ampl), Pos(ampl, ampl, ampl)];
+
+		var currVecs = [[Pos(0, 0, 0), [this.rand(0, tau), this.rand(pi*0.5, pi*0.4)]]];
+		var newCurrs = [];
+		var cRadius = Math.cbrt(ampl);
 		for (var a=0; a<this.iters; a++) {
 			currVecs.forEach(c => {
-				var futurePos = [c[1][0] * ampl, c[1][1] * ampl, c[1][2] * ampl];
+				//c__ for current, f__ for future (next iteration)
+				const [cPos, cAng] = c;
+				const cVec = polToCart(cAng[0], cAng[1], ampl);
+				const fPos = Pos(
+					cPos[0] + cVec[0],
+					cPos[1] + cVec[1],
+					cPos[2] + cVec[2],
+				);
+				this.includeBoundsP(fPos, cRadius);
 				//generate the branch based on the vector
-				objGroup.push(new Line({pos: c[0], theta:0,phi:0,rot:0}, material, nature, ...futurePos, Math.cbrt(ampl)));
+				var o = new Line({pos: cPos, theta:0,phi:0,rot:0}, material, N_NORMAL, ...cVec, cRadius);
+				o.parent = this;
+				objGroup.push(o);
 
 				//decide what new vectors should look like
-				var numBranches = (this.rand(0,1) > this.rr % 1) ? Math.floor(this.rr) : 1;
+				var numBranches = (this.rand(0,1) > _rr % 1) ? Math.floor(_rr) : 1;
 				for (var n=0; n<numBranches; n++) {
-					var adjust = polToCart(this.rand(0, tau), this.rand(this.a, -this.a), 1);
-					newCurrs.push([Pos(...futurePos), ]);
+					//adjust the angle by a bit. It should be equal in every direction, so we do this gimbal conversion
+					var xHat = polToCart(cAng[0] - (pi/2), 0,		ampl*this.rand(-_a, _a));
+					var yHat = polToCart(cAng[0], cAng[1] + (pi/2), ampl*this.rand(-_a, _a));
+
+					var fVec = [
+						cVec[0] + xHat[0] + yHat[0],
+						cVec[1] + xHat[1] + yHat[1],
+						cVec[2] + xHat[2] + yHat[2]
+					];
+					var fAngle = cartToPol(...fVec);
+					newCurrs.push([fPos, fAngle]);
 				}
 			});
 			currVecs = newCurrs;
+			ampl *= this.b;
+			cRadius = Math.cbrt(ampl);
 		}
+
+		//fix bounds (animate is centered on origin, bounds shouldn't be)
+		for (var d=0; d<3; d++) {
+			this.bbStore[0][d] += this.pos[d];
+			this.bbStore[1][d] += this.pos[d];
+		}
+	}
+
+	serialize() {
+		const mat = this.material.serialize();
+		return `TREE~[${this.pos}]~X~0~90~0|${mat}|${this.seed}~${this.ampl}~${this.rr}~${this.a}~${this.b}~${this.iters}`;
 	}
 }
 
@@ -349,6 +406,7 @@ var map_strObj = {
 	"SKYBUNNY": SkyBunny,
 	"LAMPPOST": Lamppost,
 	"WORM": Worm,
+	"TREE": Tree,
 	
 	//in here for editor purposes
 	"PLAYER": Player,

@@ -2,18 +2,16 @@ class World {
 	/**
 	 * Creates a World object
 	 * @param {String} name 
-	 * @param {Function[]} preEffects effects applied at every stage of a ray's march
 	 * @param {Function[]} effects effects applied after a ray finishes its march
 	 * @param {Number[]} sunVector the angle of the sun in [theta, phi] form.
 	 * @param {Number[]} spawn 
 	 * @param {Scene3dObject[]} objects 
 	 * @param {Number|none} shadowPercent a number from 0 to 1 representing the brightness of shadowed areas. At 0, shadows do nothing. At 1, shadows are pure black.
 	 */
-	constructor(name, preEffects, effects, sunVector, spawn, objects, shadowPercent, tickFunc) {
+	constructor(name, effects, sunVector, spawn, objects, shadowPercent, tickFunc) {
 		this.name = name;
 		this.id = null;
-		
-		this.preEffects = preEffects;
+
 		this.postEffects = effects;
 		this.tickFunc = tickFunc;
 		
@@ -42,7 +40,6 @@ class World {
 			}
 		}
 		
-		larg(this.preEffects, texture_worldCols, `pre-effect`);
 		larg(this.postEffects, texture_worldCols, `post-effect`);
 		larg(this.expObjs, texture_worldCols, `object`);
 	}
@@ -202,8 +199,7 @@ function createWorlds() {
 	console.log(`creating worlds!`);
 
 	new World("darkBright", [
-			[E_BRIGHTEN, [255/100, 160/100, 140/100, 1.5]]
-		],[
+			// [E_BRIGHTEN, [255/100, 160/100, 140/100, 1.5]]
 			[E_BG_RANGE, Color(25, 25, 30), Color(40, 40, 45)],
 			[E_FADE_RANGE, Color(20, 20, 25), Color(40, 40, 45), 800],
 			[E_SUN, Color(255, 160, 140), 0.01],
@@ -242,28 +238,21 @@ function createWorlds() {
 		]
 	);
 	
-	new World("start", 
-		[
-			// [world_brighten, [1, 1, 1, 1]]
-		],[
+	new World("start",[
 			[E_BG, Color(100, 90, 70)],
 			[E_SUN, Color(255, 255, 240), 0.002],
 			[E_FADE, Color(100, 90, 70), 1000]
 			// [bg_iters]
 		],
 		[0, 0.7],
-		// [268, 53, 64],
-		// [-493,650,168, 2.355, -0.48],
-		// [85,607,-16, 4.903, -0.85],
-		// [967,53,-75, 6.124, 0.279],
 		[714,93,86, 1.080,-0.650],
 		[	
 			`CUBE~[-100,330,100]~0~0~90~0|color:90~114~187|45`,
 			`PRISM-RHOMBUS~[-127,195,-191]~0~270~90~87|color:255~64~64|8~255~18~316`,
-			`BOX-FRAME~[100,100,100]~0~0~90~0|texture:1|50~50~50~10`,
+			`BOX-FRAME~[100,100,100]~0~0~90~0|texture:1~1~true~0.5|50~50~50~10`,
 			`CYLINDER~[155,-545,-400]~0~0~0~0|color:64~255~150|1500~595`,
 			`CYLINDER~[-500,300,0]~0~0~0~0|rubber|100~250`,
-			`RING~[-36,-171,-1806]~1.59.2~0~180~0|color:33~177~121|238~334`,
+			`RING~[-36,-171,-1806]~1.118.4~0~180~0|color:33~177~121|238~334`,
 			`BOX~[-12,104,-1806]~0~0~90~0|color:33~177~121|223~53~187`,
 			`ELLIPSE~[-115,115,357]~0~0~90~0|mirror:128~128~255~30|100~80~60`,
 			`ELLIPSE~[0,500,0]~16~0~0~0|normal|100~100~100`,
@@ -285,12 +274,12 @@ function createWorlds() {
 			`ELLIPSE~[-270,715,-188]~4~0~90~0|ghost:251~255~255~6|110~76~88`,
 			`ELLIPSE~[-501,589,-7]~4~0~90~0|ghost:212~223~235~14|88~110~110`,
 			`BOX~[151,60,-315]~0~0~90~0|portal:desert~[76,-100,14]|2~10~10`,
-			`BOX~[220,55,120]~1.5.1~0~90~0|color:255~0~255|20~10~20`,
-			`LINE~[233,50,-527]~0~0~90~0|color:102~46~0|0~12~0~1`,
-			`LINE~[233,62,-527]~0~0~90~0|color:102~46~0|10~10~10~1`,
-			`LINE~[233,62,-527]~0~0~90~0|color:102~48~0|-10~30~3~1`,
+			`BOX~[220,55,120]~1.10.2~0~90~0|color:255~0~255|20~10~20`,
+			`LINE~[233,50,-527]~0~0~90~0|color:120~30~0|0~12~0~1`,
+			`LINE~[233,62,-527]~0~0~90~0|color:130~40~10|10~10~10~1`,
+			`LINE~[233,62,-527]~0~0~90~0|color:130~40~10|-10~30~3~1`,
 			`CYLINDER~[730,53,207]~0~0~0~0|color:89~14~0|6~31.7`,
-			`DISH~[730,77,207]~0~0~90~0|texture:0|0~48~0~23~0`,
+			`DISH~[730,77,207]~0~0~90~0|texture:0~1~true~0.5|0~48~0~23~0`,
 			`BOX~[-580,60,-810]~0~0~90~0|mirror:255~0~255~15|10~10~1`,
 			`BOX~[-580,59,-830]~0~0~90~0|mirror:255~0~255~10|10~10~1`,
 			`BOX~[-610,60,-780]~0~0~90~0|mirror:255~0~255~9|1~10~10`,
@@ -338,7 +327,7 @@ function createWorlds() {
 			`ELLIPSE~[640,-363,-36]~2~75~105~72|normal|211~212~505`,
 			`SPHERE~[778,98,102]~0~0~90~0|light:207~247~255~255|10`,
 			`SPHERE~[803,66,270]~0~0~90~0|light:255~240~80~57|10`,
-			`BOX-FRAME~[747,100,-735]~0~0~90~0|texture:0|50~50~50~10`,
+			`BOX-FRAME~[747,100,-735]~0~0~90~0|texture:0~1~true~0.5|50~50~50~10`,
 			`SPHERE~[-124,278,1341]~0~0~90~0|light:207~247~255~255|10`,
 			`SPHERE~[683,143,205]~0~0~90~0|light:207~247~255~255|10`,
 			`SPHERE~[761,133,226]~0~0~90~0|light:207~247~255~255|10`,
@@ -349,27 +338,31 @@ function createWorlds() {
 			`SPHERE~[-897,115,-331]~0~0~90~0|light:207~247~255~255|10`,
 			`SPHERE~[-771,86,158]~0~0~90~0|light:207~247~255~255|10`,
 			`SPHERE~[-444,79,283]~0~0~90~0|light:207~247~255~255|10`,
-			`SPHERE~[-197,381,-290]~0~0~90~0|light:207~247~255~255|10`,
-			`SPHERE~[148,633,-606]~0~0~90~0|light:207~247~255~255|10`,
+			`SPHERE~[35,398,-1674]~0~0~90~0|light:207~247~255~255|10`,
+			`SPHERE~[126,634,-631]~0~0~90~0|light:207~247~255~255|10`,
 			`SPHERE~[230,727,-90]~0~0~90~0|light:207~247~255~255|10`,
 			`SPHERE~[177,105,193]~0~0~90~0|light:207~247~255~255|10`,
 			`SPHERE~[-642,601,145]~0~0~90~0|light:207~247~255~255|10`,
 			`SPHERE~[-349,189,-1178]~0~0~90~0|light:207~247~255~255|10`,
 			`SPHERE~[523,129,-1336]~0~0~90~0|light:207~247~255~255|10`,
-			`SPHERE~[1084,96,-1150]~0~0~90~0|light:207~247~255~255|10`,
-			`SPHERE~[1251,83,-689]~0~0~90~0|light:207~247~255~255|10`,
+			`SPHERE~[175,401,-1809]~0~0~90~0|light:207~247~255~255|10`,
+			`SPHERE~[41,363,-1934]~0~0~90~0|light:207~247~255~255|10`,
 			`SPHERE~[279,-371,-537]~0~0~90~0|light:207~247~255~255|10`,
 			`TRI~[-1309,49,-638]~0~0~90~0|color:128~128~128|-108~-69~-189~1~-246~-149~-29`,
 			`TRI~[-1664,-110,-835]~0~0~90~0|color:128~100~128|1~-88~-138~2~-63~-272~-61`,
 			`TRI~[-1874,-195,-752]~0~0~90~0|color:128~112~128|-108~-69~-189~2~-246~-149~-29`,
 			`TRI~[-1724,-362,-464]~0~0~90~0|color:128~95~128|-100~30~-165~2~-149~-133~-83`,
 			`TRI~[-1517,-668,-810]~0~0~90~0|color:128~90~128|-11~-285~202~2~-205~45~-36`,
-			`RING-BOX~[27,252,-1700]~0~0~90~0|ghost:255~0~255~128|24~35~-5`
+			`RING-BOX~[27,252,-1700]~0~0~90~0|ghost:255~0~255~128|24~35~-5`,
+			`TREE~[277,50,-524]~X~0~90~0||undefined`,
+			`TREE~[277,50,-524]~X~0~90~0|color:117~19~0|0~54.3~2.85~0.98~1.00~4`,
+			`TREE~[-19,106,-1824]~X~0~90~0|color:255~226~185|10~111.8~3.05~0.97~0.95~4`,
+			`SPHERE~[1172,86,-407]~0~0~90~0|light:207~247~255~255|10`
 		],
 		0.4
 	);
 	
-	new World("voxels", [], [
+	new World("voxels", [
 			[E_BG, Color(80, 90, 80)],
 		],
 		[0.6, 1.2],
@@ -385,7 +378,7 @@ function createWorlds() {
 			`VOXEL~[0,0,200]~0~0~90~0|color:23~123~8|200~-1~-1~-1~1~1~1~1~1`
 	]);
 	
-	new World("plains", [], [
+	new World("plains", [
 			[E_BG, Color(161, 202, 240)],
 			[E_FADE, Color(100, 220, 255), 5000],
 		],
@@ -393,7 +386,7 @@ function createWorlds() {
 		[-91, 115, -172, 0.488, -0.54],
 		[
 		`TERRAIN~[0,0,0]~0~0~90~0|normal|8000~45~8000~220~0.003~6~1.99~0.35`,
-		`SPHERE~[-121,70,454]~0~0~90~0|mirror:72~102~255~53|103`,
+		`SPHERE~[-2212,93,520]~0~0~90~0|mirror:72~102~255~53|103`,
 		`CYLINDER~[80.2822036743164,117.0882568359375,488.5628662109375]~0~95~45~0|color:143~16~37|25~180.2`,
 		`BOX~[516,-18,840]~0~0~90~0|mirror:29~101~255~128|11289~10~11198`,
 		`CYLINDER~[-110,521,424]~0~241~17~0|color:143~16~37|25~626.1`,
@@ -403,13 +396,17 @@ function createWorlds() {
 		`CYLINDER~[529,370,1196]~0~241~0~0|color:143~16~37|25~626.1`,
 		`CYLINDER~[1106,371,225]~0~241~17~0|color:143~16~37|25~626.1`,
 		`CYLINDER~[13,2841,-455]~0~241~0~0|color:143~16~37|132~2850`,
-		`TERRAIN~[-578,1859,575]~4~0~90~0|ghost:255~255~255~7|20000~87~20000~206.74~0.001~3~2~1`,
-		`TERRAIN~[-1979,3280,-1121]~4~0~90~0|ghost:255~255~255~1|20000~87~20000~400~0.006~7~0.61~1`,
-		`TERRAIN~[479,4503,-1153]~4~64~90~0|ghost:255~255~255~5|20000~87~20000~400~0.006~7~0.36~1`,
-		`BOX~[14,54,-332]~0~0~90~0|portal:start~[40,4,-53]|10~40~10`
+		`TERRAIN~[-578,1859,575]~4~0~90~0|ghost:255~255~255~14|20000~87~20000~206.74~0.001~3~2~1`,
+		`TERRAIN~[-1979,3280,-1121]~4~0~90~0|ghost:255~255~255~2|20000~87~20000~400~0.006~7~0.61~1`,
+		`TERRAIN~[479,4503,-1153]~4~64~90~0|ghost:255~255~255~10|20000~87~20000~400~0.006~7~0.36~1`,
+		`BOX~[14,54,-332]~0~0~90~0|portal:start~[40,4,-53]|10~40~10`,
+		`LAMPPOST~[396,109,-690]~X~303~90~0||`,
+		`LAMPPOST~[-101,96,-897]~X~243~93~0||`,
+		`LAMPPOST~[-573,103,-1146]~X~193~86~0||`,
+		`LAMPPOST~[-1122.9571533203125,101,-1383.763671875]~X~241~90~0||`
 	]);
 	
-	new World("fractal", [], [
+	new World("fractal", [
 		[E_BG, Color(80, 90, 80)],
 	],
 	[0.6, 1.2],
@@ -450,7 +447,7 @@ function createWorlds() {
 	// 	]
 	// );
 	
-	new World("tinyObjs", [],[
+	new World("tinyObjs",[
 			[E_BG, Color(120, 120, 120)],
 			[E_FADE, Color(128, 220, 255), 5000],
 		],
@@ -523,8 +520,7 @@ function createWorlds() {
 		]
 	);
 	
-	new World("cubes",
-		[],[
+	new World("cubes", [
 			[E_BG, Color(5,0,10)],
 			[E_FADE, Color(0,0,0), 1500],
 			[E_ITERS]
@@ -743,7 +739,7 @@ function createWorlds() {
 		]
 	);
 	
-	new World("spheresForever", [],[
+	new World("spheresForever",[
 			[E_BG, Color(255,227,245)],
 			// [bg_fadeTo, Color(255,227,245), 1200]
 		],
@@ -763,8 +759,7 @@ function createWorlds() {
 		]
 	);
 	
-	new World("turtleHell", [
-		],[
+	new World("turtleHell",[
 			[E_BG, Color(255, 227, 245)],
 			[E_FADE_OLD, Color(255, 227, 245), 900],
 			// [bg_fadeTo, Color(255, 227, 245), 1200],
@@ -790,8 +785,7 @@ function createWorlds() {
 	);
 	
 	new World("gyroidCaves", [
-			[E_BRIGHTEN, Color(1,1,1)]
-		],[
+			// [E_BRIGHTEN, Color(1,1,1)]
 			[E_BG, Color(40, 30, 50)],
 			[E_SUN, Color(255, 255, 240), 0.0025],
 			[E_SUN, Color(0, 0, 0), 0.001]
@@ -812,7 +806,6 @@ function createWorlds() {
 	);
 	
 	new World("parkourSimple", [
-		],[
 			[E_BG, Color(80, 80, 120)],
 			[E_FADE, Color(80, 80, 120), 2000],
 			[E_SUN, Color(255, 200, 170), 0.003],
@@ -837,7 +830,6 @@ function createWorlds() {
 	);
 	
 	new World("speedCheck", [
-		],[
 			[E_BG, Color(80, 80, 120)],
 			[E_SUN, Color(255, 200, 170), 0.003],
 			[E_SUN, Color(255, 255, 255), 0.001]
@@ -869,7 +861,6 @@ function createWorlds() {
 	);
 	
 	new World("stairwell", [
-		],[
 			[E_FADE, Color4(128, 128, 128, 128), 100],
 			[E_BG, Color(184, 255, 249)]
 		],
@@ -893,7 +884,6 @@ function createWorlds() {
 	);
 	
 	new World("space", [
-		],[
 			[E_BG, Color(60, 0, 60)],
 			[E_STARS, Color(255, 255, 255), 0.25, 0.4],
 		],
@@ -915,7 +905,6 @@ function createWorlds() {
 	);
 
 	new World("backrooms", [
-		],[
 			[E_BG, Color(0, 0, 128)],
 			[E_FADE, Color(64, 64, 0), 1200]
 		],
@@ -1011,7 +1000,6 @@ function createWorlds() {
 	
 	
 	new World("spheres", [
-		],[
 			[E_FADE, Color4(128, 128, 128, 128), 200],
 			[E_BG, Color(20, 1, 30)]
 		],
@@ -1065,8 +1053,6 @@ function createWorlds() {
 	);
 	
 	new World("desert", [
-		
-	], [
 		[E_BG, Color(28, 3, 54)],
 		[E_STARS, Color(200, 200, 255), 0.25, 0.6],
 		[E_SUN, Color(169, 40, 25), 0.03],
