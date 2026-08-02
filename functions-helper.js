@@ -823,6 +823,19 @@ function sceneSDF(sceneCollection, pos) {
 	return [dist, distObj];
 }
 
+function serializeRot(theta, phi, rot) {
+	phi += pi/2;
+	theta /= degToRad;
+	phi /= degToRad;
+	rot /= degToRad;
+	theta = modulate(Math.round(theta), 360);
+	phi = modulate(Math.round(phi), 360);
+	rot = modulate(Math.round(rot), 360);
+
+	var res = `${theta}~${phi}~${rot}`;
+	return (res == `0~90~0`) ? `R` : res;
+}
+
 function updateFOV(newFOV) {
 	camera_FOV = newFOV;
 	//first figure out best function given the FOV

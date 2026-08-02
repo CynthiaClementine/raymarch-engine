@@ -200,6 +200,18 @@ function createDefaultMaterial(conStr) {
 	}
 }
 
+/**
+ * creates a default world given a name
+ * @param {String} worldName 
+ */
+function createDefaultWorld(worldName) {
+	return new World(undefined, `'${worldName}':
+			E_BG [128,128,255]
+			E_SUN [255,255,255] 0.01
+		
+	`)
+}
+
 function createHTMLCheckboxAt(parentName, checkboxName, label) {
 	var dummy = document.createElement(`div`);
 	var parent = document.getElementById(parentName);
@@ -290,6 +302,9 @@ function deserialize(str) {
 	} else {
 		[nature, gloop, smooth] = nature.split(`.`).map(a => +a);
 	}
+	if (theta == `R`) {
+		[theta, phi, rot] = [`0`, `90`, `0`];
+	}
 	[theta, phi, rot] = [+theta, +phi, +rot];
 	var posRotObj = {
 		pos: Pos(...pos),
@@ -300,12 +315,14 @@ function deserialize(str) {
 	
 	var finalArgs = [posRotObj];
 	if (material) {
-		finalArgs.push(material, [nature, gloop, smooth]);
+		finalArgs.push(material);
+		if (!Number.isNaN(nature)) {
+			finalArgs.push([nature, gloop, smooth])
+		}
 	}
 	if (params && params != ``) {
 		finalArgs.push(...params.map(a => +a));
 	}
-
 	return new type(...finalArgs, objs);
 }
 

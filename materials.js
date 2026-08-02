@@ -351,7 +351,7 @@ class M_Texture extends Material {
 		super(Color4(255, 0, 255, 255), 0.2);
 		this.mat = materialID;
 		this.scale = scale ?? 1.0;
-		this.rel = isRelative ?? true;
+		this.rel = +isRelative ?? true;
 		this.blend = blendFactor ?? 0.5;
 	}
 
@@ -362,7 +362,7 @@ class M_Texture extends Material {
 	}
 
 	serialize() {
-		return `texture:${this.mat}~${this.scale}~${this.rel}~${this.blend}`;
+		return `texture:${this.mat}~${this.scale}~${+this.rel}~${this.blend}`;
 	}
 
 	serializeGPU() {

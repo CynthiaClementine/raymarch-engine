@@ -10,12 +10,6 @@ const tau = Math.PI * 2;
 //it's called scaryVariable because you don't know if you can remove it or not
 var scaryVariable = 0;
 
-//pre-effects
-const E_LOOP =			10;
-const E_BRIGHTEN =		20;
-const E_WHITEN =		21;
-const E_SPHERIZE =		30;
-
 //post-effects
 const E_BG =			0;
 const E_BG_RANGE =		1;
@@ -26,6 +20,17 @@ const E_FADE_RANGE =	12;
 const E_SUN =			20;
 const E_STARS =			21;
 const E_ITERS =			31;
+const map_effStr = {
+	0: "E_BG",
+	1: "E_BG_RANGE",
+	2: "E_GRADIENT",
+	10: "E_FADE",
+	11: "E_FADE_OLD",
+	12: "E_FADE_RANGE",
+	20: "E_SUN",
+	21: "E_STARS",
+	31: "E_ITERS",
+};
 
 const N_NORMAL =0;
 const N_GLOOP = 1;
@@ -171,16 +176,24 @@ var debug_listening = false;
 	autoScale: the program will increase/decrease the resolution based on lag
 	bunnyTargets: you can see where SkyBunnies are targeting
 	collisionRaycast: uses CPU collision raycasts to create a second image layer in red
+	crosshair: whether to show the crosshair or not
 	showLoopBounds: shows a wireframe around all Scene3dLoop objects
-	realCrosshair: ???????
+	showObjBounds: shows a wireframe around all objects
  */
 var debug_flags = {
 	autoScale: false,
 	bunnyTargets: false,
 	collisionRaycast: false,
+	crosshair: true,
 	showLoopBounds: false,
-	realCrosshair: true,
+	showObjBounds: false,
 };
+
+var editor_flags = {
+	snapToSurface: true,
+	snapToPos: true,
+	snapDist: 5,
+}
 
 var editor_active = false;
 var editor_local = false;
@@ -376,7 +389,7 @@ var uTexes;
 
 var loading_world;
 
-const world_maxObjs = 2 ** 9;
+const world_maxObjs = 2 ** 11;
 const world_maxID = 20;
 var worlds = {};
 var world_time = 0;

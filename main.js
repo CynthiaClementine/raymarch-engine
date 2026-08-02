@@ -399,19 +399,15 @@ function handleKeyPress(a) {
 				}
 				break;
 		
-			case "KeyB":
-				//TODO: don't do this.
-				if (loading_world.preEffects.length < 1 || loading_world.preEffects[0][0] != E_BRIGHTEN) {
-					loading_world.preEffects.splice(0, 0, [E_BRIGHTEN, [4, 4, 4, 4]]);
-				} else if (loading_world.preEffects[0][0] == E_BRIGHTEN) {
-					loading_world.preEffects.splice(0, 1);
-				}
-				loading_world.shouldRegen = true;
+			case "Backslash":
+				//toggle the editor settings panel
+				
 				return;
 			case "KeyE":
 				controls.shouldDrag = true;
 				return;
 			case "KeyN":
+				//TODO: don't do this.
 				if (loading_world.postEffects.length < 1 || loading_world.postEffects[0][0] != E_ITERS) {
 					loading_world.postEffects.splice(0, 0, [E_ITERS]);
 				} else if (loading_world.postEffects[0][0] == E_ITERS) {
@@ -431,7 +427,7 @@ function handleKeyPress(a) {
 					loading_world.objects.push(newObj);
 					if (newObj.type == TYPE_CLASS_LGROUP) {
 						newObj.tick();
-						newObj.break();
+						newObj.break(loading_world.objects);
 					}
 					loading_world.shouldRegen = true;
 				}

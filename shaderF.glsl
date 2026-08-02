@@ -25,7 +25,7 @@
 #define ray_numLights 4
 #define ray_maxBounces 22
 
-#define obj_maxNum 512
+#define obj_maxNum 2048
 
 
 #define fractal_iters 10
@@ -60,12 +60,6 @@
 #define PRISM_OCT	55
 #define FRACTAL		70
 #define TERRAIN		71
-
-//pre-effects
-#define E_LOOP			10
-#define E_BRIGHTEN		20
-#define E_WHITEN		21
-#define E_SPHERIZE		30
 
 //post-effects
 #define E_BG			0
@@ -863,6 +857,10 @@ float objSDF(vec3 p, int world, int index) {
 		default:
 			{d = 999.;} break;
 	}
+	if ((nature & N_SMOOTH) > 0) {
+		int gAmt = floatBitsToInt(data[0][3]);
+		d -= 0.5*float(gAmt & 0xFFFF);
+	}
 	if ((nature & N_ANTI) > 0) {
 		d = -d;
 	}
@@ -1236,13 +1234,57 @@ float smoothMin(float d1, float d2, float k) {
 float applyDist(int stg, float oldDist, float newDist, int nature, int index) {
 	int gAmt = floatBitsToInt(objData(stage[stg].world, index)[0][3]);
 	if ((nature & N_SMOOTH) > 0) {
-		newDist -= float(gAmt & 0xFFFF) * (((nature & N_ANTI) > 0) ? -0.5 : 0.5);
+	// 	newDist -= float(gAmt & 0xFFFF) * (((nature & N_ANTI) > 0) ? -0.5 : 0.5);
 		nature ^= N_SMOOTH;
 	}
 	if ((nature & ~N_FOG) == N_NORMAL || (nature & N_GRAVITY) > 0) {
 		stage[stg].closestInd = (newDist < oldDist) ? index : stage[stg].closestInd;
 		return min(oldDist, newDist);
 	}
+	if ((nature & N_GLOOPY) > 0 && (nature & N_ANTI) > 0) {
+	
+		// float trueNewDist = -smoothMin(-oldDist, -newDist, 0.25*float((gAmt >> 16) & 0xFFFF));
+		// if (trueNewDist > oldDist) {
+		// 	stage[stg].closestInd = index;
+		// }
+		// return max(trueNewDist, oldDist);
+
+
+
+
+		newDist = (newDist > -minDist) ? max(newDist, minDist) : newDist;
+		float trueNewDist = -smoothMin(-oldDist, -newDist, 0.25*float((gAmt >> 16) & 0xFFFF));
+		if (trueNewDist != oldDist) {
+			stage[stg].closestInd = index;
+		}
+		return trueNewDist;
+
+
+		
+ //        float rawDist = -newDist;
+ //        if (rawDist < minDist) {
+ //            rawDist = min(rawDist, -minDist);
+ //        }
+
+ //        bool isAnti = (oldDist < 9999999.0) && ((natureData(stage[stg].world, stage[stg].closestInd) & N_ANTI) > 0);
+
+ //        if (isAnti) {
+ //            // blend together two anti objects
+ //            float blend = 0.25 * float((gAmt >> 16) & 0xFFFF);
+ //            float blended = -smoothMin(-oldDist, rawDist, blend);
+ //            if (blended < minDist * -0.5 - oldDist) {
+ //                stage[stg].closestInd = index;
+ //            }
+ //            return blended;
+ //        } else {
+ //            // treat like normal
+ //            float trueNewDist = max(oldDist, -rawDist);
+ //            if (trueNewDist != oldDist) {
+ //                stage[stg].closestInd = index;
+ //            }
+ //            return trueNewDist;
+ //        }
+    }
 	if ((nature & N_GLOOPY) > 0) {
 		float trueNewDist = smoothMin(oldDist, newDist, 0.25*float((gAmt >> 16) & 0xFFFF));
 		if ((nature & N_FOG) > 0) {
@@ -1254,11 +1296,8 @@ float applyDist(int stg, float oldDist, float newDist, int nature, int index) {
 		return min(trueNewDist, oldDist);
 	}
 	if ((nature & N_ANTI) > 0) {
-		newDist = -newDist;
-		if (newDist < minDist) {
-			newDist = min(newDist, -minDist);
-		}
-		float trueNewDist = max(oldDist, -newDist);
+		newDist = (newDist > -minDist) ? max(newDist, minDist) : newDist;
+		float trueNewDist = max(oldDist, newDist);
 		if (trueNewDist != oldDist) {
 			stage[stg].closestInd = index;
 		}

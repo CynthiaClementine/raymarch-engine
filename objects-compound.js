@@ -248,7 +248,7 @@ class Tree extends SceneCollection {
 		var ampl = this.ampl;
 		this.bbStore = [Pos(-ampl, -ampl, -ampl), Pos(ampl, ampl, ampl)];
 
-		var currVecs = [[Pos(0, 0, 0), [this.rand(0, tau), this.rand(pi*0.5, pi*0.4)]]];
+		var currVecs = [[Pos(0, 0, 0), [this.rand(0 + this.theta, tau + this.theta), this.rand(pi*0.5, pi*0.4)]]];
 		var newCurrs = [];
 		var cRadius = Math.cbrt(ampl);
 		for (var a=0; a<this.iters; a++) {
@@ -296,8 +296,10 @@ class Tree extends SceneCollection {
 	}
 
 	serialize() {
+		const ts = this;
 		const mat = this.material.serialize();
-		return `TREE~[${this.pos}]~X~0~90~0|${mat}|${this.seed}~${this.ampl}~${this.rr}~${this.a}~${this.b}~${this.iters}`;
+		const rot = serializeRot(this.theta,this.phi,this.rot);
+		return `TREE~[${ts.pos}]~X~${rot}|${mat}|${ts.seed}~${ts.ampl}~${ts.rr}~${ts.a}~${ts.b}~${ts.iters}`;
 	}
 }
 

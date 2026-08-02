@@ -38,8 +38,8 @@ class Scene3dObject {
 			nature = [nature, 1, 1];
 		}
 		this.nature = nature[0];
-		this.gloopiness = nature[1];
-		this.smoothness = nature[2];
+		this.gloopiness = nature[1] / 2;
+		this.smoothness = nature[2] / 2;
 		this.gloopExt = 0;
 		
 
@@ -82,17 +82,12 @@ class Scene3dObject {
 	}
 
 	serialize() {
-		const [t, p, r] = [this.theta, this.phi, this.rot];
-		var deg = (radians) => {
-			radians /= degToRad;
-			return modulate(Math.round(radians), 360);
-		}
-
+		const tpr = serializeRot(this.theta, this.phi, this.rot);
 		var nature = `${this.nature}`;
 		if (this.nature != N_NORMAL && this.gloopiness != 1 || this.smoothness != 1) {
-			nature = `${this.nature}.${2*this.gloopiness}.${2*this.smoothness}`;
+			nature = `${nature}.${2*this.gloopiness}.${2*this.smoothness}`;
 		}
-		return `~[${this.pos}]~${nature}~${deg(t)}~${deg(p + (Math.PI / 2))}~${deg(r)}|${this.material.serialize()}|`;
+		return `~[${this.pos}]~${nature}~${tpr}|${this.material.serialize()}|`;
 	}
 	
 	serializeGPU() {
@@ -252,12 +247,7 @@ class Scene3dLoop {
 		const grStr = this.objects.map(a => a.serialize()).join(`\n\t||`);
 		const pos = this.pos;
 		const [t, p, r] = [this.theta, this.phi, this.rot];
-		//TODO: I've now defined this enough times that it's probably worth it to just make it a real function
-		var deg = (radians) => {
-			radians /= degToRad;
-			return modulate(Math.round(radians), 360);
-		}
-		return `LOOP~[${pos[0]},${pos[1]},${pos[2]}]~X~${deg(t)}~${deg(p+Math.PI/2)}~${deg(r)}|${this.rx}~${this.ry}~${this.rz}~${this.d}\n\t||${grStr}`;
+		return `LOOP~[${pos}]~X~${serializeRot(t,p,r)}|${this.rx}~${this.ry}~${this.rz}~${this.d}\n\t||${grStr}`;
 	}
 	
 	serializeGPU() {
@@ -360,11 +350,7 @@ class SceneCollection {
 
 	serialize() {
 		const [t, p, r] = [this.theta, this.phi, this.rot];
-		function deg(radians) {
-			radians /= degToRad;
-			return modulate(Math.round(radians), 360);
-		}
-		return `COLLECTION~[${this.pos}]~X~${deg(t)}~${deg(p + (Math.PI / 2))}~${deg(r)}||${this.objects}`;
+		return `COLLECTION~[${this.pos}]~X~${serializeRot(t,p,r)}||${this.objects}`;
 	}
 }
 
@@ -468,13 +454,18 @@ class SceneCollectionLoose {
 
 	//remove self from the objectsArray and add each of the constituent parts to said array
 	break(objectsArr) {
-		
+		var ind = objectsArr.indexOf(this);
+		objectsArr.splice(ind, 1);
+
+		this.objects.forEach(o => {
+			objectsArr.push(o);
+		});
 	}
 	
 	serialize() {
 		const grStr = Array.from(this.objects).map(a => a.serialize()).join(`\n\t||`);
 		const pos = this.sPos;
-		return `GROUP-L~[${pos[0]},${pos[1]},${pos[2]}]~X~0~90~0|\n\t||${grStr}`;
+		return `GROUP-L~[${pos}]~X~0~90~0|\n\t||${grStr}`;
 	}
 
 	distanceToPos() {
@@ -1272,7 +1263,9 @@ class Triangle extends Scene3dObject {
 	}
 	
 	serialize() {
-		return `TRI${super.serialize()}${this.off2[0]}~${this.off2[1]}~${this.off2[2]}~${this.r}~${this.off3[0]}~${this.off3[1]}~${this.off3[2]}`;
+		const of2 = this.off2;
+		const of3 = this.off3;
+		return `TRI${super.serialize()}${of2[0]}~${of2[1]}~${of2[2]}~${this.r}~${of3[0]}~${of3[1]}~${of3[2]}`;
 	}
 	
 	serializeGPU() {
@@ -1716,7 +1709,8 @@ class Voxel extends Scene3dObject {
 	}
 	
 	serialize() {
-		return `VOXEL${super.serialize()}${this.r * 2}~${this.c[0]}~${this.c[1]}~${this.c[2]}~${this.c[3]}~${this.c[4]}~${this.c[5]}~${this.c[6]}~${this.c[7]}`
+		const c = this.c;
+		return `VOXEL${super.serialize()}${this.r * 2}~${c[0]}~${c[1]}~${c[2]}~${c[3]}~${c[4]}~${c[5]}~${c[6]}~${c[7]}`
 	}
 	
 	serializeGPU() {
