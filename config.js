@@ -20,6 +20,7 @@ const E_FADE_RANGE =	12;
 const E_SUN =			20;
 const E_STARS =			21;
 const E_ITERS =			31;
+const E_GREYSCALE =		32;
 const map_effStr = {
 	0: "E_BG",
 	1: "E_BG_RANGE",
@@ -46,6 +47,7 @@ const M_RUBBER =	2;
 const M_NORMAL =	3;
 const M_GLASS =		10;
 const M_GHOST =		11;
+const M_PLEXI =		12;
 const M_PORTAL =	20;
 const M_GRAVITY =	25;
 const M_MIRROR =	30;
@@ -185,6 +187,7 @@ var debug_flags = {
 	bunnyTargets: false,
 	collisionRaycast: false,
 	crosshair: true,
+	showGrid: true,
 	showLoopBounds: false,
 	showObjBounds: false,
 };
@@ -192,7 +195,9 @@ var debug_flags = {
 var editor_flags = {
 	snapToSurface: true,
 	snapToPos: true,
-	snapDist: 5,
+	snapToGrid: true,
+	snapDist: 50,
+	gridDist: 1,
 }
 
 var editor_active = false;

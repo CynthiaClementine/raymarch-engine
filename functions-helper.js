@@ -279,7 +279,7 @@ function drawUI() {
 	}
 	
 	//debug bars
-	btx.fillStyle = color_editor_border;
+	btx.fillStyle = editor_isStable ? color_editor_border : `#F99`;
 	btx.fillRect(0, 0, cvs.width, pxH * 12);
 	btx.fillRect(0, ch - pxH * 12, cvs.width, pxH * 12);
 	

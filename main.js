@@ -39,7 +39,7 @@ async function setup() {
 
 	banvas.requestPointerLock = banvas.requestPointerLock || banvas.mozRequestPointerLock;
 	document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
-	banvas.onclick = function() {banvas.requestPointerLock({unadjustedMovement: true});}
+	banvas.onclick = function() {banvas.requestPointerLock();}
 
 	player = new Player_Debug(loading_world, Pos(...loading_world.spawn), ...loading_world.spawn.slice(3));
 	camera = new Camera(loading_world, Pos(...loading_world.spawn));
@@ -160,7 +160,41 @@ function tick() {
 		o.tick();
 	});
 	loading_world.tick();
+
+	var stableGuess = !(controls.shouldDrag) && (editor_axis == null);
+	//if we're stable now but unstable in the past, save the current state
+	if ((!editor_isStable && stableGuess) || (editor_isStable && stableGuess && world_time % 60 == 1)) {
+		// saveWorldState();
+	}
+
+	editor_isStable = stableGuess;
+
+	
 	perf_logEnd(`tick`);
+}
+
+function saveWorldState() {
+	var name = loading_world.name;
+	if (!editHistory[name]) {
+		editHistory[name] = [];
+	}
+	var len = editHistory[name].length;
+	
+	var currState = loading_world.serialize();
+	if (currState != editHistory[name][len-1]) {
+		editHistory[name][len] = currState;
+	}
+}
+
+function loadWorldState() {
+	var name = loading_world.name;
+	if (!editHistory[name]) {
+		console.log(`nothing to load!`);
+		return;
+	}
+	var len = editHistory[name].length;
+
+	//ideally, editHistory[l]
 }
 
 function finishDraw() {
@@ -324,6 +358,8 @@ function handleKeyPress(a) {
 				alt-click - deselect object
 				click + drag or E - move object around
 
+			\ - bring up editor options panel
+
 			MODIFICATION:
 
 
@@ -401,7 +437,14 @@ function handleKeyPress(a) {
 		
 			case "Backslash":
 				//toggle the editor settings panel
-				
+				console.log(`p1`);
+				if (overlay.style.display == `none` || overlay.style.display == ``) {
+					console.log(`p2`);
+					document.exitPointerLock();
+					activateOverlay(true);
+				} else {
+					overlay.style.display = `none`;
+				}
 				return;
 			case "KeyE":
 				controls.shouldDrag = true;

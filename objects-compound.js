@@ -93,7 +93,10 @@ class SkyBunny extends SceneCollection {
 	
 	animate(objGroup) {
 		if (debug_flags.bunnyTargets) {
-			objGroup.push(createDefaultObject());
+			objGroup.push(createDescribedObject(TYPE_SPHERE, {
+				parent: this,
+				intangible: true,
+			}));
 		}
 	}
 	

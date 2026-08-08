@@ -1,5 +1,6 @@
 var editor_selected = undefined;
 var editor_initBuffer = null;
+var editor_isStable = true;
 
 
 
@@ -357,7 +358,56 @@ function deserializeMat(str) {
 function calcPlacePos() {
 	var offset = polToCart(camera.theta, camera.phi, editor_placeOffset);
 	var r = Math.round;
-	return Pos(r(camera.pos[0] + offset[0]), r(camera.pos[1] + offset[1]), r(camera.pos[2] + offset[2]));
+	var base = Pos(camera.pos[0] + offset[0], camera.pos[1] + offset[1], camera.pos[2] + offset[2]);
+
+	if (editor_flags.snapToGrid) {
+		for (var d=0; d<3; d++) {
+			base[d] = r(base[d] / editor_flags.gridDist) * editor_flags.gridDist;
+		}
+	}
+
+	const trueObj = (obj) => {
+		while (obj.parent) {
+			obj = obj.parent;
+		}
+		return obj;
+	}
+
+	//snap to objects pos if necessary
+	var exclude = trueObj(editor_selected);
+	var obj = null;
+	var dist = 1e101;
+	if (editor_flags.snapToPos) {
+		loading_world.objects.forEach(o => {
+			if (trueObj(o) == exclude) {
+				return;
+			}
+			var d = getDistancePos(o.pos, base);
+			if (d < editor_flags.snapDist && d < dist) {
+				obj = o;
+				dist = d;
+			}
+		});
+		if (dist < editor_flags.snapDist) {
+			base[0] = obj.pos[0];
+			base[1] = obj.pos[1];
+			base[2] = obj.pos[2];
+		}
+	}
+
+	// //snap to surface is a bit more tricky. We have to figure out where distance=0 is, but excluding the SDF of the current held object
+	// if (editor_flags.snapToSurface) {
+	// 	var countingObjs = loading_world.bvh.objectsInBox(...augmentBounds(
+	// 		bounds, editor_flags.snapDist));
+
+	// 	countingObjs = countingObjs.filter(a => trueObj(a) != exclude);
+
+	// 	var iters = 10;
+	// 	sceneSDF()
+	// }
+	
+	
+	return base;
 }
 
 class Checkbox {
@@ -525,12 +575,12 @@ function editor_initialize() {
 	var rgba = [...rgb, `.material.color.3 (a: ###) 0—255 u1`];
 	materialEditables = {
 		"color":	[...rgb],
-		"concrete": [],
 		"ghost":	[...rgba],
 		"glass":	[...rgba, `.material.density (d: #.##) 0.05—10 u0.05`],
 		"light":	[...rgb, `.material.lumi (l: ###) 0—255 u1`],
 		"mirror":	[...rgba],
 		"normal":	[],
+		"plexi":	[...rgba],
 		"portal": [
 			`.material.offset.0 (offX: ±###) r100 u1`,
 			`.material.offset.1 (offY: ±###) r100 u1`,
@@ -553,8 +603,17 @@ function editor_initialize() {
 		],
 	}
 
+	editor_controls.edit = ec_compile([
+		`C Surface_snap editor_flags.snapToSurface`,
+		`C Pos_snap editor_flags.snapToPos`,
+		`editor_flags.snapDist (snapDist: ##) 1—99 u1`,
+		`C Show_grid debug_flags.showGrid`,
+		`C Grid_snap editor_flags.snapToGrid`,
+		`editor_flags.gridDist (gridDist: ###.#) 0.1—100 u0.1`,
+	], group_edit);
+
 	editor_controls.set = ec_compile([
-		`camera_FOV (fov: ###) v20 40 60 80—120 u2`,
+		`camera_FOV (fov: ###) v20 40 60 80—170 u2`,
 		`render_goalN (px:_ ##) 40—1440 v40 60 80 100 120 150 180 240 300 360 512 720 1080 1440`
 	], group_settings);
 
@@ -571,13 +630,22 @@ function editor_initialize() {
 	editor_select(player);
 }
 
-function editor_preAdd() {
+function activateOverlay(showEditor) {
 	overlay.style.display = `flex`;
-	overlay.onclick = () => {
-		overlay.style.display = `none`;
-	};
-	//set up object addition grid
+	if (!showEditor) {
+		overlay.onclick = () => {
+			overlay.style.display = `none`;
+		};
+	}
 
+	group_edit.style.display = showEditor ? `inline`: `none`;
+	grid.style.display = showEditor ? `none` : ``;
+}
+
+function editor_preAdd() {
+	activateOverlay(false);
+	
+	//set up object addition grid
 	const pullFrom = Object.keys(map_strObj);
 	const rows = Math.sqrt(pullFrom.length) | 0;
 
@@ -601,12 +669,9 @@ function editor_preAdd() {
 }
 
 function editor_preMat() {
-	overlay.style.display = `flex`;
-	overlay.onclick = () => {
-		overlay.style.display = `none`;
-	};
+	activateOverlay(false);
+	
 	//set up object addition grid
-
 	const pullFrom = Object.keys(map_strMat);
 	const rows = Math.sqrt(pullFrom.length) | 0;
 
@@ -1005,9 +1070,23 @@ function ec_compile(arr, destination) {
 
 		//checkboxes
 		if (tok[0] == `C`) {
+			//simple checkbox
+			if (tok.length == 3) {
+				const loc = tok[2];
+				const getSetSimple = (val) => {
+					if (val != null) {
+						pathSet(loc, val);
+					}
+					return pathGet(loc);
+				}
+				elements.push(new Checkbox(destination, label, getSetSimple, getSetSimple));
+				continue;
+			}
+			//complex checkbox - custom getter/setter
 			elements.push(new Checkbox(destination, label, arr[e+1], arr[e+1]));
 			e += 1;
 			continue;
+
 		}
 
 		//buttons
@@ -1077,10 +1156,6 @@ function ec_compile(arr, destination) {
 	}
 
 	return elements;
-}
-
-function ec_compileSlider() {
-
 }
 
 function editor_updateHolp() {

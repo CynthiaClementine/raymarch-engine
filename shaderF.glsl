@@ -71,6 +71,7 @@
 #define E_SUN			20
 #define E_STARS			21
 #define E_ITERS			31
+#define E_GREYSCALE		32
 
 //natures
 #define N_NORMAL	0
@@ -86,11 +87,11 @@
 
 //materials
 #define M_COLOR		0
-#define M_CONCRETE	1
 #define M_RUBBER	2
 #define M_NORMAL	3
 #define M_GLASS		10
 #define M_GHOST		11
+#define M_PLEXI		12
 #define M_PORTAL	20
 #define M_GRAVITY	25
 #define M_MIRROR	30
@@ -147,6 +148,7 @@ int lightIndices[ray_numLights];
 
 bool hit = false;
 int bounceCount = 0;
+int iterCount = 0;
 float bvhTolerance = 8.0;
 float pixelGamma = 0.7;
 float fudgeFactor = 1.001;
@@ -167,6 +169,9 @@ float fractalNoise(vec2, int, float, float, float, float);
 
 mat4 metric(vec4, vec3, float);
 Path geodesicStep(Path, float, vec3, float);
+
+vec3 getGrad(vec3, int, int);
+vec3 getNormal(vec3, int, int);
 
 
 void setStageRay(int stg, vec3 newPos, vec3 newDPos) {
@@ -190,6 +195,14 @@ void setStageRay_hack(int stg, vec3 newPos, vec3 newDPos) {
 	stage[stg].path.vel = dposn;
 	stage[stg].path.momentum = vec4(1, dposn);
 	bounceCount += 1;
+}
+
+vec3 reflectStage(int stg, float density) {
+	stage[stg].density = density;
+	vec3 norm = getNormal(stage[stg].path.spot.yzw, stage[stg].world, stage[stg].closestInd);
+	vec3 incident = stage[stg].path.vel;
+	// float mu = stage[stg].density / density;
+	return normalize((stage[stg].density * incident - norm) / density);
 }
 
 void teleport(int stg, vec3 newPos) {
@@ -413,24 +426,24 @@ void postEffect(vec4 data0, vec4 data1, vec4 data2) {
 			}
 		} return;
 		case E_ITERS: {
-			float gweh = 3. * (
-				float(stage[0].iters) + 
-				float(stage[1].iters) + 
-				float(stage[2].iters) + 
-				float(stage[3].iters)
-				) / float(maxIters);
-				stage[0].color.rgba = vec4(
-					gweh * gweh, 
-					0.1 + groundColor.g / 4., 
-					float(bounceCount) / float(ray_maxBounces),
-					1.0
-				);
+			float gweh = 3. * float(iterCount) / float(maxIters);
+			stage[0].color.rgba = vec4(
+				gweh * gweh, 
+				0.1 + 0.4*groundColor.g, 
+				float(bounceCount) / float(ray_maxBounces),
+				1.0
+			);
 		} return;
 		case E_STARS: {
 			if (!hit) {
 				float f = backgroundStarAmpl(stage[0].path.vel, data1[0], data1[1]);
 				groundColor = mix(groundColor, arg0, f);
 			}
+		} return;
+		case E_GREYSCALE: {
+			vec3 c = stage[0].color.rgb;
+			stage[0].color.rgb = vec3(0.2989*c.r + 0.5870*c.g + 0.1140*c.b);
+			groundColor = vec3(0.2989*groundColor.r + 0.5870*groundColor.g + 0.1140*groundColor.b);
 		} return;
 	}
 }
@@ -883,7 +896,7 @@ vec3 getGrad(vec3 p, int worldIndex, int objIndex) {
 		objSDF(p + e.yxy, worldIndex, objIndex),
 		objSDF(p + e.yyx, worldIndex, objIndex)
 	);
-	return (n / e[0]);
+	return (-n / e[0]);
 }
 
 //gets the sdf's normal at a particular point (gradient with length 1)
@@ -935,7 +948,8 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 			res = 1;
 		} break;
 		
-		case M_GLASS: {
+		case M_GLASS:
+		case M_PLEXI: {
 			//if the ray is outside entering, or inside exiting, apply glass effect
 			//for outside -> inside, we can check density
 			//for inside -> outside, we can check distance
@@ -949,30 +963,25 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 			
 			float oldDist = objSDF(oldPos, stage[stg].world, stage[stg].closestInd);
 			float newDist = stage[stg].localDist;
+			vec3 nextPos = currPos + stage[stg].path.vel * newLocalDist;
+			float futureDist = objSDF(nextPos, stage[stg].world, stage[stg].closestInd);
+
+			bool entering = (oldDist > minDist && newDist <= minDist);
+			bool exiting = (newDist < minDist && futureDist >= minDist);
 			
 			//entering
-			if (oldDist > minDist && newDist <= minDist) {
-				stage[stg].density = density;
-				vec3 norm = getNormal(stage[0].path.spot.yzw, stage[0].world, stage[0].closestInd);
-				vec3 incident = stage[0].path.vel;
-				float mu = stage[stg].density / density;
-				vec3 reflected = (stage[stg].density * incident - norm) / density;
-				setStageRay_hack(stg, stage[stg].path.spot.yzw, normalize(reflected));
+			if (entering) {
+				if (matType == M_GLASS) {
+					setStageRay_hack(stg, stage[stg].path.spot.yzw, reflectStage(stg, density));
+				}
 				applyColor(stg, data0);
 			}
 			
-			vec3 nextPos = currPos + stage[stg].path.vel * newLocalDist;
-			float futureDist = objSDF(nextPos, stage[stg].world, stage[stg].closestInd);
-			
 			//exiting
-			if (newDist < minDist && futureDist >= minDist) {
-				density = 1.0;
-				stage[stg].density = density;
-				vec3 norm = -getNormal(stage[0].path.spot.yzw, stage[0].world, stage[0].closestInd);
-				vec3 incident = stage[0].path.vel;
-				float mu = stage[stg].density / density;
-				vec3 reflected = (stage[stg].density * incident - norm) / density;
-				setStageRay(stg, nextPos, normalize(reflected));
+			if (exiting) {
+				if (matType == M_GLASS) {
+					setStageRay(stg, nextPos, reflectStage(stg, 1.0));
+				}
 				applyColor(stg, data0);
 			}
 			
@@ -1356,6 +1365,7 @@ void findHitPos(vec3 startPos, int world, int objID, float oldLocalDist, float n
 
 void raymarch() {
 	for (int i=0; i<maxIters; i++) {
+		iterCount += 1;
 		// vec3 p = startP + dPos * totalDist;
 		stage[0].iters = i;
 		float oldLocalDist = stage[0].localDist;
@@ -1403,6 +1413,7 @@ void shadow(int stg, vec3 startPos, vec3 normal, vec3 lightVec) {
 
 	//IN THE LOOP PART HERE: color[3] represents unscaled gamma. Between [0,1]
 	for(int i=0; i<count; i++) {
+		iterCount += 1;
 		stage[stg].iters = i;
 		stage[stg].localDist = sceneSDF(stage[stg].path.spot.yzw, stg);
 		
@@ -1683,14 +1694,21 @@ void main() {
 	}
 	objIndices[obj_maxNum - 1] = 0;
 	
-	//TODO: why does this go from -1 to 1?
 	seed = vec2(vUV * 0.5 + 0.5);
-	vec3 camVecs = vec3(
-		vUV.x * uResFov.x / uResFov.y * uResFov[2],
-		vUV.y * uResFov[2],
-		1
-	);
-	
+
+	vec3 camVecs = vec3(vUV.x, vUV.y, 1.);
+	if (uResFov[2] > 10.) {
+		//octahedral mapping
+		camVecs.z -= abs(vUV.x) + abs(vUV.y);
+		float t = clamp(-camVecs.z, 0., 1.);
+		camVecs.x += (camVecs.x >= 0.) ? -t : t;
+		camVecs.y += (camVecs.y >= 0.) ? -t : t;
+		camVecs = normalize(camVecs);
+	} else {
+		//perspective mapping
+		camVecs.x *= uResFov.x / uResFov.y * uResFov[2];
+		camVecs.y *= uResFov[2];
+	}
 	
 	stage[0].world = uCamWorld;
 	setStageRay(0, uCamPos, normalize(uCamRot * camVecs));

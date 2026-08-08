@@ -1,11 +1,11 @@
 /* 
 MATERIAL TYPES
 0     color
-1     concrete
 2     rubber
 3     normal
 10    glass
 11    ghost
+12    plexiglass
 20    portal
 25    gravity
 30    mirror
@@ -106,46 +106,6 @@ class M_Gravity extends Material {
 	}
 }
 
-class M_Concrete extends M_Color {
-	static type = M_CONCRETE;
-	constructor() {
-		super(249, 248, 243);
-		this.closeColors = [
-			Color4(255, 255, 255, 255),
-			Color4(255, 249, 224, 255),
-			Color4(242, 236, 230, 255),
-			Color4(242, 252, 255, 255),
-		];
-		this.farColors = [
-			Color4(252, 252, 249, 255),
-			Color4(252, 248, 234, 255),
-			Color4(245, 242, 236, 255),
-			Color4(245, 250, 249, 255),
-		];
-		this.shimmer = 3;
-	}
-	
-	applyHitEffect(ray, obj) {
-		if (ray.totalDist > 40) {
-			return super.applyHitEffect(ray, obj);
-		}
-		const colors = (ray.totalDist > 20) ? this.farColors : this.closeColors;
-		const shimmer = this.shimmer;
-		const x = modulate((ray.pos[0] * shimmer) | 0, 10);
-		const y = modulate((ray.pos[1] * shimmer) | 0, 10);
-		const z = modulate((ray.pos[2] * shimmer) | 0, 10);
-		
-		// applyColor(colors[modulate(3 * x + 7 * y + z, colors.length)], ray.color);
-		applyColor(colors[modulate(x ** y + (4.6 * z | 0), colors.length)], ray.color);
-		this.pushOut(ray, obj);
-		return true;
-	}
-	
-	serialize() {
-		return `concrete`;
-	}
-}
-
 class M_Ghost extends Material {
 	static type = M_GHOST;
 	constructor(r, g, b, opacity) {
@@ -186,6 +146,27 @@ class M_Glass extends Material {
 	
 	serializeGPU() {
 		return [this.type, [this.color[0] / 255, this.color[1] / 255, this.color[2] / 255, this.color[3] / 255], this.density];
+	}
+}
+
+class M_Plexiglass extends Material {
+	static type = M_PLEXI;
+	constructor(r, g, b, opacity) {
+		super(Color4(r, g, b, opacity), 0.1);
+	}
+
+	applyNearEffect(ray) {}
+	
+	applyHitEffect(ray) {
+		return false;
+	}
+	
+	serialize() {
+		return `plexi:${this.color[0]}~${this.color[1]}~${this.color[2]}~${this.color[3]}`;
+	}
+	
+	serializeGPU() {
+		return [this.type, [this.color[0] / 255, this.color[1] / 255, this.color[2] / 255, this.color[3] / 255]];
 	}
 }
 
@@ -374,12 +355,12 @@ class M_Texture extends Material {
 
 var map_strMat = {
 	"color": M_Color,
-	"concrete": M_Concrete,
 	"ghost": M_Ghost,
 	"glass": M_Glass,
 	"light": M_Light,
 	"mirror": M_Mirror,
 	"normal": M_Normal,
+	"plexi": M_Plexiglass,
 	"portal": M_Portal,
 	"gravity": M_Gravity,
 	"rubber": M_Rubber,

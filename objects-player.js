@@ -73,6 +73,7 @@ class Player {
 			Pos(this.pos[0] - this.trueMax, this.pos[1] - this.trueMax, this.pos[2] - this.trueMax),
 			Pos(this.pos[0] + this.trueMax, this.pos[1] + this.trueMax, this.pos[2] + this.trueMax)
 		);
+		this.possibleObjs = this.possibleObjs.filter(a => !(a.intangible));
 	}
 
 	tick() {
