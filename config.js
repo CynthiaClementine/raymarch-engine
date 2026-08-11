@@ -187,7 +187,7 @@ var debug_flags = {
 	bunnyTargets: false,
 	collisionRaycast: false,
 	crosshair: true,
-	showGrid: true,
+	showGrid: false,
 	showLoopBounds: false,
 	showObjBounds: false,
 };
@@ -196,10 +196,12 @@ var editor_flags = {
 	snapToSurface: true,
 	snapToPos: true,
 	snapToGrid: true,
-	snapDist: 50,
+	snapDist: 25,
 	gridDist: 1,
 }
 
+
+var editHistory = {};
 var editor_active = false;
 var editor_local = false;
 var editor_placeOffset = 100;

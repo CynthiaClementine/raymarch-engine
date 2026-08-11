@@ -519,7 +519,12 @@ function editor_initialize() {
 			sl_h
 		],
 		"LINE":			[sl_r],
-		"LOOP":			[...xyz, `.d (d:_ ####) r100 u1`],
+		"LOOP":			[
+			...xyz, 
+			`.dx (<br>dx: ####) 1—1023 u1`,
+			`.dy (dy: ####) 1—1023 u1`,
+			`.dz (dz: ####) 1—1023 u1`,
+		],
 		"OCTAHEDRON":	[...xyz],
 		"POINT":		[],
 		"PRISM-RHOMBUS":[...xyz, `.skew (skew: ±##) r50 -500—500 u1`],
@@ -613,7 +618,7 @@ function editor_initialize() {
 	], group_edit);
 
 	editor_controls.set = ec_compile([
-		`camera_FOV (fov: ###) v20 40 60 80—170 u2`,
+		`camera_FOV (fov: ###) 40—170 u2`,
 		`render_goalN (px:_ ##) 40—1440 v40 60 80 100 120 150 180 240 300 360 512 720 1080 1440`
 	], group_settings);
 
@@ -723,7 +728,6 @@ function editor_applyDrag(dragOffset) {
 
 	switch (editor_axisType) {
 		case `scale`:
-			console.log(xDelta, yDelta, zDelta);
 			if (es.rx != undefined) {
 				//loop objects should expand slower
 				if (es.type == TYPE_CLASS_LOOP) {
@@ -773,6 +777,9 @@ function editor_applyDrag(dragOffset) {
 
 /**
 * removes an object from the loading world. Returns said object
+* @param {Event} e event catcher. Ignore.
+* @param {Scene3dObject} object the object to remove.
+* @returns {Scene3dObject} the removed object. Returns null if unable to remove.
  */
 function editor_removeObj(e, object) {
 	object = object ?? editor_selected;
@@ -798,6 +805,7 @@ function editor_removeObj(e, object) {
 
 function editor_loopify(e, object) {
 	object = object ?? editor_selected;
+	editor_deselect(editor_selected);
 	if (object == player) {
 		return null;
 	}
@@ -806,19 +814,21 @@ function editor_loopify(e, object) {
 		return editor_unloopify(e, object);
 	}
 
+	const posStore = Pos(...object.pos);
 	editor_removeObj(null, object);
-
-	var b = object.bounds();
-	var targetSize = Math.max(b[1][0] - b[0][0], b[1][1] - b[0][1], b[1][2] - b[0][2]);
-	var loopObj = new Scene3dLoop({
-		pos: Pos(object.pos[0], object.pos[1], object.pos[2]),
-		theta: 0, phi: 0, rot: 0
-	}, 1, 1, 1, targetSize, [object]);
-
 	object.pos = Pos(0, 0, 0);
+
+	const b = object.bounds();
+	const targetSize = [b[1][0] - b[0][0], b[1][1] - b[0][1], b[1][2] - b[0][2]];
+	const loopObj = new Scene3dLoop({
+		pos: posStore,
+		theta: 0, phi: 0, rot: 0
+	}, 1, 1, 1, ...targetSize, [object]);
+
 	
 	loading_world.objects.push(loopObj);
 	loading_world.shouldRegen = true;
+	editor_select(loopObj);
 	return loopObj;
 }
 
@@ -878,6 +888,11 @@ function editor_raycast() {
 }
 
 
+/**
+ * removes an object from the list of selected objects. If `editor_selected` is passed in, deselects everything and selects the player.
+ * Logs an error and returns if asked to deselect something not selected.
+ * @param {Scene3dObject} object the object to deselect.
+ */
 function editor_deselect(object) {
 	if (!object) {
 		console.error(`cannot deselect ${object}!`);
@@ -902,6 +917,10 @@ function editor_deselect(object) {
 
 }
 
+/**
+ * adds an object to the list of selected objects. Transforms editor_selected to be whatever is required for this.
+ * @param {Scene3dObject} object the object to select
+ */
 function editor_select(object) {
 	if (!object) {
 		console.error(`cannot select nothing!`);

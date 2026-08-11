@@ -77,6 +77,7 @@
 #define N_NORMAL	0
 #define N_GLOOPY	1
 #define N_ANTI		2
+#define N_GLANTI	3
 #define N_FOG		4
 #define N_SMOOTH	8
 // Gravity objects allow rays to pass through them but constrains the maximum step size that they can take. 
@@ -172,7 +173,9 @@ Path geodesicStep(Path, float, vec3, float);
 
 vec3 getGrad(vec3, int, int);
 vec3 getNormal(vec3, int, int);
+vec3 getSNormal(vec3, int);
 
+float sceneSDF(vec3, int);
 
 void setStageRay(int stg, vec3 newPos, vec3 newDPos) {
 	vec3 dposn = normalize(newDPos);
@@ -795,27 +798,38 @@ float objSDF(vec3 p, int world, int index) {
 	if (type >= 100) {
 		type -= 100;
 		p -= data[1].xyz;
-		int loopAngles = floatBitsToInt(data[3][2]);
-		int lTheta = loopAngles       & 0x1FF;
-		int lPhi = ((loopAngles >> 9) & 0x1FF) - 90;
-		int lRot = (loopAngles >> 18) & 0x1FF;
+		int anglBits = floatBitsToInt(data[3][2]);
+		int lTheta = anglBits       & 0x1FF;
+		int lPhi = ((anglBits >> 9) & 0x1FF) - 90;
+		int lRot = (anglBits >> 18) & 0x1FF;
 		p.xz = rotate(p.xz, -lTheta);
 		p.yz = rotate(p.yz, lPhi);
 		p.xy = rotate(p.xy, -lRot);
 
-		int loopBits = floatBitsToInt(data[0][3]);
+		int iterBits = floatBitsToInt(data[0][3]);
 		vec3 loopNums = vec3(
-			float((loopBits >> 20) & 0x3FF),
-			float((loopBits >> 10) & 0x3FF),
-			float(loopBits         & 0x3FF)
+			float((iterBits >> 20) & 0x3FF),
+			float((iterBits >> 10) & 0x3FF),
+			float(iterBits         & 0x3FF)
+		);
+		int sizeBits = floatBitsToInt(data[3][3]);
+		vec3 loopSize = vec3(
+			float((sizeBits >> 20) & 0x3FF),
+			float((sizeBits >> 10) & 0x3FF),
+			float(sizeBits         & 0x3FF)
 		);
 
-		float loopSize = data[3][3];
-		float loopHalf = loopSize / 2.;
-		vec3 insideP = clamp(p, -(loopNums) * loopSize, (loopNums) * loopSize);
+		vec3 loopHalf = loopSize / 2.;
+		vec3 insideP = vec3(
+			clamp(p.x, -loopNums.x * loopSize.x, loopNums.x * loopSize.x),
+			clamp(p.y, -loopNums.y * loopSize.y, loopNums.y * loopSize.y),
+			clamp(p.z, -loopNums.z * loopSize.z, loopNums.z * loopSize.z)
+		);
 		data[1].xyz = vec3(0.);
 		//stupid centered modulate
-		p = mod(insideP - loopHalf, loopSize) - loopHalf + (p - insideP);
+		p.x = mod(insideP.x - loopHalf.x, loopSize.x) - loopHalf.x + (p.x - insideP.x);
+		p.y = mod(insideP.y - loopHalf.y, loopSize.y) - loopHalf.y + (p.y - insideP.y);
+		p.z = mod(insideP.z - loopHalf.z, loopSize.z) - loopHalf.z + (p.z - insideP.z);
 	}
 	
 	//transform to object coordinates
@@ -912,6 +926,18 @@ vec3 getNormal(vec3 p, int worldIndex, int objIndex) {
 	return normalize(n);
 }
 
+vec3 getSNormal(vec3 p, int stg) {
+	float d = sceneSDF(p, stg);
+	vec2 e = vec2(0.001, 0.);
+	vec3 n = vec3(d) - vec3(
+		sceneSDF(p + e.xyy, stg),
+		sceneSDF(p + e.yxy, stg),
+		sceneSDF(p + e.yyx, stg)
+	);
+	n = -n;
+	return normalize(n);
+}
+
 
 
 
@@ -932,7 +958,8 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 				//theoretically this should work. try 0 -> stg if not
 				findHitPos(stage[0].path.spot.yzw, stage[0].world, stage[0].closestInd, oldLocalDist, stage[0].localDist);
 				vec3 norm = getNormal(stage[0].path.spot.yzw, stage[0].world, stage[0].closestInd);
-				groundColor = vec3((norm + 1.) / 2.);
+				// vec3 norm = getSNormal(stage[0].path.spot.yzw, 0);
+				groundColor = norm*0.5 + 0.5;
 			}
 			res = 1;
 		} break;
@@ -1066,10 +1093,11 @@ void applyNearEffect(int stg, int matType, vec4 data0, vec4 data1, vec4 data2) {
 		default:
 			return;
 		//ghost
-		case M_GHOST: {
+		case M_GHOST:
+		case M_LIGHT: {
 			if (stg == 0) {
-				applyColor(stg, vec4(data0.rgb, data0.a * 0.03125 * stage[stg].localDist));
-			} else {
+				applyColor(stg, vec4(data0.rgb, data0.a * ((matType == M_GHOST) ? 0.03125 : 0.03125 / 256.)));
+			} else if (matType == M_GHOST) {
 				stage[stg].color[3] = max(stage[stg].color[3] - data0.a * 0.03125 * stage[stg].localDist, 0.);
 			}
 		} return;
@@ -1241,6 +1269,7 @@ float smoothMin(float d1, float d2, float k) {
 //given oldDist and a index/newDist/nature pairing, returns what the new sceneDist should be
 //also sets closestInd if necessary to set materials
 float applyDist(int stg, float oldDist, float newDist, int nature, int index) {
+	//tnd = trueNewDist
 	int gAmt = floatBitsToInt(objData(stage[stg].world, index)[0][3]);
 	if ((nature & N_SMOOTH) > 0) {
 	// 	newDist -= float(gAmt & 0xFFFF) * (((nature & N_ANTI) > 0) ? -0.5 : 0.5);
@@ -1250,68 +1279,35 @@ float applyDist(int stg, float oldDist, float newDist, int nature, int index) {
 		stage[stg].closestInd = (newDist < oldDist) ? index : stage[stg].closestInd;
 		return min(oldDist, newDist);
 	}
-	if ((nature & N_GLOOPY) > 0 && (nature & N_ANTI) > 0) {
-	
-		// float trueNewDist = -smoothMin(-oldDist, -newDist, 0.25*float((gAmt >> 16) & 0xFFFF));
-		// if (trueNewDist > oldDist) {
-		// 	stage[stg].closestInd = index;
-		// }
-		// return max(trueNewDist, oldDist);
-
-
-
-
-		newDist = (newDist > -minDist) ? max(newDist, minDist) : newDist;
-		float trueNewDist = -smoothMin(-oldDist, -newDist, 0.25*float((gAmt >> 16) & 0xFFFF));
-		if (trueNewDist != oldDist) {
-			stage[stg].closestInd = index;
-		}
-		return trueNewDist;
-
-
+	if ((nature & N_GLANTI) == N_GLANTI) {
+		newDist = -newDist;
+		newDist = -smoothMin(newDist, -oldDist, 0.25*float((gAmt >> 16) & 0xFFFF));
 		
- //        float rawDist = -newDist;
- //        if (rawDist < minDist) {
- //            rawDist = min(rawDist, -minDist);
- //        }
-
- //        bool isAnti = (oldDist < 9999999.0) && ((natureData(stage[stg].world, stage[stg].closestInd) & N_ANTI) > 0);
-
- //        if (isAnti) {
- //            // blend together two anti objects
- //            float blend = 0.25 * float((gAmt >> 16) & 0xFFFF);
- //            float blended = -smoothMin(-oldDist, rawDist, blend);
- //            if (blended < minDist * -0.5 - oldDist) {
- //                stage[stg].closestInd = index;
- //            }
- //            return blended;
- //        } else {
- //            // treat like normal
- //            float trueNewDist = max(oldDist, -rawDist);
- //            if (trueNewDist != oldDist) {
- //                stage[stg].closestInd = index;
- //            }
- //            return trueNewDist;
- //        }
-    }
-	if ((nature & N_GLOOPY) > 0) {
-		float trueNewDist = smoothMin(oldDist, newDist, 0.25*float((gAmt >> 16) & 0xFFFF));
-		if ((nature & N_FOG) > 0) {
-			trueNewDist = max(trueNewDist, nearDist - minDist);
-		}
-		if (trueNewDist < minDist * -0.5 + oldDist) {
+		newDist = (newDist > -minDist) ? max(newDist, minDist) : newDist;
+		float tnd = max(oldDist, newDist);
+		if (tnd > minDist*0.5 + oldDist) {
 			stage[stg].closestInd = index;
 		}
-		return min(trueNewDist, oldDist);
+		return tnd;
+	}
+	if ((nature & N_GLOOPY) > 0) {
+		float tnd = smoothMin(oldDist, newDist, 0.25*float((gAmt >> 16) & 0xFFFF));
+		if ((nature & N_FOG) > 0) {
+			tnd = max(tnd, nearDist - minDist);
+		}
+		if (tnd < -minDist*0.5 + oldDist) {
+			stage[stg].closestInd = index;
+		}
+		return min(tnd, oldDist);
 	}
 	if ((nature & N_ANTI) > 0) {
 		newDist = (newDist > -minDist) ? max(newDist, minDist) : newDist;
-		float trueNewDist = max(oldDist, newDist);
-		if (trueNewDist != oldDist) {
+		float tnd = max(oldDist, newDist);
+		if (tnd != oldDist) {
 			stage[stg].closestInd = index;
 		}
 		//if it's different, return TND. if it's the same, return the old distance.. but it's the same so it doesn't matter.
-		return trueNewDist;
+		return tnd;
 	}
 	if ((nature & N_FIELD) > 0) {
 		if (newDist > nearDist) {
@@ -1335,7 +1331,6 @@ float sceneSDF(vec3 p, int stg) {
 		int nature = natureData(stage[stg].world, objIndices[i]);
 		sceneDist = applyDist(stg, sceneDist, d, nature, objIndices[i]);
 	}
-	
 	return sceneDist;
 }
 
@@ -1374,7 +1369,6 @@ void raymarch() {
 		if (stage[0].localDist < nearDist) {
 			mat4 matDat = matData(stage[0].world, stage[0].closestInd);
 			int type = matType(stage[0].world, stage[0].closestInd);
-			// stage[1].color = fetched;
 		
 			if (stage[0].localDist < minDist) {
 				int res = applyHitEffect(0, oldLocalDist, type, matDat[0], matDat[1], matDat[2]);

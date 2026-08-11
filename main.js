@@ -164,7 +164,7 @@ function tick() {
 	var stableGuess = !(controls.shouldDrag) && (editor_axis == null);
 	//if we're stable now but unstable in the past, save the current state
 	if ((!editor_isStable && stableGuess) || (editor_isStable && stableGuess && world_time % 60 == 1)) {
-		// saveWorldState();
+		saveWorldState();
 	}
 
 	editor_isStable = stableGuess;
@@ -177,24 +177,40 @@ function saveWorldState() {
 	var name = loading_world.name;
 	if (!editHistory[name]) {
 		editHistory[name] = [];
+		editHistory[name].curr = 0;
 	}
-	var len = editHistory[name].length;
+	const curr = editHistory[name].curr;
 	
 	var currState = loading_world.serialize();
-	if (currState != editHistory[name][len-1]) {
-		editHistory[name][len] = currState;
+	if (currState != editHistory[name][curr-1]) {
+		editHistory[name][curr] = currState;
+		editHistory[name].curr = curr + 1;
 	}
 }
 
-function loadWorldState() {
+/**
+* loads a world state in the temporal direction specified by dir
+* @param {-1|1} dir the temporal direction to move in. -1 is backwards in time, while 1 is forwards in time.
+ */
+function loadWorldState(dir) {
 	var name = loading_world.name;
 	if (!editHistory[name]) {
 		console.log(`nothing to load!`);
 		return;
 	}
-	var len = editHistory[name].length;
+	// ideally, editHistory[world][curr-1] is the current state
+	//so loading should load curr, or curr-2
+	var curr = editHistory[name].curr - 1 + dir;
 
-	//ideally, editHistory[l]
+	if (curr < 0) {
+		console.log(`cannot load state: no history.`);
+		return;
+	}
+	if (curr >= editHistory[name].length) {
+		console.log(`cannot load state: no future.`);
+		return;
+	}
+	
 }
 
 function finishDraw() {
@@ -365,7 +381,8 @@ function handleKeyPress(a) {
 
 
 
-
+			Z - undo
+			
 			
 			C - copy selected object
 			V - paste selected object
@@ -498,6 +515,11 @@ function handleKeyPress(a) {
 				var r = Math.round;
 				var c = camera;
 				navigator.clipboard.writeText(`${r(c.pos[0])},${r(c.pos[1])},${r(c.pos[2])}, ${c.theta.toFixed(3)},${c.phi.toFixed(3)}`);
+				return;
+			case `KeyZ`:
+				editor_deselect(editor_selected);
+				loadWorldState();
+				//undo
 				return;
 			case "Escape":
 				//escape from whatever wherever

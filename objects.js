@@ -159,13 +159,15 @@ class Scene3dLoop {
 	/**
 	* An object that contains other objects inside a looping space. 
 	* Allows for large repeating spaces without needing the entire world to repeat.
-	* @param {Number} xRepeats number of times in the X direction to loop the object
-	* @param {Number} yRepeats number of times in the Y direction to loop the object
-	* @param {Number} zRepeats number of times in the Z direction to loop the object
-	* @param {Number} loopSize how large each loop is
+	* @param {Integer} xRepeats number of times in the X direction to loop the object
+	* @param {Integer} yRepeats number of times in the Y direction to loop the object
+	* @param {Integer} zRepeats number of times in the Z direction to loop the object
+	* @param {Integer} dx how large each loop is in the X direction
+	* @param {Integer} dy how large each loop is in the Y direction
+	* @param {Integer} dz how large each loop is in the Z direction
 	* @param {Scene3dObject[]} objects the set of objects inside the loop
 	 */
-	constructor(posRot, xRepeats, yRepeats, zRepeats, loopSize, objects) {
+	constructor(posRot, xRepeats, yRepeats, zRepeats, dx, dy, dz, objects) {
 		this.type = this.constructor.type;
 		this.pos = posRot.pos;
 		this.theta = posRot.theta;
@@ -175,9 +177,12 @@ class Scene3dLoop {
 		this.rx = xRepeats;
 		this.ry = yRepeats;
 		this.rz = zRepeats;
-		this.d = loopSize;
+		this.dx = dx;
+		this.dy = dy;
+		this.dz = dz;
 		this.objects = objects;
 		if (!objects) {
+			console.log(arguments);
 			throw new Error(`No objects in Scene3dLoop!`);
 		}
 		//single object, absorb properties
@@ -197,7 +202,7 @@ class Scene3dLoop {
 			newO.pos = Pos(0, 0, 0);
 			var a = new Scene3dLoop({pos: [self.pos[0] + o.pos[0], self.pos[1] + o.pos[1], self.pos[2] + o.pos[2]],
 									theta: self.theta, phi: self.phi, rot: self.rot},
-									self.rx, self.ry, self.rz, self.d, [newO]);
+									self.rx, self.ry, self.rz, self.dx, self.dy, self.dz, [newO]);
 			a.parent = self;
 			return a;
 		});
@@ -205,7 +210,7 @@ class Scene3dLoop {
 		if (debug_flags.showLoopBounds) {
 			arr.push(new BoxFrame({pos: [self.pos[0] + o0.pos[0], self.pos[1] + o0.pos[1], self.pos[2] + o0.pos[2]],
 										theta: self.theta, phi: self.phi, rot: self.rot}, createDefaultMaterial(), N_NORMAL, 
-										(this.rx + 0.5) * this.d, (this.ry + 0.5) * this.d, (this.rz + 0.5) * this.d, 1));
+										(this.rx + 0.5) * this.dx, (this.ry + 0.5) * this.dy, (this.rz + 0.5) * this.dz, 1));
 		}
 		return arr;
 	}
@@ -217,23 +222,25 @@ class Scene3dLoop {
 	
 	bounds() {
 		return giveBounds(this.pos,
-			(this.rx + 0.5) * this.d, (this.ry + 0.5) * this.d, (this.rz + 0.5) * this.d, 
+			(this.rx + 0.5) * this.dx, (this.ry + 0.5) * this.dy, (this.rz + 0.5) * this.dz, 
 			this.theta, this.phi, this.rot);
 	}
 	
 	distanceToPos(pos) {
 		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
-		const d = this.d;
+		const dx = this.dx | 0;
+		const dy = this.dy | 0;
+		const dz = this.dz | 0;
 		const rx = this.rx | 0;
 		const ry = this.ry | 0;
 		const rz = this.rz | 0;
-		var insideX = clamp(relPos[0], -rx * d, rx * d);
-		var insideY = clamp(relPos[1], -ry * d, ry * d);
-		var insideZ = clamp(relPos[2], -rz * d, rz * d);
+		var insideX = clamp(relPos[0], -rx * dx, rx * dx);
+		var insideY = clamp(relPos[1], -ry * dy, ry * dy);
+		var insideZ = clamp(relPos[2], -rz * dz, rz * dz);
 		return sceneSDF(this.objects, Pos(
-			modulateSigned(insideX, d) + (relPos[0] - insideX),
-			modulateSigned(insideY, d) + (relPos[1] - insideY),
-			modulateSigned(insideZ, d) + (relPos[2] - insideZ),
+			modulateSigned(insideX, dx) + (relPos[0] - insideX),
+			modulateSigned(insideY, dy) + (relPos[1] - insideY),
+			modulateSigned(insideZ, dz) + (relPos[2] - insideZ),
 		))[0];
 	}
 	
@@ -247,7 +254,7 @@ class Scene3dLoop {
 		const grStr = this.objects.map(a => a.serialize()).join(`\n\t||`);
 		const pos = this.pos;
 		const [t, p, r] = [this.theta, this.phi, this.rot];
-		return `LOOP~[${pos}]~X~${serializeRot(t,p,r)}|${this.rx}~${this.ry}~${this.rz}~${this.d}\n\t||${grStr}`;
+		return `LOOP~[${pos}]~X~${serializeRot(t,p,r)}|${this.rx}~${this.ry}~${this.rz}~${this.dx}~${this.dy}~${this.dz}\n\t||${grStr}`;
 	}
 	
 	serializeGPU() {
@@ -255,7 +262,8 @@ class Scene3dLoop {
 		var obj = this.objects[0];
 		var serial = obj.serializeGPU();
 		serial[7] = packageRot(this.theta, this.phi, this.rot);
-		serial[8] = this.d;
+		buf32_int[0] = ((this.dx & 0x3FF) << 20) | ((this.dy & 0x3FF) << 10) | (this.dz & 0x3FF);
+		serial[8] = buf32_float[0];
 		return serial;
 	}
 }

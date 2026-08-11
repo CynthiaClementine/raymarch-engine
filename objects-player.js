@@ -55,7 +55,7 @@ class Player {
 		this.grounded = 0;
 		this.maxGroundDot = 0.1;
 
-		this.height = player_width;
+		this.height = player_width*3;
 		this.width = player_width;
 
 		this.colPoints = 16;
