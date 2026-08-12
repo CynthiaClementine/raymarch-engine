@@ -24,12 +24,10 @@ class Material {
 		return val;
 	}
 	
-	applyNearEffect(ray) {
-		console.error(`Near effect not initialized for material ${this.constructor.name}!`);
-	}
+	applyNearEffect(ray) {}
 	
-	applyHitEffect(ray) {
-		console.error(`Hit effect not initialized for material ${this.constructor.name}!`);
+	applyHitEffect(ray, obj) {
+		return true;
 	}
 	
 	//steal properties from parent object if necessary
@@ -66,8 +64,6 @@ class M_Color extends Material {
 		super(Color4(r, g, b, 255), 0.3);
 	}
 	
-	applyNearEffect(ray) {}
-	
 	applyHitEffect(ray, obj) {
 		applyColor(this.color, ray.color);
 		this.pushOut(ray, obj);
@@ -88,7 +84,6 @@ class M_Gravity extends Material {
 		this.mass = mass;
 	}
 	
-	applyNearEffect(ray) {}
 	applyHitEffect(ray, obj) {}
 	
 	syncWith(obj) {
@@ -112,16 +107,6 @@ class M_Ghost extends Material {
 		super(Color4(r, g, b, opacity), 0.1);
 	}
 	
-	applyNearEffect(ray) {
-		if (ray.color != undefined && !ray.hit) {
-			applyColor(this.color, ray.color);
-		}
-	}
-	
-	applyHitEffect(ray) {
-		return true;
-	}
-	
 	serialize() {
 		return `ghost:${this.color[0]}~${this.color[1]}~${this.color[2]}~${this.color[3]}`;
 	}
@@ -133,8 +118,6 @@ class M_Glass extends Material {
 		super(Color4(r, g, b, opacity), 0.1);
 		this.density = density ?? 1;
 	}
-	
-	applyNearEffect(ray) {}
 	
 	applyHitEffect(ray) {
 		return false;
@@ -154,8 +137,6 @@ class M_Plexiglass extends Material {
 	constructor(r, g, b, opacity) {
 		super(Color4(r, g, b, opacity), 0.1);
 	}
-
-	applyNearEffect(ray) {}
 	
 	applyHitEffect(ray) {
 		return false;

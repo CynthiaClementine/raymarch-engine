@@ -282,8 +282,10 @@ function drawUI() {
 	btx.fillStyle = editor_isStable ? color_editor_border : `#F99`;
 	btx.fillRect(0, 0, cvs.width, pxH * 12);
 	btx.fillRect(0, ch - pxH * 12, cvs.width, pxH * 12);
-	
-	drawEditorGizmo();
+
+	if (editor_axisType) {
+		drawEditorGizmo();
+	}
 	
 	//selected object ghost
 	if (editor_selected != player) {
@@ -398,9 +400,6 @@ function keyDiff(dictA, dictB) {
 	opp.forEach(e => {
 		s.add(e);
 	});
-
-	console.log(`hi`);
-	console.log(dictA, dictB, s, opp);
 	
 	return s;
 }
@@ -413,6 +412,8 @@ function loadWorld(worldName) {
 		return;
 	}
 	player.world = obj;
+	camera.world = obj;
+	loading_world = obj;
 }
 
 /**

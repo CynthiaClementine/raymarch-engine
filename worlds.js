@@ -9,7 +9,7 @@
 class World {
 	/**
 	 * Creates a World object
-	 * @param {Function|undefined} tickFunc optional function to execute when ticking
+	 * @param {Function|0} tickFunc optional function to execute when ticking. Passing in 0 means no function.
 	 * @param {String} worldParams world params: name, effects, sunvector, shadowPercent, spawn
 	 * @param {String} objParams string object params for the first object. Add more arguments for more objects.
 	 */
@@ -50,7 +50,7 @@ class World {
 			}
 		}
 
-		larg(worldsByID.length, world_maxID, `world`);
+		larg(worldsByID, world_maxID, `world`);
 		larg(this.postEffects, texture_worldCols, `post-effect`);
 		larg(this.expObjs, texture_worldCols, `object`);
 	}
@@ -108,7 +108,7 @@ class World {
 			}
 		}
 
-		this.id = worldsByID.length;
+		this.id = worlds[this.name] ? worlds[this.name].id : worldsByID.length;
 		worlds[this.name] = this;
 		worldsByID[this.id] = this;
 		

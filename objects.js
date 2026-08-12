@@ -51,7 +51,15 @@ class Scene3dObject {
 	//gives the axis-aligned bounding box of the object, in [smallest pos, largest pos] terms
 	bounds() {
 		console.error(`bounds are not defined for ${this.constructor.name}!`);
-		return augmentBounds(giveBounds(this.pos, 1, 1, 1), this.gloopiness + this.gloopExt + this.smoothness);
+		return augmentBounds(giveBounds(this.pos, 1, 1, 1), this.bAugAmt());
+	}
+
+	bAugAmt() {
+		var amt = this.gloopiness + this.gloopExt + this.smoothness;
+		if (this.material.type == M_LIGHT || this.material.type == M_GHOST) {
+			amt = Math.max(amt, ray_nearDist);
+		}
+		return amt;
 	}
 
 	//give a single object or a list of objects that represent the expressed portion of this object. 
@@ -84,7 +92,7 @@ class Scene3dObject {
 	serialize() {
 		const tpr = serializeRot(this.theta, this.phi, this.rot);
 		var nature = `${this.nature}`;
-		if (this.nature != N_NORMAL && this.gloopiness != 1 || this.smoothness != 1) {
+		if ((this.nature & N_GLOOP && this.gloopiness != 1) || (this.nature & N_SMOOTH && this.smoothness != 1)) {
 			nature = `${nature}.${2*this.gloopiness}.${2*this.smoothness}`;
 		}
 		return `~[${this.pos}]~${nature}~${tpr}|${this.material.serialize()}|`;
@@ -106,8 +114,7 @@ class Scene3dObject_Axes extends Scene3dObject {
 	
 	bounds() {
 		return augmentBounds(
-			giveBounds(this.pos, this.rx, this.ry, this.rz, this.theta, this.phi, this.rot), 
-		this.gloopiness + this.gloopExt + this.smoothness);
+			giveBounds(this.pos, this.rx, this.ry, this.rz, this.theta, this.phi, this.rot), this.bAugAmt());
 	}
 	
 	serialize() {
@@ -127,8 +134,7 @@ class Prism extends Scene3dObject_Axes {
 	
 	bounds() {
 		return augmentBounds(
-			giveBounds(this.pos, this.rx, this.ry, this.rz, this.theta, this.phi, this.rot), 
-		this.gloopiness + this.gloopExt + this.smoothness);
+			giveBounds(this.pos, this.rx, this.ry, this.rz, this.theta, this.phi, this.rot), this.bAugAmt());
 	}
 	
 	sdf2D(relX, relY) {
@@ -495,8 +501,7 @@ class Box extends Scene3dObject_Axes {
 	
 	bounds() {
 		return augmentBounds(
-			giveBounds(this.pos, this.rx, this.ry, this.rz, this.theta, this.phi, this.rot),
-		this.gloopiness + this.gloopExt + this.smoothness);
+			giveBounds(this.pos, this.rx, this.ry, this.rz, this.theta, this.phi, this.rot), this.bAugAmt());
 	}
 
 	distanceToPos(pos) {
@@ -527,8 +532,7 @@ class Box_Moving extends Box {
 	
 	bounds() {
 		return augmentBounds(
-			giveBounds(this.pos, this.rx + 12, this.ry + 12, this.rz + 12, this.theta, this.phi, this.rot),
-		this.gloopiness + this.gloopExt + this.smoothness);
+			giveBounds(this.pos, this.rx + 12, this.ry + 12, this.rz + 12, this.theta, this.phi, this.rot), this.bAugAmt());
 	}
 	
 	//warning: does not mesh well with portal surfaces. fix before finishing
@@ -557,8 +561,7 @@ class BoxFrame extends Scene3dObject_Axes {
 	
 	bounds() {
 		return augmentBounds(
-			giveBounds(this.pos, this.rx + this.e, this.ry + this.e, this.rz + this.e, this.theta, this.phi, this.rot),
-		this.gloopiness + this.gloopExt + this.smoothness);
+			giveBounds(this.pos, this.rx + this.e, this.ry + this.e, this.rz + this.e, this.theta, this.phi, this.rot), this.bAugAmt());
 	}
 	
 	distanceToPos(pos) {
@@ -596,9 +599,7 @@ class Capsule extends Scene3dObject {
 	}
 	
 	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, this.r, this.r, this.h + this.r, this.theta, this.phi, this.rot),
-		this.gloopiness + this.gloopExt + this.smoothness);
+		return augmentBounds(giveBounds(this.pos, this.r, this.r, this.h + this.r, this.theta, this.phi, this.rot),this.bAugAmt());
 	}
 
 	distanceToPos(pos) {
@@ -628,9 +629,7 @@ class Cube extends Scene3dObject {
 	}
 	
 	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, this.r, this.r, this.r, this.theta, this.phi, this.rot),
-		this.gloopiness + this.gloopExt + this.smoothness);
+		return augmentBounds(giveBounds(this.pos, this.r, this.r, this.r, this.theta, this.phi, this.rot),this.bAugAmt());
 	}
 	
 	distanceToPos(pos) {
@@ -663,9 +662,7 @@ class Cylinder extends Scene3dObject {
 	}
 	
 	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, this.r, this.r, this.h, this.theta, this.phi, this.rot),
-		this.gloopiness + this.gloopExt + this.smoothness);
+		return augmentBounds(giveBounds(this.pos, this.r, this.r, this.h, this.theta, this.phi, this.rot),this.bAugAmt());
 	}
 	
 	distanceToPos(pos) {
@@ -783,9 +780,7 @@ class Fractal extends Scene3dObject {
 	}
 	
 	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, 10000, 10000, 10000, this.theta, this.phi, this.rot),
-		this.gloopiness + this.gloopExt + this.smoothness);
+		return augmentBounds(giveBounds(this.pos, 10000, 10000, 10000, this.theta, this.phi, this.rot),this.bAugAmt());
 	}
 	
 	serialize() {
@@ -916,7 +911,7 @@ class Line extends Scene3dObject {
 			Math.max(p[0], pE[0]),
 			Math.max(p[1], pE[1]),
 			Math.max(p[2], pE[2]),
-		)], r + this.gloopiness + this.gloopExt + this.smoothness);
+		)], r + this.bAugAmt());
 	}
 	
 	distanceToPos(pos) {
@@ -971,7 +966,7 @@ class Dish extends Line {
 			Math.max(this.pos[0] + r, posEnd[0] + rr),
 			Math.max(this.pos[1] + r, posEnd[1] + rr),
 			Math.max(this.pos[2] + r, posEnd[2] + rr),
-		)], this.gloopiness + this.gloopExt + this.smoothness);
+		)], this.bAugAmt());
 	}
 	
 	distanceToPos(pos) {
@@ -1031,7 +1026,7 @@ class Catenary extends Line {
 				yMax,
 				Math.max(this.pos[2], this.posEnd[2]),
 			)
-		], r + this.gloopiness + this.gloopExt + this.smoothness);
+		], r + this.bAugAmt());
 	}
 
 	express() {
@@ -1236,7 +1231,7 @@ class Triangle extends Scene3dObject {
 			Math.max(this.pos[0], this.p2[0], this.p3[0]),
 			Math.max(this.pos[1], this.p2[1], this.p3[1]),
 			Math.max(this.pos[2], this.p2[2], this.p3[2]),
-		)], this.r + this.gloopiness + this.gloopExt + this.smoothness);
+		)], this.r + this.bAugAmt());
 	}
 	
 	//ough
@@ -1314,9 +1309,7 @@ class PrismRhombus extends Prism {
 	}
 	
 	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, this.rx + Math.abs(this.skew / 2), this.ry, this.rz, this.theta, this.phi, this.rot),
-		this.gloopiness + this.gloopExt + this.smoothness);
+		return augmentBounds(giveBounds(this.pos, this.rx + Math.abs(this.skew / 2), this.ry, this.rz, this.theta, this.phi, this.rot),this.bAugAmt());
 	}
 	
 	sdf2D(relX, relY) {
@@ -1449,9 +1442,9 @@ class Spun extends Scene3dObject {
 	}
 	
 	bounds() {
+		const a = Math.abs;
 		return augmentBounds(
-			giveBounds(this.pos, this.r + Math.abs(this.rx), this.r + Math.abs(this.rx), Math.abs(this.ry), this.theta, this.phi, this.rot),
-		this.gloopiness + this.gloopExt + this.smoothness);
+			giveBounds(this.pos, this.r + a(this.rx), this.r + a(this.rx), a(this.ry), this.theta, this.phi, this.rot),this.bAugAmt());
 	}
 
 	sdf2D(relX, relY) {
@@ -1600,8 +1593,7 @@ class Shell extends Scene3dObject {
 	bounds() {
 		const re = this.r + this.h;
 		return augmentBounds(
-			giveBounds(this.pos, re, re, re, 0, 0, 0),
-		this.gloopiness + this.gloopExt + this.smoothness);
+			giveBounds(this.pos, re, re, re, 0, 0, 0),this.bAugAmt());
 	}
 	
 	distanceToPos(pos) {
@@ -1625,11 +1617,13 @@ class Sphere extends Scene3dObject {
 		super(posRot, material, nature)
 		this.r = r;
 	}
+
+	bAugAmt() {
+		return super.bAugAmt() + 10*(this.material.type == M_GRAVITY);
+	}
 	
 	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, this.r, this.r, this.r, 0, 0, 0),
-		this.gloopiness + this.gloopExt + this.smoothness + 10 * (this.material.type == M_GRAVITY));
+		return augmentBounds(giveBounds(this.pos, this.r, this.r, this.r, 0, 0, 0),this.bAugAmt());
 	}
 
 	distanceToPos(pos) {
@@ -1646,7 +1640,7 @@ class Sphere extends Scene3dObject {
 	}
 }
 
-class Blob extends Sphere {
+class Blobble extends Sphere {
 	static type = TYPE_BLOB;
 	constructor(posRot, material, nature, r) {
 		super(posRot, material, nature, r);
@@ -1683,8 +1677,7 @@ class Voxel extends Scene3dObject {
 	bounds() {
 		var halfD = this.r;
 		return augmentBounds(
-			giveBounds(this.pos, halfD, halfD, halfD, this.theta, this.phi, this.rot),
-		this.gloopiness + this.gloopExt + this.smoothness);
+			giveBounds(this.pos, halfD, halfD, halfD, this.theta, this.phi, this.rot),this.bAugAmt());
 	}
 	
 	distanceToPos(pos) {

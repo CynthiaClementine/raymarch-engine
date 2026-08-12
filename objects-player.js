@@ -309,7 +309,6 @@ class Player {
 		//"sideways" (in reality can have a vertical component. This just means apply dPos)
 		var speed = getDistancePos(this.dPos, zeroPos);
 		if (speed > this.trueMax) {
-			console.log(`too fast!`);
 			speed = this.trueMax;
 		}
 		

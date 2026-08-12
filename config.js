@@ -207,7 +207,7 @@ var editor_local = false;
 var editor_placeOffset = 100;
 var editor_placeRange = [10, 2000];
 var editor_axisType = null;
-var editor_axis = null;
+var editor_axis = ``;
 
 const pxdata_world = [
 	0xF9999F,
@@ -257,7 +257,7 @@ var rand_seed = 3;
 
 //ray properties
 const ray_maxDist = 3000;
-const ray_nearDist = 3;
+const ray_nearDist = 10;
 const ray_minDist = 0.1;
 const ray_maxIters = 500;
 var ray_safetyMult = 1;

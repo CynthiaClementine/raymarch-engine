@@ -380,7 +380,7 @@ class Worm extends SceneCollection {
 
 
 var map_strObj = {
-	"BLOB": Blob,
+	"BLOB": Blobble,
 	"BOX": Box,
 	"BOX-FRAME": BoxFrame,
 	"BOX-MOVING": Box_Moving,

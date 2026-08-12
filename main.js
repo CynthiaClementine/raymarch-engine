@@ -142,7 +142,6 @@ function tick() {
 		
 		//idk where to put this
 		if (!isPlayer && es.tick) {
-			console.log(`ticking selected ${es.constructor.name}`);
 			es.tick();
 		}
 		if (es.material) {
@@ -161,7 +160,7 @@ function tick() {
 	});
 	loading_world.tick();
 
-	var stableGuess = !(controls.shouldDrag) && (editor_axis == null);
+	var stableGuess = !(controls.shouldDrag) && (editor_axis == ``);
 	//if we're stable now but unstable in the past, save the current state
 	if ((!editor_isStable && stableGuess) || (editor_isStable && stableGuess && world_time % 60 == 1)) {
 		saveWorldState();
@@ -171,46 +170,6 @@ function tick() {
 
 	
 	perf_logEnd(`tick`);
-}
-
-function saveWorldState() {
-	var name = loading_world.name;
-	if (!editHistory[name]) {
-		editHistory[name] = [];
-		editHistory[name].curr = 0;
-	}
-	const curr = editHistory[name].curr;
-	
-	var currState = loading_world.serialize();
-	if (currState != editHistory[name][curr-1]) {
-		editHistory[name][curr] = currState;
-		editHistory[name].curr = curr + 1;
-	}
-}
-
-/**
-* loads a world state in the temporal direction specified by dir
-* @param {-1|1} dir the temporal direction to move in. -1 is backwards in time, while 1 is forwards in time.
- */
-function loadWorldState(dir) {
-	var name = loading_world.name;
-	if (!editHistory[name]) {
-		console.log(`nothing to load!`);
-		return;
-	}
-	// ideally, editHistory[world][curr-1] is the current state
-	//so loading should load curr, or curr-2
-	var curr = editHistory[name].curr - 1 + dir;
-
-	if (curr < 0) {
-		console.log(`cannot load state: no history.`);
-		return;
-	}
-	if (curr >= editHistory[name].length) {
-		console.log(`cannot load state: no future.`);
-		return;
-	}
-	
 }
 
 function finishDraw() {
@@ -278,6 +237,7 @@ function drawEditorGizmo() {
 		return;
 	}
 	var len = dist * 0.4;
+	const screenSize = 20;
 	
 	var axes = [
 		{axis: "x", color: "#E55", vec: editor_getAxisVec("x")},
@@ -302,15 +262,14 @@ function drawEditorGizmo() {
 		// draw line
 	
 		// arrowhead
-		btx.strokeStyle = (editor_axis == def.axis) ? "#FFF" : def.color;
-		btx.fillStyle = (editor_axis == def.axis) ? "#FFF" : def.color;
+		btx.strokeStyle = (editor_axis.includes(def.axis)) ? "#FFF" : def.color;
+		btx.fillStyle = (editor_axis.includes(def.axis)) ? "#FFF" : def.color;
 		btx.globalAlpha = 1.0;
 		btx.lineWidth = banvas.height * 0.01;
-		var angle = Math.atan2(end[1] - origin[1], end[0] - origin[0]);
-		var headSize = 20;
+		var vec = normalize([end[0] - origin[0], end[1] - origin[1]]);
 		var lineEnd = [
-			end[0] - Math.cos(angle) * headSize,
-			end[1] - Math.sin(angle) * headSize
+			end[0] - vec[0] * screenSize,
+			end[1] - vec[1] * screenSize
 		];
 	
 		btx.beginPath();
@@ -379,9 +338,10 @@ function handleKeyPress(a) {
 			MODIFICATION:
 
 
-
+			Backspace - delete currently selected item
 
 			Z - undo
+			shift + Z - redo
 			
 			
 			C - copy selected object
@@ -415,48 +375,64 @@ function handleKeyPress(a) {
 				Z - z axis (rz)
 		*/
 		
-		if (editor_axisType) {
+		if (controls.cursorLock) {
+			if (editor_axisType) {
+				switch (a.code) {
+					case "KeyX":
+						editor_toggleAxis(`x`);
+						return;
+					case "KeyY":
+						editor_toggleAxis(`y`);
+						return;
+					case "KeyZ":
+						editor_toggleAxis(`z`);
+						return;
+					case "Escape":
+					case "Backquote":
+						if (editor_axis) {
+							editor_axis = ``;
+							return;
+						}
+						editor_axisType = null;
+						return;
+				}
+			}
+
 			switch (a.code) {
-				case "KeyX":
-					editor_toggleAxis(`x`);
+				case "Digit1":
+					var oldPlayer = player;
+					player = new Player(player.world, player.pos, player.theta, player.phi);
+					if (editor_selected == oldPlayer) {
+						editor_deselect(editor_selected);
+					}
 					return;
-				case "KeyY":
-					editor_toggleAxis(`y`);
+				case "Digit2":
+					var oldPlayer = player;
+					player = new Player_Debug(player.world, player.pos, player.theta, player.phi);
+					if (editor_selected == oldPlayer) {
+						editor_deselect(editor_selected);
+					}
 					return;
-				case "KeyZ":
-					editor_toggleAxis(`z`);
+				case "Digit3":
+					var oldPlayer = player;
+					player = new Player_Noclip(player.world, player.pos, player.theta, player.phi);
+					if (editor_selected == oldPlayer) {
+						editor_deselect(editor_selected);
+					}
+					return;
+
+				case "Backspace":
+					//delete currently selected
+					editor_removeObj();
+					editor_deselect(editor_selected);
 					return;
 			}
 		}
 		
 		switch (a.code) {
-			case "Digit1":
-				var oldPlayer = player;
-				player = new Player(player.world, player.pos, player.theta, player.phi);
-				if (editor_selected == oldPlayer) {
-					editor_deselect(editor_selected);
-				}
-				break;
-			case "Digit2":
-				var oldPlayer = player;
-				player = new Player_Debug(player.world, player.pos, player.theta, player.phi);
-				if (editor_selected == oldPlayer) {
-					editor_deselect(editor_selected);
-				}
-				break;
-			case "Digit3":
-				var oldPlayer = player;
-				player = new Player_Noclip(player.world, player.pos, player.theta, player.phi);
-				if (editor_selected == oldPlayer) {
-					editor_deselect(editor_selected);
-				}
-				break;
-		
 			case "Backslash":
 				//toggle the editor settings panel
-				console.log(`p1`);
 				if (overlay.style.display == `none` || overlay.style.display == ``) {
-					console.log(`p2`);
 					document.exitPointerLock();
 					activateOverlay(true);
 				} else {
@@ -477,11 +453,28 @@ function handleKeyPress(a) {
 				return;
 			case "KeyC":
 				if (editor_selected != player) {
-					clipboard = editor_selected.serialize();
+					var select = editor_selected;
+					if (controls.shift && select.material) {
+						select = select.material;
+					}
+					clipboard = select.serialize();
 				}
 				return;
 			case "KeyV":
 				if (clipboard) {
+					//material case
+					if (!clipboard.includes(`|`)) {
+						var objs = (editor_selected.type == TYPE_CLASS_LGROUP) ? editor_selected.objects : new Set([editor_selected]);
+						objs.forEach(o => {
+							if (o.material) {
+								o.material = deserializeMat(clipboard);
+							}
+						});
+						loading_world.shouldRegen = true;
+						return;
+					}
+
+					//object case
 					var newObj = deserialize(clipboard);
 					newObj.pos = calcPlacePos();
 					loading_world.objects.push(newObj);
@@ -518,19 +511,13 @@ function handleKeyPress(a) {
 				return;
 			case `KeyZ`:
 				editor_deselect(editor_selected);
-				loadWorldState();
+				loadWorldState(controls.shift ? 1 : -1);
 				//undo
 				return;
 			case "Escape":
-				//escape from whatever wherever
-				if (editor_axis) {
-					editor_axis = null;
-					return;
-				}
-				if (editor_axisType) {
-					editor_axisType = null;
-					return;
-				}
+			case "Backquote":
+				overlay.style.display = `none`;
+				document.exitPointerLock();
 				return;
 		}
 	}
@@ -623,7 +610,6 @@ function handleKeyNegate(a) {
 }
 
 function handleCursorLockChange() {
-	console.log(`cursor lock is changing`);
 	const isOn = (document.pointerLockElement === banvas || document.mozPointerLockElement === banvas);
 	controls.cursorLock = isOn;
 	document.onmousedown = isOn ? handleMouseDown : null;
@@ -654,12 +640,8 @@ function handleMouseMove(a) {
 	if (editor_axis) {
 		//figure out how much to move by, which direction to move, and then move there
 		var dragSpeed = 1.0;
-		var dragOffset = -(a.movementX + a.movementY) * dragSpeed;
-		if (Math.abs(dragOffset) < 0.01) {
-			return;
-		}
+		var dragOffset = [a.movementX * dragSpeed, a.movementY * -dragSpeed];
 		editor_applyDrag(dragOffset);
-		loading_world.shouldRegen = true;
 		return;
 	}
 	var dTheta = a.movementX * controls.sensitivity;
