@@ -153,6 +153,9 @@ class Player {
 		}
 		this.dPos[1] = clamp(this.dPos[1], -this.fallMax, this.fallMax);
 		this.dPos[1] *= this.frictionAir;
+		if (Math.abs(this.dPos[1]) < this.dMin) {
+			this.dPos[1] = 0;
+		}
 		
 		this.updateMomentumAxis(2);
 	}
@@ -171,6 +174,9 @@ class Player {
 		}
 		if (!inRange) {
 			this.dPos[num] *= this.frictionAir;
+		}
+		if (Math.abs(this.dPos[num]) < this.dMin) {
+			this.dPos[num] = 0;
 		}
 	}
 	

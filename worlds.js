@@ -3000,7 +3000,8 @@ function createWorlds() {
 	`SKYBUNNY~[1211,1318,-877]~X~R||`,
 	`SKYBUNNY~[-1259,145,-791]~X~R||`,
 	`SKYBUNNY~[481,-17,126]~X~R||`,
-	`SKYBUNNY~[1359,496,-1190]~X~R||`
+	`SKYBUNNY~[1359,496,-1190]~X~R||`,
+	`ELLIPSE~[565,76,-281]~0~R|color:162~139~99|100~232~100`
 	);
 	
 	console.log(`finished loading ${worldsByID.length} worlds.`);

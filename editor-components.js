@@ -119,15 +119,19 @@ class Sliderify {
 		return decimals.length;
 	}
 
-	// don't input a value outside the allowed range
-	applyInput(calc) {
-		var oldCalc = calc;
+	parse(calc) {
 		calc = clamp(calc, this.min, this.max);
 		if (this.round > 0) {
 			calc = calc.toFixed(this.round);
 		} else {
 			calc = parseInt(calc);
 		}
+		return calc;
+	}
+
+	// don't input a value outside the allowed range
+	applyInput(val) {
+		var calc = this.parse(val);
 		if (Number.isNaN(calc) || calc == `NaN`) {
 			console.log(`NaN detected in slider!!!!`);
 			return;
@@ -138,6 +142,13 @@ class Sliderify {
 		this.set(parseFloat(calc));
 		loading_world.shouldRegen = true;
 		return calc;
+	}
+
+	synchronize() {
+		var calc = this.parse(this.get());
+		this.rValue = calc;
+		this.elText.value = calc;
+		this.elSpan.innerHTML = calc;
 	}
 }
 
@@ -622,7 +633,7 @@ function editor_updatePanelsFor(obj) {
 		return editor_selected.nature & nat;
 	}
 	
-	if (obj != player && obj.type != TYPE_CLASS_LGROUP) {
+	if (obj != player && obj.type != TYPE_CLASS_LGROUP && obj.type != TYPE_CLASS_LOOP) {
 		shouldSee = shouldSee.concat(
 			`C Gloop`,		(val) => {return syncNature(val, N_GLOOP);},
 			`C Smooth`,		(val) => {return syncNature(val, N_SMOOTH);},

@@ -197,6 +197,7 @@ function calcPlacePos() {
 	var offset = polToCart(camera.theta, camera.phi, editor_placeOffset);
 	var r = Math.round;
 	var base = Pos(camera.pos[0] + offset[0], camera.pos[1] + offset[1], camera.pos[2] + offset[2]);
+	const sd = editor_flags.snapDist;
 
 	if (editor_flags.snapToGrid) {
 		for (var d=0; d<3; d++) {
@@ -213,23 +214,51 @@ function calcPlacePos() {
 
 	//snap to objects pos if necessary
 	var exclude = trueObj(editor_selected);
-	var obj = null;
+	var pos = null;
 	var dist = 1e101;
+	var snapSet = loading_world.bvh.objectsInBox(...augmentBounds([[...base], [...base]], 4*editor_flags.snapDist));
+	snapSet = snapSet.filter(o => trueObj(o) != exclude);
 	if (editor_flags.snapToPos) {
-		loading_world.objects.forEach(o => {
-			if (trueObj(o) == exclude) {
-				return;
-			}
+		//direct pos snapping
+		snapSet.forEach(o => {
+			//direct pos snapping
 			var d = getDistancePos(o.pos, base);
-			if (d < editor_flags.snapDist && d < dist) {
-				obj = o;
+			if (d < sd && d < dist) {
+				pos = o.pos;
 				dist = d;
 			}
 		});
-		if (dist < editor_flags.snapDist) {
-			base[0] = obj.pos[0];
-			base[1] = obj.pos[1];
-			base[2] = obj.pos[2];
+		if (dist < sd) {
+			base[0] = pos[0];
+			base[1] = pos[1];
+			base[2] = pos[2];
+		} else {
+			snapSet.forEach(o => {
+				//2/3 axis snapping
+				var px = Pos(base[0], o.pos[1], o.pos[2]);
+				var py = Pos(o.pos[0], base[1], o.pos[2]);
+				var pz = Pos(o.pos[0], o.pos[1], base[2]);
+				d = getDistancePos(px, base);
+				if (d < sd && d < dist) {
+					pos = px;
+					dist = d;
+				}
+				d = getDistancePos(py, base);
+				if (d < sd && d < dist) {
+					pos = py;
+					dist = d;
+				}
+				d = getDistancePos(pz, base);
+				if (d < sd && d < dist) {
+					pos = pz;
+					dist = d;
+				}
+			});
+			if (dist < sd) {
+				base[0] = pos[0];
+				base[1] = pos[1];
+				base[2] = pos[2];
+			}
 		}
 	}
 

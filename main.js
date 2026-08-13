@@ -420,11 +420,70 @@ function handleKeyPress(a) {
 						editor_deselect(editor_selected);
 					}
 					return;
-
 				case "Backspace":
 					//delete currently selected
 					editor_removeObj();
 					editor_deselect(editor_selected);
+					return;
+				case "KeyE":
+					controls.shouldDrag = true;
+					return;
+				case "KeyN":
+					//TODO: don't do this.
+					if (loading_world.postEffects.length < 1 || loading_world.postEffects[0][0] != E_ITERS) {
+						loading_world.postEffects.splice(0, 0, [E_ITERS]);
+					} else if (loading_world.postEffects[0][0] == E_ITERS) {
+						loading_world.postEffects.splice(0, 1);
+					}
+					loading_world.shouldRegen = true;
+					return;
+				case "KeyC":
+					if (editor_selected != player) {
+						var select = editor_selected;
+						if (controls.shift && select.material) {
+							select = select.material;
+						}
+						clipboard = select.serialize();
+					}
+					return;
+				case "KeyV":
+					if (clipboard) {
+						//material case
+						if (!clipboard.includes(`|`)) {
+							var objs = (editor_selected.type == TYPE_CLASS_LGROUP) ? editor_selected.objects : new Set([editor_selected]);
+							objs.forEach(o => {
+								if (o.material) {
+									o.material = deserializeMat(clipboard);
+								}
+							});
+							loading_world.shouldRegen = true;
+							return;
+						}
+	
+						//object case
+						var newObj = deserialize(clipboard);
+						newObj.pos = calcPlacePos();
+						loading_world.objects.push(newObj);
+						if (newObj.type == TYPE_CLASS_LGROUP) {
+							newObj.tick();
+							newObj.break(loading_world.objects);
+						}
+						loading_world.shouldRegen = true;
+					}
+					return;
+				case "KeyG":
+					editor_toggleAxisSet(`grab`);
+					return;
+				case "KeyR":
+					editor_toggleAxisSet(`rotate`);
+					return;
+				case "KeyF":
+					editor_toggleAxisSet(`scale`);
+					return;
+				case `KeyZ`:
+					//undo
+					editor_deselect(editor_selected);
+					loadWorldState(controls.shift ? 1 : -1);
 					return;
 			}
 		}
@@ -438,61 +497,6 @@ function handleKeyPress(a) {
 				} else {
 					overlay.style.display = `none`;
 				}
-				return;
-			case "KeyE":
-				controls.shouldDrag = true;
-				return;
-			case "KeyN":
-				//TODO: don't do this.
-				if (loading_world.postEffects.length < 1 || loading_world.postEffects[0][0] != E_ITERS) {
-					loading_world.postEffects.splice(0, 0, [E_ITERS]);
-				} else if (loading_world.postEffects[0][0] == E_ITERS) {
-					loading_world.postEffects.splice(0, 1);
-				}
-				loading_world.shouldRegen = true;
-				return;
-			case "KeyC":
-				if (editor_selected != player) {
-					var select = editor_selected;
-					if (controls.shift && select.material) {
-						select = select.material;
-					}
-					clipboard = select.serialize();
-				}
-				return;
-			case "KeyV":
-				if (clipboard) {
-					//material case
-					if (!clipboard.includes(`|`)) {
-						var objs = (editor_selected.type == TYPE_CLASS_LGROUP) ? editor_selected.objects : new Set([editor_selected]);
-						objs.forEach(o => {
-							if (o.material) {
-								o.material = deserializeMat(clipboard);
-							}
-						});
-						loading_world.shouldRegen = true;
-						return;
-					}
-
-					//object case
-					var newObj = deserialize(clipboard);
-					newObj.pos = calcPlacePos();
-					loading_world.objects.push(newObj);
-					if (newObj.type == TYPE_CLASS_LGROUP) {
-						newObj.tick();
-						newObj.break(loading_world.objects);
-					}
-					loading_world.shouldRegen = true;
-				}
-				return;
-			case "KeyG":
-				editor_toggleAxisSet(`grab`);
-				return;
-			case "KeyR":
-				editor_toggleAxisSet(`rotate`);
-				return;
-			case "KeyF":
-				editor_toggleAxisSet(`scale`);
 				return;
 			case "KeyL":
 				editor_local = !editor_local;
@@ -508,11 +512,6 @@ function handleKeyPress(a) {
 				var r = Math.round;
 				var c = camera;
 				navigator.clipboard.writeText(`${r(c.pos[0])},${r(c.pos[1])},${r(c.pos[2])}, ${c.theta.toFixed(3)},${c.phi.toFixed(3)}`);
-				return;
-			case `KeyZ`:
-				editor_deselect(editor_selected);
-				loadWorldState(controls.shift ? 1 : -1);
-				//undo
 				return;
 			case "Escape":
 			case "Backquote":
