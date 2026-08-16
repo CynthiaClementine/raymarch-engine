@@ -127,7 +127,20 @@ function createGPUWorld(worldObj) {
 	const worldOffset = worldObj.id * (texture_rowsPerObj + texture_rowsPerMat) * rowOffset;
 	//objects
 	const objs = worldObj.expObjs;
+	var firstLightInd = -1;
+	var lastLightInd = -1;
+	var lightSkips = [];
 	for (var o=0; o<objs.length; o++) {
+		if (objs[o].material && objs[o].material.type == M_LIGHT) {
+			if (firstLightInd < 0) {
+				firstLightInd = o;
+				lastLightInd = o;
+			} else {
+				//keep track of the light skips
+				lightSkips.push(o - lastLightInd);
+				lastLightInd = o;
+			}
+		}
 		try {
 			setObject(worldOffset, rowOffset, o, objs[o]);
 			setMaterial(worldOffset, rowOffset, o, ...objs[o].material.serializeGPU());
@@ -135,11 +148,12 @@ function createGPUWorld(worldObj) {
 			console.error(`cannot send object ${worldObj.name}:${o} to the GPU!`, error);
 		}
 	}
+	// console.log(worldObj.name, firstLightInd, lightSkips);
 	
-	//attributes, pre-effects, post-effects
-	setWorldAttribs(worldObj, worldOffset, rowOffset);
-	setEffects(worldObj, worldOffset, rowOffset, false);
-	setEffects(worldObj, worldOffset, rowOffset, true);
+	//attributes, post-effects
+	setWorldAttribs(worldObj, worldOffset, rowOffset, firstLightInd);
+	setLightSkips(worldOffset, rowOffset, firstLightInd, lightSkips);
+	setEffects(worldObj, worldOffset, rowOffset);
 	
 	//bvh
 	const indsPerBVHRow = 2 * world_maxObjs * 4;
@@ -199,7 +213,7 @@ function setupGLState(vertexShaderCode, fragmentShaderCode) {
 	
 }
 
-function setWorldAttribs(world, worldOff, rowOff) {
+function setWorldAttribs(world, worldOff, rowOff, firstLightInd) {
 	//other world attributes: spawn, object count, sun vector, shadow%
 	const data = texture_universeArr;
 	var base = worldOff + world_maxObjs * 4;
@@ -214,8 +228,8 @@ function setWorldAttribs(world, worldOff, rowOff) {
 	data[base + 2] = world.sunVector[2];
 	data[base + 3] = world.ambientLight;
 	base += rowOff;
-	data[base + 0] = 0;
-	data[base + 1] = world.postEffects.length;
+	data[base + 0] = world.postEffects.length;
+	data[base + 1] = firstLightInd;
 	
 	//5 pixels free to do ???? whatever with I guess
 }
@@ -326,8 +340,6 @@ function setObject(worldOff, rowOff, objInd, objRef) {
 	var pos;
 	var nature;
 	
-	
-	
 	if (objRef.constructor.type == TYPE_CLASS_LOOP) {
 		var shadow = objRef.objects[0];
 		pos = objRef.pos;
@@ -361,6 +373,12 @@ function setObject(worldOff, rowOff, objInd, objRef) {
 		buf32_int[0] = ((objRef.rx & 0x3FF) << 20) | ((objRef.ry & 0x3FF) << 10) | ((objRef.rz & 0x3FF) << 0)
 		data[base + 3] = buf32_float[0];
 	}
+	if (objRef.nature & N_EXTRUDE) {
+		//replace with extrude dimensions
+		buf32_int[0] = (((objRef.ex * 10) & 0xFFFF) << 16) | ((objRef.ey * 10) & 0xFFFF);
+		args[5] = buf32_float[0];
+		args[6] = 10*objRef.ez;
+	}
 	base += rowOff;
 	data[base + 0] = pos[0];
 	data[base + 1] = pos[1];
@@ -377,6 +395,14 @@ function setObject(worldOff, rowOff, objInd, objRef) {
 	data[base + 2] = args[7];
 	data[base + 3] = args[8];
 
+
+	// if (args[5] != null) {
+	// 	console.log(`5 used by ${objRef.constructor.name}`);
+	// }
+	// if (args[6] != null) {
+	// 	console.log(`6 used by ${objRef.constructor.name}`);
+	// }
+
 	// buf32_float[0] = data[worldOff + objInd * 4 + 2];
 	// var rots1 = `(${(buf32_int[0] >> 18) & 0x1FF} ${(buf32_int[0] >> 9) & 0x1FF} ${(buf32_int[0] >> 0) & 0x1FF})`;
 	// buf32_float[0] = data[worldOff + objInd * 4 + 3];
@@ -392,7 +418,6 @@ function setObject(worldOff, rowOff, objInd, objRef) {
 
 function setMaterial(worldOff, rowOff, objInd, matID, color4, pram1_1, pram1_2, pram1_3, pram1_4, pram2_1, pram2_2, pram2_3, pram2_4) {
 	var base = worldOff + objInd * 4;
-	
 	const data = texture_universeArr;
 	
 	base += rowOff * 4;
@@ -410,6 +435,17 @@ function setMaterial(worldOff, rowOff, objInd, matID, color4, pram1_1, pram1_2, 
 	data[base + 1] = pram2_2;
 	data[base + 2] = pram2_3;
 	data[base + 3] = pram2_4;
+}
+
+function setLightSkips(worldOff, rowOff, firstLightInd, lightSkips) {
+	var base = worldOff + (rowOff * 5) + (firstLightInd * 4);
+	const data = texture_universeArr;
+
+	while (lightSkips.length > 0) {
+		data[base] = lightSkips[0];
+		base += 4*lightSkips[0];
+		lightSkips.splice(0, 1);
+	}
 }
 
 function feedGPU() {

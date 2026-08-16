@@ -85,6 +85,7 @@
 //The constraint on maximum step size is stored in data[3][0]
 #define N_GRAVITY	16
 #define N_FIELD		32
+#define N_EXTRUDE	64
 
 //materials
 #define M_COLOR		0
@@ -469,7 +470,8 @@ float rectSDF(vec2 point, float rx, float ry) {
 }
 
 float isoTriSDF(vec2 p, vec2 wh) {
-	p.y += wh.y / 1.5;
+	p.y += wh.y;
+	wh.y *= 2.;
 	p.x = abs(p.x);
 	vec2 a = p - wh * clamp(dot(p, wh) / dot(wh, wh), 0., 1.);
 	vec2 b = p - wh * vec2(clamp(p.x / wh.x, 0., 1.), 1.);
@@ -551,6 +553,7 @@ float prismSDF(vec3 point, int type, float data1, vec4 data2) {
 	//data2: [rx, ry, rz, skew]
 	switch (type) {
 		case PRISM_RHOMB:{shapeDist = rhombusSDF(point.xy, data2.xy, data2[3]);} break;
+		case PRISM_TRI:  {shapeDist = isoTriSDF(point.xy, data2.xy);} break;
 		case PRISM_HEX:  {shapeDist = hexagonSDF(point.xy, data2.x);} break;
 		case PRISM_OCT:  {shapeDist = octagonSDF(point.xy, data2.x);} break;
 		default:
@@ -837,6 +840,25 @@ float objSDF(vec3 p, int world, int index) {
 	p.xz = rotate(p.xz, -theta);
 	p.yz = rotate(p.yz, phi);
 	p.xy = rotate(p.xy, -rot);
+
+	//extrusion??????
+	if ((nature & N_EXTRUDE) > 0) {
+		int xyBits = floatBitsToInt(data[3][0]);
+		vec3 extrusions = vec3(
+			float((xyBits >> 16) & 0xFFFF),
+			float(xyBits & 0xFFFF),
+			data[3][1]
+		) / 10.;
+		vec3 extrP = vec3(
+			clamp(p.x, -extrusions.x, extrusions.x),
+			clamp(p.y, -extrusions.y, extrusions.y),
+			clamp(p.z, -extrusions.z, extrusions.z)
+		);
+		p.x -= extrP.x;
+		p.y -= extrP.y;
+		p.z -= extrP.z;
+	}
+	
 	
 	switch (type) {
 		case BLOB:
@@ -867,6 +889,7 @@ float objSDF(vec3 p, int world, int index) {
 		case RING_TRI:
 			{d = spunSDF(p, type, data[1][3], data[2]);} break;
 		case PRISM_RHOMB:
+		case PRISM_TRI:
 		case PRISM_HEX:
 		case PRISM_OCT: 
 			{d = prismSDF(p, type, data[1][3], data[2]);} break;
@@ -1217,7 +1240,7 @@ void calcLightPositions() {
 	int currLights = 1;
 	float dists[ray_numLights+1];
 	//
-	for (int l=0; l<objCount; l++) {
+	for (int l=int(w_effectCounts(world)[1]); l<objCount; l++) {
 		//only apply to lights:
 		if (matType(world, l) != M_LIGHT) {
 			continue;
@@ -1271,11 +1294,11 @@ float smoothMin(float d1, float d2, float k) {
 float applyDist(int stg, float oldDist, float newDist, int nature, int index) {
 	//tnd = trueNewDist
 	int gAmt = floatBitsToInt(objData(stage[stg].world, index)[0][3]);
-	if ((nature & N_SMOOTH) > 0) {
-	// 	newDist -= float(gAmt & 0xFFFF) * (((nature & N_ANTI) > 0) ? -0.5 : 0.5);
-		nature ^= N_SMOOTH;
-	}
-	if ((nature & ~N_FOG) == N_NORMAL || (nature & N_GRAVITY) > 0) {
+	int deletables = N_SMOOTH | N_EXTRUDE;
+	int ignorables = N_FOG;
+	nature = nature & ~deletables;
+	
+	if ((nature & ~ignorables) == N_NORMAL || (nature & N_GRAVITY) > 0) {
 		stage[stg].closestInd = (newDist < oldDist) ? index : stage[stg].closestInd;
 		return min(oldDist, newDist);
 	}
@@ -1634,7 +1657,7 @@ void drawWorld() {
 		outColor = vec4(0.4, 0.3, 0.4, 1.0);
 		return;
 	}
-	float worldWidth = float(obj_maxNum) + 6.;
+	float worldWidth = float(256) + 6.;
 	float worldHeight = 7.;
 	
 	vec2 texPos = vec2((worldWidth + 1.) * uv.x, (worldHeight + 1.) * uv.y);
@@ -1746,7 +1769,7 @@ void main() {
 	
 	// post effects go here??????? this is mint
 	// MAID!!!! FEtch me my textures~~!!
-	int effCount = int(w_effectCounts(stage[0].world)[1]);
+	int effCount = int(w_effectCounts(stage[0].world)[0]);
 	for (int d=0; d<effCount; d++) {
 		mat4 dat = effectData(stage[0].world, d);
 		postEffect(dat[0], dat[1], dat[2]);

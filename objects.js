@@ -35,12 +35,16 @@ class Scene3dObject {
 		
 		nature = nature ?? N_NORMAL;
 		if (!nature.length) {
-			nature = [nature, 1, 1];
+			nature = [nature, 1, 1, 0, 0, 0];
 		}
 		this.nature = nature[0];
-		this.gloopiness = nature[1] / 2;
-		this.smoothness = nature[2] / 2;
+		this.gloopiness = nature[1] ?? 0.5;
+		this.smoothness = nature[2] ?? 0.5;
 		this.gloopExt = 0;
+
+		this.ex = nature[3] ?? 0;
+		this.ey = nature[4] ?? 0;
+		this.ez = nature[5] ?? 0;
 		
 
 		this.theta = posRot.theta ?? 0;
@@ -50,8 +54,11 @@ class Scene3dObject {
 	
 	//gives the axis-aligned bounding box of the object, in [smallest pos, largest pos] terms
 	bounds() {
-		console.error(`bounds are not defined for ${this.constructor.name}!`);
-		return augmentBounds(giveBounds(this.pos, 1, 1, 1), this.bAugAmt());
+		return bounds_expand(bounds_gen(this.pos, ...this.bAxes(), this.theta, this.phi, this.rot), this.bAugAmt());
+	}
+
+	bAxes() {
+		return [this.ex + 0.5, this.ey + 0.5, this.ez + 0.5];
 	}
 
 	bAugAmt() {
@@ -59,7 +66,7 @@ class Scene3dObject {
 		if (this.material.type == M_LIGHT || this.material.type == M_GHOST) {
 			amt = Math.max(amt, ray_nearDist);
 		}
-		return amt;
+		return [amt, amt, amt];
 	}
 
 	//give a single object or a list of objects that represent the expressed portion of this object. 
@@ -71,6 +78,23 @@ class Scene3dObject {
 		if (this.material.tick) {
 			this.material.tick(this);
 		}
+	}
+
+	/**
+	 * returns a position in object-relative coordinates given a world position. Factors in rotations and extrusions. 
+	 */
+	relPos(pos) {
+		pos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		if (this.ex) {
+			pos[0] -= clamp(pos[0], -this.ex, this.ex);
+		}
+		if (this.ey) {
+			pos[1] -= clamp(pos[1], -this.ey, this.ey);
+		}
+		if (this.ez) {
+			pos[2] -= clamp(pos[2], -this.ez, this.ez);
+		}
+		return pos;
 	}
 	
 	distanceToPos(pos) {
@@ -91,10 +115,7 @@ class Scene3dObject {
 
 	serialize() {
 		const tpr = serializeRot(this.theta, this.phi, this.rot);
-		var nature = `${this.nature}`;
-		if ((this.nature & N_GLOOP && this.gloopiness != 1) || (this.nature & N_SMOOTH && this.smoothness != 1)) {
-			nature = `${nature}.${2*this.gloopiness}.${2*this.smoothness}`;
-		}
+		var nature = serializeNat(this.nature, this.gloopiness, this.smoothness, this.ex, this.ey, this.ez);
 		return `~[${this.pos}]~${nature}~${tpr}|${this.material.serialize()}|`;
 	}
 	
@@ -111,10 +132,13 @@ class Scene3dObject_Axes extends Scene3dObject {
 		this.ry = Math.max(ry, 0);
 		this.rz = Math.max(rz, 0);
 	}
+
+	bAxes() {
+		return [this.rx + this.ex, this.ry + this.ey, this.rz + this.ez];
+	}
 	
 	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, this.rx, this.ry, this.rz, this.theta, this.phi, this.rot), this.bAugAmt());
+		return bounds_expand(bounds_gen(this.pos, ...this.bAxes(), this.theta, this.phi, this.rot), this.bAugAmt());
 	}
 	
 	serialize() {
@@ -132,18 +156,13 @@ class Prism extends Scene3dObject_Axes {
 		super(posRot, material, nature, rx, h, rz);
 	}
 	
-	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, this.rx, this.ry, this.rz, this.theta, this.phi, this.rot), this.bAugAmt());
-	}
-	
 	sdf2D(relX, relY) {
 		console.error(`2d SDF is not defined for object ${this.constructor.name}!`);
 		return -1;
 	}
 	
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		const relPos = this.relPos(pos);
 		var relX = relPos[0];
 		var relY = relPos[1];
 		var relZ = relPos[2];
@@ -227,13 +246,13 @@ class Scene3dLoop {
 	}
 	
 	bounds() {
-		return giveBounds(this.pos,
+		return bounds_gen(this.pos,
 			(this.rx + 0.5) * this.dx, (this.ry + 0.5) * this.dy, (this.rz + 0.5) * this.dz, 
 			this.theta, this.phi, this.rot);
 	}
 	
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		const relPos = this.relativePos(pos);
 		const dx = this.dx | 0;
 		const dy = this.dy | 0;
 		const dz = this.dz | 0;
@@ -302,7 +321,7 @@ class SceneCollection {
 	
 	bounds() {
 		console.error(`bounds are not defined for ${this.constructor.name}!`);
-		return giveBounds(this.pos, 1, 1, 1);
+		return bounds_gen(this.pos, 1,1,1, 0,0,0);
 	}
 	
 	/**
@@ -498,14 +517,9 @@ class Box extends Scene3dObject_Axes {
 	constructor(posRot, material, nature, rx, ry, rz) {
 		super(posRot, material, nature, rx, ry, rz);
 	}
-	
-	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, this.rx, this.ry, this.rz, this.theta, this.phi, this.rot), this.bAugAmt());
-	}
 
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		const relPos = this.relPos(pos);
 		const x = Math.abs(relPos[0]) - this.rx;
 		const y = Math.abs(relPos[1]) - this.ry;
 		const z = Math.abs(relPos[2]) - this.rz;
@@ -521,37 +535,6 @@ class Box extends Scene3dObject_Axes {
 	}
 }
 
-class Box_Moving extends Box {
-	static type = -15;
-	constructor(posRot, material, nature, rx, ry, rz, pos2) {
-		super(posRot, material, nature, rx, ry, rz);
-		this.posBase = Pos(...this.pos);
-		this.posEnd = pos2;
-		this.nature = N_GLOOP;
-	}
-	
-	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, this.rx + 12, this.ry + 12, this.rz + 12, this.theta, this.phi, this.rot), this.bAugAmt());
-	}
-	
-	//warning: does not mesh well with portal surfaces. fix before finishing
-	tick() {
-		var lastPos = this.pos;
-		this.pos = [
-			this.posBase[0] + 100 * Math.sin(world_time / 80),
-			this.posBase[1],
-			this.posBase[2]
-		];
-		this.dPos = [
-			(this.pos[0] - lastPos[0]),
-			(this.pos[1] - lastPos[1]),
-			(this.pos[2] - lastPos[2]),
-		]
-		loading_world.shouldRegen = true;
-	}
-}
-
 class BoxFrame extends Scene3dObject_Axes {
 	static type = TYPE_BOXFRAME;
 	constructor(posRot, material, nature, rx, ry, rz, thickness) {
@@ -559,13 +542,8 @@ class BoxFrame extends Scene3dObject_Axes {
 		this.e = thickness;
 	}
 	
-	bounds() {
-		return augmentBounds(
-			giveBounds(this.pos, this.rx + this.e, this.ry + this.e, this.rz + this.e, this.theta, this.phi, this.rot), this.bAugAmt());
-	}
-	
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		const relPos = this.relPos(pos);
 		const relX = Math.abs(relPos[0]) - this.rx;
 		const relY = Math.abs(relPos[1]) - this.ry;
 		const relZ = Math.abs(relPos[2]) - this.rz;
@@ -590,6 +568,7 @@ class BoxFrame extends Scene3dObject_Axes {
 	}
 }
 
+//just an extruded sphere... should I really keep this?
 class Capsule extends Scene3dObject {
 	static type = TYPE_CAPSULE;
 	constructor(posRot, material, nature, r, h) {
@@ -597,13 +576,13 @@ class Capsule extends Scene3dObject {
 		this.r = r;
 		this.h = h;
 	}
-	
-	bounds() {
-		return augmentBounds(giveBounds(this.pos, this.r, this.r, this.h + this.r, this.theta, this.phi, this.rot),this.bAugAmt());
+
+	bAxes() {
+		return [this.r + this.ex, this.r + this.ey, this.h + this.r + this.ez];
 	}
 
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		const relPos = this.relPos(pos);
 		const relX = Math.abs(relPos[0]);
 		const relY = Math.abs(relPos[1]);
 		var   relZ = Math.abs(relPos[2]);
@@ -627,13 +606,13 @@ class Cube extends Scene3dObject {
 		super(posRot, material, nature);
 		this.r = r;
 	}
-	
-	bounds() {
-		return augmentBounds(giveBounds(this.pos, this.r, this.r, this.r, this.theta, this.phi, this.rot),this.bAugAmt());
+
+	bAxes() {
+		return [this.r + this.ex, this.r + this.ey, this.r + this.ez];
 	}
 	
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		const relPos = this.relPos(pos);
 		const r = this.r;
 		const x = Math.abs(relPos[0]) - r;
 		const y = Math.abs(relPos[1]) - r;
@@ -660,13 +639,13 @@ class Cylinder extends Scene3dObject {
 		this.r = r;
 		this.h = h;
 	}
-	
-	bounds() {
-		return augmentBounds(giveBounds(this.pos, this.r, this.r, this.h, this.theta, this.phi, this.rot),this.bAugAmt());
+
+	bAxes() {
+		return [this.r + this.ex, this.r + this.ey, this.h + this.ez];
 	}
 	
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		const relPos = this.relPos(pos);
 		const relX = relPos[0];
 		const relY = relPos[1];
 		const relZ = relPos[2];
@@ -693,7 +672,7 @@ class Ellipsoid extends Scene3dObject_Axes {
 	}
 	
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		const relPos = this.relPos(pos);
 		const relX = Math.abs(relPos[0]) / this.rx;
 		const relY = Math.abs(relPos[1]) / this.ry;
 		const relZ = Math.abs(relPos[2]) / this.rz;
@@ -780,7 +759,7 @@ class Fractal extends Scene3dObject {
 	}
 	
 	bounds() {
-		return augmentBounds(giveBounds(this.pos, 10000, 10000, 10000, this.theta, this.phi, this.rot),this.bAugAmt());
+		return bounds_expand(bounds_gen(this.pos, 10000, 10000, 10000, 0,0,0),this.bAugAmt());
 	}
 	
 	serialize() {
@@ -802,7 +781,7 @@ class Gyroid extends Scene3dObject_Axes {
 	}
 	
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		const relPos = this.relPos(pos);
 		const relX = relPos[0];
 		const relY = relPos[1];
 		const relZ = relPos[2];
@@ -855,10 +834,6 @@ class Line extends Scene3dObject {
 			this.rot = 0;
 		}
 		this.r = thickness;
-		// this.posData = [
-		// 	[this.pos, ABSOLUTE],
-		// 	[this.posEnd, RELATIVE]
-		// ];
 	}
 
 	express() {
@@ -903,7 +878,7 @@ class Line extends Scene3dObject {
 		const p = this.pos;
 		const pE = this.posEnd;
 		const r = this.r;
-		return augmentBounds([Pos(
+		return bounds_expandU(bounds_expand([Pos(
 			Math.min(p[0], pE[0]),
 			Math.min(p[1], pE[1]),
 			Math.min(p[2], pE[2]),
@@ -911,7 +886,7 @@ class Line extends Scene3dObject {
 			Math.max(p[0], pE[0]),
 			Math.max(p[1], pE[1]),
 			Math.max(p[2], pE[2]),
-		)], r + this.bAugAmt());
+		)], this.bAugAmt()), r);
 	}
 	
 	distanceToPos(pos) {
@@ -958,7 +933,7 @@ class Dish extends Line {
 		const r = this.r;
 		const rr = this.ringR;
 		const posEnd = this.posEnd;
-		return augmentBounds([Pos(
+		return bounds_expand([Pos(
 			Math.min(this.pos[0] - r, posEnd[0] - rr),
 			Math.min(this.pos[1] - r, posEnd[1] - rr),
 			Math.min(this.pos[2] - r, posEnd[2] - rr),
@@ -972,7 +947,7 @@ class Dish extends Line {
 	distanceToPos(pos) {
 		const rba = this.ringR - this.r;
 		const b_a = this.offP;
-		const p_a = transformInverse(pos, this.pos, 0, 0, 0);
+		const p_a = getDistancePos(pos, this.pos);
 		const baba = dot(b_a, b_a);
 		const papa = dot(p_a, p_a);
 		const paba = dot(p_a, b_a) / baba;
@@ -1016,7 +991,7 @@ class Catenary extends Line {
 			yMax = Math.max(yMax, p[1]);
 		});
 
-		return augmentBounds([
+		return bounds_expandU(bounds_expand([
 			Pos(
 				Math.min(this.pos[0], this.posEnd[0]),
 				yMin,
@@ -1026,7 +1001,7 @@ class Catenary extends Line {
 				yMax,
 				Math.max(this.pos[2], this.posEnd[2]),
 			)
-		], r + this.bAugAmt());
+		], this.bAugAmt()), r);
 	}
 
 	express() {
@@ -1223,7 +1198,7 @@ class Triangle extends Scene3dObject {
 	
 	bounds() {
 		this.refresh();
-		return augmentBounds([Pos(
+		return bounds_expandU(bounds_expand([Pos(
 			Math.min(this.pos[0], this.p2[0], this.p3[0]),
 			Math.min(this.pos[1], this.p2[1], this.p3[1]),
 			Math.min(this.pos[2], this.p2[2], this.p3[2]),
@@ -1231,7 +1206,7 @@ class Triangle extends Scene3dObject {
 			Math.max(this.pos[0], this.p2[0], this.p3[0]),
 			Math.max(this.pos[1], this.p2[1], this.p3[1]),
 			Math.max(this.pos[2], this.p2[2], this.p3[2]),
-		)], this.r + this.bAugAmt());
+		)], this.bAugAmt()), this.r);
 	}
 	
 	//ough
@@ -1284,7 +1259,7 @@ class Octahedron extends Scene3dObject_Axes {
 	
 	//TODO: probably broken in some way
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		const relPos = this.relPos(pos);
 		var relX = Math.abs(relPos[0]);
 		var relY = Math.abs(relPos[1]);
 		var relZ = Math.abs(relPos[2]);
@@ -1307,9 +1282,9 @@ class PrismRhombus extends Prism {
 		super(posRot, material, nature, rx, h, rz);
 		this.skew = skew;
 	}
-	
-	bounds() {
-		return augmentBounds(giveBounds(this.pos, this.rx + Math.abs(this.skew / 2), this.ry, this.rz, this.theta, this.phi, this.rot),this.bAugAmt());
+
+	bAxes() {
+		return [this.rx + Math.abs(this.skew / 2) + this.ex, this.ry + this.ey, this.rz + this.ez];
 	}
 	
 	sdf2D(relX, relY) {
@@ -1356,6 +1331,21 @@ class PrismRhombus extends Prism {
 	
 	serializeGPU() {
 		return super.serializeGPU().concat(this.skew);
+	}
+}
+
+class PrismTri extends Prism {
+	static type = TYPE_PRISM_TRI;
+	constructor(posRot, material, nature, rx, ry, h) {
+		super(posRot, material, nature, rx, ry, h);
+	}
+
+	sdf2D(relX, relY) {
+		return sdfTri(relX, relY, this.rx, this.ry);
+	}
+	
+	serialize() {
+		return `PRISM-TRIGON${super.serialize()}`;
 	}
 }
 
@@ -1440,19 +1430,32 @@ class Spun extends Scene3dObject {
 		this.rx = rx;
 		this.ry = ry;
 	}
-	
-	bounds() {
+
+	bAxes() {
 		const a = Math.abs;
-		return augmentBounds(
-			giveBounds(this.pos, this.r + a(this.rx), this.r + a(this.rx), a(this.ry), this.theta, this.phi, this.rot),this.bAugAmt());
+		return [this.r + a(this.rx) + this.ex, this.r + a(this.rx) + this.ey, a(this.ry) + this.ez];
 	}
 
 	sdf2D(relX, relY) {
 		return -1;
 	}
 
+	relPos(pos) {
+		pos = transformInverse(pos, this.pos, this.theta, this.phi, 0);
+		if (this.ex) {
+			pos[0] -= clamp(pos[0], -this.ex, this.ex);
+		}
+		if (this.ey) {
+			pos[1] -= clamp(pos[1], -this.ey, this.ey);
+		}
+		if (this.ez) {
+			pos[2] -= clamp(pos[2], -this.ez, this.ez);
+		}
+		return pos;
+	}
+
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, 0);
+		const relPos = this.relPos(pos);
 		const distX = Math.abs(relPos[0]);
 		const distY = Math.abs(relPos[1]);
 		const distZ = Math.abs(relPos[2]);
@@ -1515,22 +1518,7 @@ class RingTri extends Spun {
 	static type = TYPE_RING_TRI;
 
 	sdf2D(relX, relY) {
-		const w = this.rx;
-		const h = this.ry;
-		relX = Math.abs(relX);
-		relY += h / 1.5;
-
-		const buf1 = clamp((relX*w + relY*h) / (w*w + h*h), 0, 1);
-
-		const ax = relX - w * buf1;
-		const ay = relY - h * buf1;
-
-		const bx = relX - w * clamp(relX / w, 0, 1);
-		const by = relY - h;
-		const k = Math.sign(h);
-		const d = Math.min(ax*ax + ay*ay, bx*bx + by*by);
-		const s = Math.max(k*(relX*h - relY*w), k*(relY - h));
-		return Math.sqrt(d) * Math.sign(s) - 0.1;
+		return sdfTri(relX, relY, this.rx, this.ry);
 	}
 	
 	serialize() {
@@ -1550,7 +1538,7 @@ class Terrain extends Scene3dObject_Axes {
 	}
 	
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		const relPos = this.relPos(pos);
 		const relBoxX = Math.abs(relPos[0]) - this.rx;
 		const relBoxY = Math.abs(relPos[1]) - this.ry;
 		const relBoxZ = Math.abs(relPos[2]) - this.rz;
@@ -1592,13 +1580,11 @@ class Shell extends Scene3dObject {
 	
 	bounds() {
 		const re = this.r + this.h;
-		return augmentBounds(
-			giveBounds(this.pos, re, re, re, 0, 0, 0),this.bAugAmt());
+		return bounds_expand(bounds_gen(this.pos, re + this.ex, re + this.ey, re + this.ez, 0, 0, 0),this.bAugAmt());
 	}
 	
 	distanceToPos(pos) {
-		const [relX, relY, relZ] = transformInverse(pos, this.pos, 0, 0, 0);
-		const sphereDist = Math.sqrt((relX * relX) + (relY * relY) + (relZ * relZ)) - this.r;
+		const sphereDist = getDistancePos(pos, this.pos) - this.r;
 		return Math.abs(sphereDist) - this.h;
 	}
 	
@@ -1617,18 +1603,15 @@ class Sphere extends Scene3dObject {
 		super(posRot, material, nature)
 		this.r = r;
 	}
-
-	bAugAmt() {
-		return super.bAugAmt() + 10*(this.material.type == M_GRAVITY);
-	}
 	
 	bounds() {
-		return augmentBounds(giveBounds(this.pos, this.r, this.r, this.r, 0, 0, 0),this.bAugAmt());
+		return bounds_expandU(bounds_expand(
+			bounds_gen(this.pos, this.r + this.ex, this.r + this.ey, this.r + this.ez, 0, 0, 0),
+			this.bAugAmt()), 10*(this.material.type == M_GRAVITY));
 	}
 
 	distanceToPos(pos) {
-		const [relX, relY, relZ] = transformInverse(pos, this.pos, 0, 0, 0);
-		return Math.sqrt((relX * relX) + (relY * relY) + (relZ * relZ)) - this.r;
+		return getDistancePos(pos, this.pos) - this.r;
 	}
 
 	serialize() {
@@ -1673,15 +1656,13 @@ class Voxel extends Scene3dObject {
 		this.r = r;
 		this.c = [c1, c2, c3, c4, c5, c6, c7, c8];
 	}
-	
-	bounds() {
-		var halfD = this.r;
-		return augmentBounds(
-			giveBounds(this.pos, halfD, halfD, halfD, this.theta, this.phi, this.rot),this.bAugAmt());
+
+	bAxes() {
+		return [this.r + this.ex, this.r + this.ey, this.r + this.ez];
 	}
 	
 	distanceToPos(pos) {
-		const relPos = transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+		const relPos = this.relPos(pos);
 		const d = this.r * 2;
 		const halfD = this.r;
 		var relX = relPos[0];

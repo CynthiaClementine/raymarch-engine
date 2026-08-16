@@ -63,13 +63,23 @@ function applyDist(oldDist, testDist, nature, gloopiness, smoothness) {
 	return Math.min(testDist, oldDist);
 }
 
-function augmentBounds(bounds, extraDist) {
+function bounds_expandU(bounds, extraDist) {
 	bounds[0][0] -= extraDist;
 	bounds[0][1] -= extraDist;
 	bounds[0][2] -= extraDist;
 	bounds[1][0] += extraDist;
 	bounds[1][1] += extraDist;
 	bounds[1][2] += extraDist;
+	return bounds;
+}
+
+function bounds_expand(bounds, extraDists) {
+	bounds[0][0] -= extraDists[0];
+	bounds[0][1] -= extraDists[1];
+	bounds[0][2] -= extraDists[2];
+	bounds[1][0] += extraDists[0];
+	bounds[1][1] += extraDists[1];
+	bounds[1][2] += extraDists[2];
 	return bounds;
 }
 
@@ -357,15 +367,16 @@ function getDistancePos(pos1, pos2) {
 	return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-function giveBounds(pos, rx, ry, rz, theta, phi, rot) {
+function bounds_gen(pos, rx, ry, rz, theta, phi, rot) {
+	const abs = Math.abs;
 	var xVec = transform([rx, 0, 0], [0, 0, 0], theta, phi, rot);
 	var yVec = transform([0, ry, 0], [0, 0, 0], theta, phi, rot);
 	var zVec = transform([0, 0, rz], [0, 0, 0], theta, phi, rot);
 	
 	//since a cube gives every combination of ±vec, it's possible to just decompose the vectors and take the min / max variance
-	const bestX = (Math.abs(xVec[0]) + Math.abs(yVec[0]) + Math.abs(zVec[0]));
-	const bestY = (Math.abs(xVec[1]) + Math.abs(yVec[1]) + Math.abs(zVec[1]));
-	const bestZ = (Math.abs(xVec[2]) + Math.abs(yVec[2]) + Math.abs(zVec[2]));
+	const bestX = (abs(xVec[0]) + abs(yVec[0]) + abs(zVec[0]));
+	const bestY = (abs(xVec[1]) + abs(yVec[1]) + abs(zVec[1]));
+	const bestZ = (abs(xVec[2]) + abs(yVec[2]) + abs(zVec[2]));
 
 	return [
 		Pos(pos[0] - bestX, pos[1] - bestY, pos[2] - bestZ),
@@ -837,6 +848,29 @@ function serializeRot(theta, phi, rot) {
 	return (res == `0~90~0`) ? `R` : res;
 }
 
+
+function serializeNat(nature, gloop, smooth, ex, ey, ez) {
+	const r = Math.round;
+
+	if (nature & N_EXTRUDE) {
+		return `${nature}.${2*gloop}.${2*smooth}.${r(10*ex)}.${r(10*ey)}.${r(10*ez)}`;
+	}
+	if ((nature & N_GLOOP && gloop != 0.5) || (nature & N_SMOOTH && smooth != 0.5)) {
+		nature = `${nature}.${2*gloop}.${2*smooth}`;
+	}
+	return `${nature}`;
+}
+
+function deserializeNat(natStr) {
+	var s = natStr.split(`.`).map(a => +a);
+	s[1] = (s[1] ?? 1) / 2;
+	s[2] = (s[2] ?? 1) / 2;
+	s[3] = (s[3] ?? 0) / 10;
+	s[4] = (s[4] ?? 0) / 10;
+	s[5] = (s[5] ?? 0) / 10;
+	return s;
+}
+
 function updateFOV(newFOV) {
 	camera_FOV = newFOV;
 	//first figure out best function given the FOV
@@ -857,4 +891,23 @@ function updateFOV(newFOV) {
 			camera_halfTanVert = Math.tan((vertFOV / 2) * degToRad);
 			break;
 	}
+}
+
+
+function sdfTri(relX, relY, w, h) {
+	h *= 2;
+	relX = Math.abs(relX);
+	relY += h/2;
+
+	const buf1 = clamp((relX*w + relY*h) / (w*w + h*h), 0, 1);
+
+	const ax = relX - w * buf1;
+	const ay = relY - h * buf1;
+
+	const bx = relX - w * clamp(relX / w, 0, 1);
+	const by = relY - h;
+	const k = Math.sign(h);
+	const d = Math.min(ax*ax + ay*ay, bx*bx + by*by);
+	const s = Math.max(k*(relX*h - relY*w), k*(relY - h));
+	return Math.sqrt(d) * Math.sign(s) - 0.1;
 }

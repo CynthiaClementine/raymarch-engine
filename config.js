@@ -33,13 +33,14 @@ const map_effStr = {
 	31: "E_ITERS",
 };
 
-const N_NORMAL =0;
-const N_GLOOP = 1;
-const N_ANTI =	2;
-const N_FOG =	4;
-const N_SMOOTH =8;
-const N_GRAVITY=16;
-const N_FIELD = 32;
+const N_NORMAL =	0;
+const N_GLOOP = 	1;
+const N_ANTI =		2;
+const N_FOG =		4;
+const N_SMOOTH =	8;
+const N_GRAVITY=	16;
+const N_FIELD =		32;
+const N_EXTRUDE =	64;
 
 const M_COLOR =		0;
 const M_CONCRETE =	1;
@@ -61,6 +62,7 @@ const TYPE_CLASS_LOOP =		-4;
 const TYPE_CLASS_GROUP =	-5;
 const TYPE_CLASS_LGROUP =	-6;
 const TYPE_CLASS_SPUN =		-7;
+const TYPE_CLASS_EXTRUDE =	-8;
 
 
 const TYPE_SPHERE =			0;

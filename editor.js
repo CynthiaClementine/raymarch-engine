@@ -101,13 +101,13 @@ function transferPropertiesMat(oldMat, newMat) {
 }
 
 function deserialize(str) {
+	str = str.replaceAll(`\t`, ``);
 	const groups = [`LOOP`, `GROUP-L`];
 	var isGroup = groups.includes(str.split(`~`)[0]);
 	var base, material, params;
 	var objs;
 	
 	if (isGroup) {
-		str = str.replaceAll(`\t`, ``);
 		const lines = str.split(`\n||`);
 		objs = lines.slice(1).map(o => deserialize(o));
 		[base, params] = lines[0].split(`|`);
@@ -117,6 +117,7 @@ function deserialize(str) {
 		//initial processing
 		var spl = str.split(`|`);
 		[base, material, params] = [spl[0], spl[1], spl[2]];
+		//???????why
 		for (var y=3; y<spl.length; y++) {
 			params += `|` + spl[y];
 		}
@@ -135,12 +136,8 @@ function deserialize(str) {
 		throw new Error(`cannot deserialize type "${type}"!`);
 	}
 	pos = JSON.parse(pos);
-	var gloop, smooth;
-	if (!nature.includes(`.`)) {
-		[nature, gloop, smooth] = [+nature, 1, 1];
-	} else {
-		[nature, gloop, smooth] = nature.split(`.`).map(a => +a);
-	}
+	var gloop, smooth, ex, ey, ez;
+	[nature, gloop, smooth, ex, ey, ez] = deserializeNat(nature);
 	if (theta == `R`) {
 		[theta, phi, rot] = [`0`, `90`, `0`];
 	}
@@ -156,7 +153,7 @@ function deserialize(str) {
 	if (material) {
 		finalArgs.push(material);
 		if (!Number.isNaN(nature)) {
-			finalArgs.push([nature, gloop, smooth])
+			finalArgs.push([nature, gloop, smooth, ex, ey, ez])
 		}
 	}
 	if (params && params != ``) {
@@ -216,7 +213,7 @@ function calcPlacePos() {
 	var exclude = trueObj(editor_selected);
 	var pos = null;
 	var dist = 1e101;
-	var snapSet = loading_world.bvh.objectsInBox(...augmentBounds([[...base], [...base]], 4*editor_flags.snapDist));
+	var snapSet = loading_world.bvh.objectsInBox(...bounds_expand([[...base], [...base]], 4*editor_flags.snapDist));
 	snapSet = snapSet.filter(o => trueObj(o) != exclude);
 	if (editor_flags.snapToPos) {
 		//direct pos snapping

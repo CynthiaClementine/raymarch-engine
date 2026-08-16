@@ -372,7 +372,7 @@ function createWorlds() {
 			E_FADE [100,90,70] 1000
 		sun:	0 0.7
 		shadow:	0.3
-		spawn:	714 93 86 1.08 -0.65`,
+		spawn:	815 145 521 3.269 -0.185`,
 		`CUBE~[-100,330,100]~0~R|color:90~114~187|45`,
 		`PRISM-RHOMBUS~[-127,195,-191]~0~270~90~87|color:255~64~64|8~255~18~316`,
 		`BOX-FRAME~[100,100,100]~0~R|texture:1~1~1~0.5|50~50~50~10`,
@@ -481,7 +481,10 @@ function createWorlds() {
 		`TRI~[-1517,-668,-810]~0~R|color:128~90~128|-11~-285~202~2~-205~45~-36`,
 		`TREE~[277,50,-524]~X~R|color:117~19~0|0~54.3~2.85~0.98~1~4`,
 		`TREE~[-19,106,-1824]~X~R|color:255~226~185|10~111.8~3.05~0.97~0.95~4`,
-		`SPHERE~[1172,86,-407]~0~R|light:207~247~255~255|10`
+		`SPHERE~[1172,86,-407]~0~R|light:207~247~255~255|10`,
+		`CYLINDER~[430,70,800]~64.2.2.40.0.0~R|color:0~165~238|6~2`,
+		`SPHERE~[425,70,800]~0~R|color:255~255~255|3`,
+		`SPHERE~[435,70,800]~0~R|color:255~255~255|3`
 	);
 	
 	new World(0, `voxels:
@@ -3006,5 +3009,5 @@ function createWorlds() {
 	
 	console.log(`finished loading ${worldsByID.length} worlds.`);
 	
-	loading_world = worlds["darkBright"];
+	loading_world = worlds["start"];
 }

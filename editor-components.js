@@ -383,7 +383,7 @@ function editor_initialize() {
 		`.ry (ry: ####) r100 u1`,
 		`.rz (rz: ####) r100 u1`,
 	];
-	var pr_xy = [`.rx (rx: ####) r100 u1`, `.ry (ry: ####) r100 u1`];
+	var pr_xy = [`.rx (rx: ####) 0–1e101 u1`, `.ry (ry: ####) 0–1e101 u1`];
 	var sl_r = `.r (<br>r:_ ####) 0—1e101 r100 u1`;
 	var sl_rr = `.ringR (rr: ####) r100 u1`;
 	var sl_h = `.h (h: ±##) r100 u0.1`;
@@ -396,7 +396,6 @@ function editor_initialize() {
 		"BLOB":			[sl_r],
 		"BOX": 			[...xyz],
 		"BOX-FRAME": 	[...xyz, `.e (e: ±###) r10 u0.25`],
-		"BOX-MOVING":	[...xyz],
 		"CAPSULE":		[sl_r, sl_h],
 		"CATENARY":		[sl_r, `.arclen (L: ###.#) 1—9999 u0.1`],
 		"CUBE":			[sl_r],
@@ -428,6 +427,7 @@ function editor_initialize() {
 		"PRISM-RHOMBUS":[...xyz, `.skew (skew: ±##) r50 -500—500 u1`],
 		"PRISM-OCTAGON":[...xyz],
 		"PRISM-HEXAGON":[...xyz],
+		"PRISM-TRIGON":[...xyz],
 		"RING":			[sl_r, sl_rr],
 		"RING-BOX":		[sl_r, ...pr_xy],
 		"RING-TRI":		[sl_r, ...pr_xy],
@@ -634,16 +634,24 @@ function editor_updatePanelsFor(obj) {
 	}
 	
 	if (obj != player && obj.type != TYPE_CLASS_LGROUP && obj.type != TYPE_CLASS_LOOP) {
-		shouldSee = shouldSee.concat(
+		shouldSee.push(
 			`C Gloop`,		(val) => {return syncNature(val, N_GLOOP);},
 			`C Smooth`,		(val) => {return syncNature(val, N_SMOOTH);},
 			`C Anti`,		(val) => {return syncNature(val, N_ANTI);},
 			`C Fog`,		(val) => {return syncNature(val, N_FOG);},
-			`C Gravity`,	(val) => {return syncNature(val, N_GRAVITY);},
+			`C Grav`,		(val) => {return syncNature(val, N_GRAVITY);},
 			`C Field`,		(val) => {return syncNature(val, N_FIELD);},
+			`C Extrude`,	(val) => {return syncNature(val, N_EXTRUDE);},
 			`.smoothness (Smooth: ##.#) 1—9999 u0.5`,
 			`.gloopiness (Gloopy: ##.#) 1—9999 u0.5`,
 		);
+		if (obj.nature & N_EXTRUDE) {
+			shouldSee.push(
+				`.ex (ex: ##.#) 0—4095 u0.1`,
+				`.ey (ey: ##.#) 0—4095 u0.1`,
+				`.ez (ez: ##.#) 0—4095 u0.1`,
+			);
+		}
 	}
 	
 	shouldSee = shouldSee.concat(objectEditables[map_objStr[consName]]);
