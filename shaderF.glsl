@@ -27,12 +27,10 @@
 
 #define obj_maxNum 2048
 
-
 #define fractal_iters 10
 #define shadow_steps 3.
 
 #define tex_scale 0.015625
-
 
 //shapes
 #define SPHERE		0
@@ -257,14 +255,16 @@ vec2 rotate(vec2 pos, float rad) {
 	return vec2(pos.x * cs - pos.y * sn, pos.y * cs + pos.x * sn);
 }
 
+vec3 rotate3d(vec3 p, int theta, int phi, int rot) {
+	p.xz = rotate(p.xz, -theta);
+	p.yz = rotate(p.yz, phi);
+	p.xy = rotate(p.xy, -rot);
+	return p;
+}
+
 float smootherstep(float t) {
 	float t3 = t*t*t;
 	return 6.0*t*t*t3 - 15.0 * t*t3 + 10.0*t3;
-}
-
-float smoothererstep(float t) {
-	float t4 = t*t*t*t;
-	return -20.0*t*t*t*t4 + 70.0*t*t*t4 - 84.0*t*t4 + 35.0*t4;
 }
 
 float linearstep(float t) {
@@ -719,9 +719,7 @@ float lineSDF(vec3 point, float data1, vec4 data2) {
 
 float octahedronSDF(vec3 point, float data1, vec4 data2) {
 	//dist = |Ax + By + Cz + D| / sqrt(A^2 + B^2 + C^2)
-	point.xyz = abs(point.xyz);
-	// point.y = abs(point.y);
-	// point.z = abs(point.z);
+	point = abs(point);
 	vec3 coeffs = -1. / data2.xyz;
 	return abs(1. + dot(coeffs, point)) / length(coeffs);
 }
@@ -757,8 +755,6 @@ float terrainSDF(vec3 point, float data1, vec4 data2, vec4 data3) {
 	//hacky imprecise formula - return distance to height value at current point, minus a tolerance
 	float y = fractalNoise(point.xz, octaves, data3[0], data3[1], data3[2], data3[3]);
 	float terrsdf = (point.y - y) * 0.55;
-	
-	//getGrad(vec3 p, int worldIndex, int objIndex)
 	
 	return max(boxsdf, terrsdf);
 }
@@ -805,9 +801,7 @@ float objSDF(vec3 p, int world, int index) {
 		int lTheta = anglBits       & 0x1FF;
 		int lPhi = ((anglBits >> 9) & 0x1FF) - 90;
 		int lRot = (anglBits >> 18) & 0x1FF;
-		p.xz = rotate(p.xz, -lTheta);
-		p.yz = rotate(p.yz, lPhi);
-		p.xy = rotate(p.xy, -lRot);
+		p = rotate3d(p, lTheta, lPhi, lRot);
 
 		int iterBits = floatBitsToInt(data[0][3]);
 		vec3 loopNums = vec3(
@@ -823,23 +817,15 @@ float objSDF(vec3 p, int world, int index) {
 		);
 
 		vec3 loopHalf = loopSize / 2.;
-		vec3 insideP = vec3(
-			clamp(p.x, -loopNums.x * loopSize.x, loopNums.x * loopSize.x),
-			clamp(p.y, -loopNums.y * loopSize.y, loopNums.y * loopSize.y),
-			clamp(p.z, -loopNums.z * loopSize.z, loopNums.z * loopSize.z)
-		);
+		vec3 insideP = clamp(p, -loopNums * loopSize, loopNums * loopSize);
 		data[1].xyz = vec3(0.);
 		//stupid centered modulate
-		p.x = mod(insideP.x - loopHalf.x, loopSize.x) - loopHalf.x + (p.x - insideP.x);
-		p.y = mod(insideP.y - loopHalf.y, loopSize.y) - loopHalf.y + (p.y - insideP.y);
-		p.z = mod(insideP.z - loopHalf.z, loopSize.z) - loopHalf.z + (p.z - insideP.z);
+		p = mod(insideP - loopHalf, loopSize) - loopHalf + (p - insideP);
 	}
 	
 	//transform to object coordinates
 	p -= data[1].xyz;
-	p.xz = rotate(p.xz, -theta);
-	p.yz = rotate(p.yz, phi);
-	p.xy = rotate(p.xy, -rot);
+	p = rotate3d(p, theta, phi, rot);
 
 	//extrusion??????
 	if ((nature & N_EXTRUDE) > 0) {
@@ -849,14 +835,8 @@ float objSDF(vec3 p, int world, int index) {
 			float(xyBits & 0xFFFF),
 			data[3][1]
 		) / 10.;
-		vec3 extrP = vec3(
-			clamp(p.x, -extrusions.x, extrusions.x),
-			clamp(p.y, -extrusions.y, extrusions.y),
-			clamp(p.z, -extrusions.z, extrusions.z)
-		);
-		p.x -= extrP.x;
-		p.y -= extrP.y;
-		p.z -= extrP.z;
+		vec3 extrP = clamp(p, -extrusions, extrusions);
+		p -= extrP;
 	}
 	
 	
@@ -1446,7 +1426,6 @@ void shadow(int stg, vec3 startPos, vec3 normal, vec3 lightVec) {
 				if (res > 0) {
 					//IN HERE THE GAMMA IS RESCALED TO THE LIGHT COLOR
 					stage[stg].color[3] *= float(res - 1);
-					// stage[stg].color[3] = 500.0;
 					return;
 				}
 			} else {
@@ -1461,8 +1440,6 @@ void shadow(int stg, vec3 startPos, vec3 normal, vec3 lightVec) {
 		stage[stg].localDist = max(stage[stg].localDist, minDist);
 		stage[stg].path.spot.yzw += stage[stg].localDist * stage[stg].path.vel;
 		stage[stg].totalDist += stage[stg].localDist;
-
-		//potentially add t cutoff here (far away objects won't cast shadows)
 	}
 
 	if (stg == 1) {
@@ -1471,8 +1448,6 @@ void shadow(int stg, vec3 startPos, vec3 normal, vec3 lightVec) {
 	//color[3] NOW REPRESENTS SCALED GAMMA. [0, gamma_max]
 	//if we haven't hit the light source, color[3] will just be 0 and that's ok
 
-
-	
 	//quantize shadows for cell shading effect
 	/*
 	pixelGamma += 0.3 * shadowDot;
@@ -1762,13 +1737,11 @@ void main() {
 		[0,1]
 	*/
 	//starting with rayN.gamma
-	stage[1].color.rgb *= stage[1].color[3];
-	stage[2].color.rgb *= stage[2].color[3];
-	stage[3].color.rgb *= stage[3].color[3];
-	stage[4].color.rgb *= stage[4].color[3];
+	for (int s=1; s<4; s++) {
+		stage[s].color.rgb *= stage[s].color[3];
+	}
 	
-	// post effects go here??????? this is mint
-	// MAID!!!! FEtch me my textures~~!!
+	// MAID!!!! FEtch me my post-effects~~!!
 	int effCount = int(w_effectCounts(stage[0].world)[0]);
 	for (int d=0; d<effCount; d++) {
 		mat4 dat = effectData(stage[0].world, d);
@@ -1783,12 +1756,7 @@ void main() {
 		groundColor.rgb *= gamma;
 	}
 	applyColor(0, vec4(groundColor, 1.));
-
-	// vec3 lightMix = stage[0].color.rgb + stage[1].color.rgb;
-	// float rescale = max(max(lightMix.r, lightMix.g), lightMix.b);
-	// outColor = vec4(lightMix * rescale, 1.0);
 	
 	//send to screem
 	outColor = vec4(stage[0].color.rgb, 1.);
-	// outColor = vec4(float(objIndices[obj_maxNum - 1]) / 10., stage[0].color.gb, 1.0);
 }

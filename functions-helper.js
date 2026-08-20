@@ -63,6 +63,39 @@ function applyDist(oldDist, testDist, nature, gloopiness, smoothness) {
 	return Math.min(testDist, oldDist);
 }
 
+function benchmark() {
+	const tMult = 4000;
+	var score = 0;
+	var miniscores = [];
+	var f = 0;
+	const startSpot = {
+		pos: [...(player.pos), loading_world.name],
+		rot: [player.theta, player.phi],
+		fov: camera_FOV,
+		px: render_n
+	};
+
+	loadSpot(benchmark_locs[0]);
+
+	//after 3 seconds of each benchmark spot, record the average time taken. This contributes to the score
+	for (f=1; f<benchmark_locs.length; f++) {
+		const trueF = f;
+		window.setTimeout(() => {
+			miniscores.push(+(debugTA.innerHTML));
+			score += +(debugTA.innerHTML);
+			loadSpot(benchmark_locs[trueF]);
+		}, tMult*trueF);
+	}
+
+	//at the end of it all, lower score is better
+	window.setTimeout(() => {
+		miniscores.push(+(debugTA.innerHTML));
+		score += +(debugTA.innerHTML);
+		console.log(`benchmark finished! Times are [${miniscores.map(a => Math.round(a))}].\nTotal Score is [${Math.round(score)}].`);
+		loadSpot(startSpot);
+	}, tMult*f);
+}
+
 function bounds_expandU(bounds, extraDist) {
 	bounds[0][0] -= extraDist;
 	bounds[0][1] -= extraDist;
@@ -425,6 +458,20 @@ function loadWorld(worldName) {
 	player.world = obj;
 	camera.world = obj;
 	loading_world = obj;
+}
+
+/**
+ * a spotObj has `pos`, `rot`, `fov`, and `px` fields. Pos is the position with the world name tacked on.
+ */
+function loadSpot(spotObj) {
+	loadWorld(spotObj.pos[3]);
+	
+	player.pos = Pos(...(spotObj.pos));
+	player.theta = spotObj.rot[0];
+	player.phi = spotObj.rot[1];
+	
+	camera_FOV = spotObj.fov;
+	render_goalN = spotObj.px;
 }
 
 /**

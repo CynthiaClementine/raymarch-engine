@@ -3009,5 +3009,5 @@ function createWorlds() {
 	
 	console.log(`finished loading ${worldsByID.length} worlds.`);
 	
-	loading_world = worlds["start"];
+	loading_world = worlds["gyroidCaves"];
 }

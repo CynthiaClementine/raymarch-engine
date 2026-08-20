@@ -145,6 +145,53 @@ const frameTime = 1000 / 60;
 
 const bvhTolerance = 0;
 
+const benchmark_locs = [{
+	pos: [-333,398,-346, `gyroidCaves`],
+	rot: [0.755,-0.675],
+	fov: 40,
+	px: 600
+}, {
+	pos: [28,1676,9, `cubes`],
+	rot: [0.010,-1.539],
+	fov: 80,
+	px: 500
+}, {
+	pos: [-1570,786,5125, `cubes`],
+	rot: [3.185,-0.329],
+	fov: 90,
+	px: 512
+}, {
+	pos: [0,27,0, `turtleHell`],
+	rot: [6.283,-1.571],
+	fov: 90,
+	px: 720
+}, {
+	pos: [333,139,-1224, `start`],
+	rot: [3.695,0.211],
+	fov: 64,
+	px: 600
+}, {
+	pos: [184,119,-360, `start`],
+	rot: [4.190,-0.489],
+	fov: 64,
+	px: 600
+}, {
+	pos: [-278,139,694, `plains`],
+	rot: [1.645,0.241],
+	fov: 80,
+	px: 480
+}, {
+	pos: [543,503,-542, `plains`],
+	rot: [4.205,-0.696],
+	fov: 80,
+	px: 480
+}, {
+	pos: [103,-42,-720, `desert`],
+	rot: [0.162,0.524],
+	fov: 90,
+	px: 720
+}];
+
 var camera_FOV = 90;
 var camera_halfTan = Math.tan((camera_FOV / 2) * degToRad);
 var camera_halfTanVert = Math.tan((camera_FOV / 2) * degToRad);

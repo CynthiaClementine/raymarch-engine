@@ -250,9 +250,13 @@ class Scene3dLoop {
 			(this.rx + 0.5) * this.dx, (this.ry + 0.5) * this.dy, (this.rz + 0.5) * this.dz, 
 			this.theta, this.phi, this.rot);
 	}
+
+	relPos(pos) {
+		return transformInverse(pos, this.pos, this.theta, this.phi, this.rot);
+	}
 	
 	distanceToPos(pos) {
-		const relPos = this.relativePos(pos);
+		const relPos = this.relPos(pos);
 		const dx = this.dx | 0;
 		const dy = this.dy | 0;
 		const dz = this.dz | 0;
