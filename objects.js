@@ -927,8 +927,9 @@ class Dish extends Line {
 
 	express() {
 		var base = super.express();
-		for (var o=1; o<base.length; o++) {
-			base[o].r = 5;
+		if (base.length > 1) {
+			base[1].r = Math.min(4, this.r + 2);
+			base[2].r = Math.min(4, this.ringR + 2);
 		}
 		return base;
 	}
@@ -951,7 +952,7 @@ class Dish extends Line {
 	distanceToPos(pos) {
 		const rba = this.ringR - this.r;
 		const b_a = this.offP;
-		const p_a = getDistancePos(pos, this.pos);
+		const p_a = [pos[0] - this.pos[0], pos[1] - this.pos[1], pos[2] - this.pos[2]];
 		const baba = dot(b_a, b_a);
 		const papa = dot(p_a, p_a);
 		const paba = dot(p_a, b_a) / baba;

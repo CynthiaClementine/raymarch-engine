@@ -248,7 +248,7 @@ var editor = {
 	placeOff: 100,
 	placeRange: [10, 2000],
 	axisType: null,
-	axis: ``,
+	axis: new Set(),
 	initBuffer: null,
 	stable: true,
 	

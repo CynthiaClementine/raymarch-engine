@@ -160,7 +160,7 @@ function tick() {
 	});
 	loading_world.tick();
 
-	var stableGuess = !(controls.grab) && (editor.axis == ``);
+	var stableGuess = !(controls.grab) && (!editor.axis.size);
 	//if we're stable now but unstable in the past, save the current state
 	if ((!editor.stable && stableGuess) || (editor.stable && stableGuess && world_time % 60 == 1)) {
 		saveWorldState();
@@ -261,8 +261,8 @@ function drawEditorGizmo() {
 		// draw line
 	
 		// arrowhead
-		btx.strokeStyle = (editor.axis.includes(def.axis)) ? "#FFF" : def.color;
-		btx.fillStyle = (editor.axis.includes(def.axis)) ? "#FFF" : def.color;
+		btx.strokeStyle = (editor.axis.has(def.axis)) ? "#FFF" : def.color;
+		btx.fillStyle = (editor.axis.has(def.axis)) ? "#FFF" : def.color;
 		btx.globalAlpha = 1.0;
 		btx.lineWidth = banvas.height * 0.01;
 		var vec = normalize([end[0] - origin[0], end[1] - origin[1]]);
@@ -346,6 +346,8 @@ function handleKeyPress(a) {
 			
 			C - copy selected object
 			V - paste selected object
+				shift C + V will copy/paste materials
+				alt + V directly duplicates the object. Normal behavior places the new object at your crosshair
 
 			1-2-3 - switch player type (regular, debug, noclip)
 			
@@ -390,7 +392,7 @@ function handleKeyPress(a) {
 					case "Escape":
 					case "Backquote":
 						if (ec.axis) {
-							ec.axis = ``;
+							ec.axis.clear();
 							return;
 						}
 						ec.axisType = null;
@@ -462,12 +464,14 @@ function handleKeyPress(a) {
 	
 						//object case
 						var newObj = deserialize(clipboard);
-						newObj.pos = calcPlacePos();
+						newObj.pos = controls.alt ? Pos(...ec.selected.pos) : calcPlacePos();
 						loading_world.objects.push(newObj);
 						if (newObj.type == TYPE_CLASS_LGROUP) {
 							newObj.tick();
 							newObj.break(loading_world.objects);
 						}
+						editor_deselect(editor.selected);
+						editor_select(newObj);
 						loading_world.shouldRegen = true;
 					}
 					return;
@@ -635,7 +639,7 @@ function handleMouseDown(a) {
 
 var testOut = [];
 function handleMouseMove(a) {
-	if (editor.axis) {
+	if (editor.axis.size) {
 		//figure out how much to move by, which direction to move, and then move there
 		const dragSpeed = controls.sensDrag * (getDistancePos(editor.selected.pos, camera.pos) || 1);
 		var dragOffset = [a.movementX * dragSpeed, a.movementY * -dragSpeed];

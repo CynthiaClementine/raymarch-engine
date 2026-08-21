@@ -1067,13 +1067,26 @@ int applyHitEffect(int stg, float oldLocalDist, mat4 obj, int matType, vec4 data
 				vec3 objPos = obj[1].xyz;
 				vec3 currPos = stage[stg].path.spot.yzw;
 				vec3 relPos = scale * tex_scale * (currPos - isRelative*objPos);
-				vec3 norm = abs(getNormal(currPos, obj));
-				norm = normalize(vec3(pow(norm.x, blend), pow(norm.y, blend), pow(norm.z, blend)));
+				vec3 norm = getNormal(currPos, obj);
+				if (true) {
+					int rotations = floatBitsToInt(obj[0][2]);
+					int theta = rotations       & 0x1FF;
+					int phi = ((rotations >> 9) & 0x1FF) - 90;
+					int rot = (rotations >> 18) & 0x1FF;
+					norm = rotate3d(norm, theta, phi, rot);
+					relPos = rotate3d(relPos, theta, phi, rot);
+				}
+				norm = abs(norm);
+				norm = normalize(vec3(
+					pow(norm.x, blend), 
+					pow(norm.y, blend), 
+					pow(norm.z, blend))
+				);
 				
 				mat3 uvs = mat3(
-					texture(uTex2, vec3(relPos.yz, material)).rgb,
-					texture(uTex2, vec3(relPos.xz, material)).rgb,
-					texture(uTex2, vec3(relPos.xy, material)).rgb
+					texture(uTex2, vec3(relPos.z + 0.5, -relPos.y + 0.5, material)).rgb,
+					texture(uTex2, vec3(relPos.x + 0.5, relPos.z + 0.5, material)).rgb,
+					texture(uTex2, vec3(relPos.x + 0.5, -relPos.y + 0.5, material)).rgb
 				);
 				
 				groundColor = uvs * norm;

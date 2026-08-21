@@ -302,8 +302,8 @@ function editor_addObj(objType) {
 * @param {[Number,Number]} dragVec the screen-space vector to drag in
 */
 function editor_applyDrag(dragVec) {
-	const ea = editor.axis;
-	if (ea == ``) {
+	var ea = editor.axis;
+	if (!ea.size) {
 		return;
 	}
 	if (Math.hypot(...dragVec) < 0.01) {
@@ -313,19 +313,37 @@ function editor_applyDrag(dragVec) {
 	const [max, round] = [Math.max, Math.round];
 	const es = editor.selected;
 
-	// Apply accumulated drag offset to actual position
-	//sometimes there's only 1 axisVec, but that's ok. In that case one of these will be 0hat
-	var aVecX = editor_getAxisVec(ea[0]);
-	var aVecY = editor_getAxisVec(ea[1]);
-	var aVec = [aVecX[0]+aVecY[0], aVecX[1]+aVecY[1], aVecX[2]+aVecY[2]];
-
+	//TODO:
 	var cMat = camera.calcMatrix();
-	var cVecX = cMat.slice(0, 3);
-	var cVecY = cMat.slice(3, 6);
-	
-	var xDelta = cVecX[0]*aVec[0]*dragVec[0] + cVecY[0]*aVec[0]*dragVec[1];
-	var yDelta = cVecX[1]*aVec[1]*dragVec[0] + cVecY[1]*aVec[1]*dragVec[1];
-	var zDelta = cVecX[2]*aVec[2]*dragVec[0] + cVecY[2]*aVec[2]*dragVec[1];
+	var worldVecX = cMat.slice(0, 3);
+	var worldVecY = cMat.slice(3, 6);
+	// new system. Any dimensional projection can be represented as [full space] - [space not in subspace]
+	// when projecting onto a plane, it's 3d - 1d. When projecting onto a line it's 3d - 2d. 
+	// to have a system with 1, 2, or 3 vectors selected, just subtract out all the non-selected vectors.
+	[`x`, `y`, `z`].forEach(v => {
+		if (ea.has(v)) {
+			return;
+		}
+		const vec = editor_getAxisVec(v);
+		
+		const XoN = proj(worldVecX, vec);
+		worldVecX = [
+			worldVecX[0] - XoN[0],
+			worldVecX[1] - XoN[1],
+			worldVecX[2] - XoN[2]
+		];
+		const YoN = proj(worldVecY, vec);
+		worldVecY = [
+			worldVecY[0] - YoN[0],
+			worldVecY[1] - YoN[1],
+			worldVecY[2] - YoN[2]
+		];
+	});
+
+	// Apply accumulated drag offset to actual position
+	const xDelta = worldVecX[0]*dragVec[0] + worldVecY[0]*dragVec[1];
+	const yDelta = worldVecX[1]*dragVec[0] + worldVecY[1]*dragVec[1];
+	const zDelta = worldVecX[2]*dragVec[0] + worldVecY[2]*dragVec[1];
 
 	//logic is messy but idk how best to organize this. It doesn't feel like it's worth full OOP
 	//local scale
@@ -383,6 +401,7 @@ function editor_applyDrag(dragVec) {
 
 	//global rotate
 	if (editor.axisType == `rotate`) {
+		ea = Array.from(ea).sort();
 		dragVec[0] *= 0.01;
 		dragVec[1] *= 0.01;
 		if (editor.local) {
@@ -642,22 +661,17 @@ function editor_updateHolp() {
 	}
 }
 
-//the editor.axis var stores which axes you're allowed to scroll along. It can store up to 2.
+//the editor.axis var stores which axes you're allowed to scroll along.
 function editor_toggleAxis(axisID) {
-	var ea = editor.axis;
-	//remove case
-	if (ea.includes(axisID)) {
-		editor.axis = (ea[0] == axisID) ? ea.slice(1) : ea.slice(0,1);
+	if (editor.axis.has(axisID)) {
+		editor.axis.delete(axisID);
 		return;
 	}
-	//add case
-	if (ea.length < 2) {
-		editor.axis += axisID;
-	}
+	editor.axis.add(axisID);
 }
 
 function editor_toggleAxisSet(setType) {
-	editor.axis = ``;
+	editor.axis.clear();
 	if (editor.axisType == setType) {
 		editor.axisType = null;
 		return;
