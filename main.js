@@ -160,7 +160,7 @@ function tick() {
 	});
 	loading_world.tick();
 
-	var stableGuess = !(controls.shouldDrag) && (editor.axis == ``);
+	var stableGuess = !(controls.grab) && (editor.axis == ``);
 	//if we're stable now but unstable in the past, save the current state
 	if ((!editor.stable && stableGuess) || (editor.stable && stableGuess && world_time % 60 == 1)) {
 		saveWorldState();
@@ -426,7 +426,7 @@ function handleKeyPress(a) {
 					editor_deselect(ec.selected);
 					return;
 				case "KeyE":
-					controls.shouldDrag = true;
+					controls.grab = true;
 					return;
 				case "KeyN":
 					//TODO: don't do this.
@@ -601,9 +601,8 @@ function handleKeyNegate(a) {
 			player.aPos[1] = Math.min(player.aPos[1], 0);
 			break;
 
-
 		case "KeyE":
-			controls.shouldDrag = false;
+			controls.grab = false;
 			break;
 	}
 }
@@ -638,21 +637,21 @@ var testOut = [];
 function handleMouseMove(a) {
 	if (editor.axis) {
 		//figure out how much to move by, which direction to move, and then move there
-		var dragSpeed = 1.0;
+		const dragSpeed = controls.sensDrag * (getDistancePos(editor.selected.pos, camera.pos) || 1);
 		var dragOffset = [a.movementX * dragSpeed, a.movementY * -dragSpeed];
 		editor_applyDrag(dragOffset);
 		return;
 	}
-	var dTheta = a.movementX * controls.sensitivity;
+	var dTheta = a.movementX * controls.sensLook;
 	var phiLimit = (camera_projFunc == projectPanini) ? pi * 0.2 : pi * 0.49;
 	player.theta = modulate(player.theta + dTheta, tau);
-	player.phi = clamp(player.phi - a.movementY * controls.sensitivity, -phiLimit, phiLimit);
+	player.phi = clamp(player.phi - a.movementY * controls.sensLook, -phiLimit, phiLimit);
 
 	editor_updateHolp();
 	
 	//change velocity in the case of rotating, since dPos is based on view angle
 	if (Math.abs(a.movementX) > 2) {
-		[player.dPos[0], player.dPos[2]] = rotate(player.dPos[0], player.dPos[2], dTheta - (2 * controls.sensitivity));
+		[player.dPos[0], player.dPos[2]] = rotate(player.dPos[0], player.dPos[2], dTheta - (2 * controls.sensLook));
 	}
 }
 

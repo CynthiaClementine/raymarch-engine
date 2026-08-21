@@ -363,9 +363,21 @@ function editor_applyDrag(dragVec) {
 
 	//global and local grab both work well
 	if (editor.axisType == `grab`) {
-		es.pos[0] += xDelta;
-		es.pos[1] += yDelta;
-		es.pos[2] += zDelta;
+		//dragging will move the HOLP, and then the HOLP controls where the object goes. 
+		//This is so we can have grid snapping as well as smooth movement
+		editor.holp[0] += xDelta;
+		editor.holp[1] += yDelta;
+		editor.holp[2] += zDelta;
+
+		if (editor.flags.snapGrid) {
+			es.pos[0] = snapToGrid(editor.holp[0]);
+			es.pos[1] = snapToGrid(editor.holp[1]);
+			es.pos[2] = snapToGrid(editor.holp[2]);
+		} else {
+			es.pos[0] = editor.holp[0];
+			es.pos[1] = editor.holp[1];
+			es.pos[2] = editor.holp[2];
+		}
 		return;
 	}
 
@@ -484,8 +496,8 @@ function editor_unloopify(e, object) {
 	return [list];
 }
 
-function editor_raycast() {
-	var ray = new Ray_Tracking(loading_world, camera.pos, polToCart(camera.theta, camera.phi, 1), ray_maxDist, ray_nearDist);
+function editor_raycastSimple(minDist) {
+	var ray = new Ray_Tracking(loading_world, camera.pos, polToCart(camera.theta, camera.phi, 1), ray_maxDist, minDist);
 	ray.iterate();
 	if (ray.world != loading_world) {
 		//it's gone through a portal. It's hard to tell which one though because of the whole teleporting business
@@ -499,14 +511,34 @@ function editor_raycast() {
 		validPortals.sort((a, b) => a.distanceToPos(camera.pos) - b.distanceToPos(camera.pos));
 		ray.object = validPortals[0];
 	}
+	return ray;
+}
+
+function editor_raycast() {
+	var obj;
+	var rayL = editor_raycastSimple(ray_nearDist);
+	var rayT = editor_raycastSimple(ray_minDist);
+
+	//if they've selected the same object, we're good
+	if (rayL.object == rayT.object) {
+		obj = rayL.object;
+	} else {
+		//if the difference is fog, then it's important to select that
+		if (rayL.nature & (N_FOG | N_GRAVITY)) {
+			obj = rayL.object;
+		} else {
+			obj = rayT.object;
+		}
+	}
+
 	if (controls.alt) {
-		editor_deselect(ray.object);
+		editor_deselect(obj);
 		return;
 	}
 	if (!controls.shift) {
 		editor_deselect(editor.selected);
 	}
-	editor_select(ray.object);
+	editor_select(obj);
 	//set the placeOffset to match
 	editor.placeOff = getDistancePos(editor.selected.pos, camera.pos);
 }
@@ -533,6 +565,7 @@ function editor_deselect(object) {
 	//if there's multiple things selected, remove it from the group
 	if (editor.selected.type == TYPE_CLASS_LGROUP) {
 		editor.selected.removeObj(object);
+		editor.holp = Pos(...editor.selected.pos);
 		return;
 	}
 
@@ -547,7 +580,6 @@ function editor_deselect(object) {
  */
 function editor_select(object) {
 	if (!object) {
-		console.error(`cannot select nothing!`);
 		return;
 	}
 	//only select top-level collections
@@ -571,6 +603,7 @@ function editor_select(object) {
 		editor.selected.addObj(object);
 	}
 
+	editor.holp = Pos(...editor.selected.pos);
 	ec_updatePanelsFor(editor.selected);
 }
 
@@ -598,7 +631,7 @@ function editor_updateHolp() {
 	if (editor.selected == player) {
 		return;
 	}
-	if (!controls.shouldDrag) {
+	if (!controls.grab) {
 		return;
 	}
 	var newPos = calcPlacePos();

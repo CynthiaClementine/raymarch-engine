@@ -662,7 +662,7 @@ function ec_updatePanelsFor(obj) {
 	if (matName) {
 		label_material.innerHTML = matName;
 	
-		shouldSee.push(`|Change_Material| editor_preMat`);
+		shouldSee.push(`|Change_Material| ec_preMat`);
 		shouldSee = shouldSee.concat(materialEditables[map_matStr[matName]]);
 	}
 
