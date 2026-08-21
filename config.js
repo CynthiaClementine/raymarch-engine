@@ -241,22 +241,28 @@ var debug_flags = {
 	showObjBounds: false,
 };
 
-var editor_flags = {
-	snapToSurface: true,
-	snapToPos: true,
-	snapToGrid: true,
+var editor = {
+	active: false,
+	local: false,
+	placeOff: 100,
+	placeRange: [10, 2000],
+	axisType: null,
+	axis: ``,
+	initBuffer: null,
+	stable: true,
+	
 	snapDist: 25,
 	gridDist: 1,
-}
-
+	flags: {
+		snapSurface: true,
+		snapGrid: true,
+		snapPos: true,
+	},
+	holp: Pos(0,0,0),
+	selected: undefined,
+};
 
 var editHistory = {};
-var editor_active = false;
-var editor_local = false;
-var editor_placeOffset = 100;
-var editor_placeRange = [10, 2000];
-var editor_axisType = null;
-var editor_axis = ``;
 
 const pxdata_world = [
 	0xF9999F,

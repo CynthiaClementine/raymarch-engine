@@ -1,5 +1,7 @@
 
 /**
+https://danceswithcode.net/engineeringnotes/quaternions/quaternions.html
+
 A quaternion is a set of 4 numbers that represents rotations as an axis + angle.
 
 x = RotationAxis.x * sin(RotationAngle / 2)
@@ -26,11 +28,15 @@ function quatToMatrix(q) {
 	const yz = q[1]*q[2];
 
 	return [
-		[ww+xx-yy-zz, 2*(xy - wz), 2*(xz + wy), 0],
-		[2*(xy + wz), ww-xx+yy-zz, 2*(yz - wx), 0],
-		[2*(xz - wy), 2*(yz + wx), ww-xx-yy+zz, 0],
+		[xx+yy-zz-ww, 2*(yz - wx), 2*(wy + xz), 0],
+		[2*(yz + wx), xx-yy+zz-ww, 2*(wz - xy), 0],
+		[2*(yw - xz), 2*(yz + xy), xx-yy-zz+ww, 0],
 		[0,           0,           0,           1]
 	];
+}
+
+function matrixToQuat() {
+	
 }
 
 //from wikipedia, I might be wrong
@@ -44,21 +50,26 @@ function aaFromQuat(q) {
 
 function quatFromAA(axis, angle) {
 	angle /= 2;
+	const sinA = Math.sin(angle);
 	return [
-		axis[0] * Math.sin(angle),
-		axis[1] * Math.sin(angle),
-		axis[2] * Math.sin(angle),
+		axis[0] * sinA,
+		axis[1] * sinA,
+		axis[2] * sinA,
 		Math.cos(angle),
 	];
 }
 
 function quatMultiply(q1, q2) {
 	return [
-		q1[3]*q2[3] - q1[0]*q2[0] - q1[1]*q2[1] - q1[2]*q2[2],
-		q1[3]*q2[0] + q1[0]*q2[3] + q1[1]*q2[2] - q1[2]*q2[1],
-		q1[3]*q2[1] - q1[0]*q2[2] + q1[1]*q2[3] + q1[2]*q2[0],
-		q1[3]*q2[2] + q1[0]*q2[1] - q1[1]*q2[0] + q1[2]*q2[3]
+		q1[0]*q2[0] - q1[1]*q2[1] - q1[2]*q2[2] - q1[3]*q2[3],
+		q1[0]*q2[1] + q1[1]*q2[0] + q1[2]*q2[3] - q1[3]*q2[2],
+		q1[0]*q2[2] - q1[1]*q2[3] + q1[2]*q2[0] + q1[3]*q2[1],
+		q1[0]*q2[3] + q1[1]*q2[2] - q1[2]*q2[1] + q1[3]*q2[0]
 	];
+}
+
+function quatInv(q) {
+	return [q[0], -q[1], -q[2], -q[3]]
 }
 
 //DON'T USE THIS, THIS CHANGES THE LENGTH OF THE QUATS
@@ -72,5 +83,14 @@ function quatAdd(q1, q2) {
 }
 
 function quatIdentity() {
-	return [0, 0, 0, 1];
+	return [1, 0, 0, 0];
+}
+
+function quatRotate(p, q) {
+	const qInv = quatInv(q);
+	//rotation is associative. Yay!
+	//do p' = qInv * p * q
+	p = quatMultiply([0, p[0], p[1], p[2]], q);
+	p = quatMultiply(qInv, p);
+	return [p[1], p[2], p[3]];
 }

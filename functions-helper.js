@@ -63,7 +63,7 @@ function applyDist(oldDist, testDist, nature, gloopiness, smoothness) {
 	return Math.min(testDist, oldDist);
 }
 
-function benchmark() {
+function benchmark(pxMult) {
 	const tMult = 4000;
 	var score = 0;
 	var miniscores = [];
@@ -75,7 +75,7 @@ function benchmark() {
 		px: render_n
 	};
 
-	loadSpot(benchmark_locs[0]);
+	loadSpot(benchmark_locs[0], pxMult);
 
 	//after 3 seconds of each benchmark spot, record the average time taken. This contributes to the score
 	for (f=1; f<benchmark_locs.length; f++) {
@@ -83,7 +83,7 @@ function benchmark() {
 		window.setTimeout(() => {
 			miniscores.push(+(debugTA.innerHTML));
 			score += +(debugTA.innerHTML);
-			loadSpot(benchmark_locs[trueF]);
+			loadSpot(benchmark_locs[trueF], pxMult);
 		}, tMult*trueF);
 	}
 
@@ -322,17 +322,17 @@ function drawUI() {
 	}
 	
 	//debug bars
-	btx.fillStyle = editor_isStable ? color_editor_border : `#F99`;
+	btx.fillStyle = editor.stable ? color_editor_border : `#F99`;
 	btx.fillRect(0, 0, cvs.width, pxH * 12);
 	btx.fillRect(0, ch - pxH * 12, cvs.width, pxH * 12);
 
-	if (editor_axisType) {
+	if (editor.axisType) {
 		drawEditorGizmo();
 	}
 	
 	//selected object ghost
-	if (editor_selected != player) {
-		var ghostPos = calcScreenPos(editor_selected.pos);
+	if (editor.selected != player) {
+		var ghostPos = calcScreenPos(editor.selected.pos);
 		if (ghostPos) {
 			btx.globalAlpha = 1;
 			btx.lineWidth = 1;
@@ -346,7 +346,7 @@ function drawUI() {
 	
 	//global/local indicator
 	btx.globalAlpha = 0.6;
-	drawPixelArt(editor_local ? pxdata_box : pxdata_world, 4 * pxW, 16 * pxH, pxW * 4);
+	drawPixelArt(editor.local ? pxdata_box : pxdata_world, 4 * pxW, 16 * pxH, pxW * 4);
 	btx.globalAlpha = 1;
 }
 
@@ -463,7 +463,7 @@ function loadWorld(worldName) {
 /**
  * a spotObj has `pos`, `rot`, `fov`, and `px` fields. Pos is the position with the world name tacked on.
  */
-function loadSpot(spotObj) {
+function loadSpot(spotObj, pxMult) {
 	loadWorld(spotObj.pos[3]);
 	
 	player.pos = Pos(...(spotObj.pos));
@@ -471,7 +471,7 @@ function loadSpot(spotObj) {
 	player.phi = spotObj.rot[1];
 	
 	camera_FOV = spotObj.fov;
-	render_goalN = spotObj.px;
+	render_goalN = spotObj.px * (pxMult ?? 1);
 }
 
 /**
@@ -792,6 +792,10 @@ function cartToThetaPhi(x, y, z) {
 	return [(theta < 0) ? (Math.PI * 2 + theta) : theta, phi];
 }
 
+function snapToGrid(num) {
+	return Math.round(num / editor.gridDist) * editor.gridDist;
+}
+
 
 /**
  * transforms a standard transform. In this case, the first 4 args are the transform to modify, and the last 4 args are the base to apply.
@@ -859,6 +863,7 @@ function transformInverse(point, offset, theta, phi, rot) {
 }
 
 function transformInverseMat(point, offset, rotMatrix) {
+
 }
 
 /**

@@ -155,17 +155,17 @@ class World {
 				expObjs.push(q);
 			});
 		});
-		if (debug_flags.showGrid && editor_selected != player) {
+		if (debug_flags.showGrid && editor.selected != player) {
 			const r = Math.round;
-			var eDist = editor_flags.gridDist;
+			var eDist = editor.gridDist;
 			while (eDist < 6) {
 				eDist *= 2;
 			}
 			const heDist = eDist/2;
 			const center = Pos(
-				r(editor_selected.pos[0] / eDist) * eDist,
-				r(editor_selected.pos[1] / eDist) * eDist,
-				r(editor_selected.pos[2] / eDist) * eDist,
+				r(editor.selected.pos[0] / eDist) * eDist,
+				r(editor.selected.pos[1] / eDist) * eDist,
+				r(editor.selected.pos[2] / eDist) * eDist,
 			);
 			const gd = 3;
 			var create = (x, y, z, rx, ry, rz) => {
