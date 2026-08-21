@@ -164,14 +164,14 @@ Raydata stage[ray_numLights+1] = Raydata[ray_numLights+1](
 vec3 groundColor = vec3(0.0);
 
 void calcSceneObjs(int, float);
-void findHitPos(vec3, int, int, float, float);
+void findHitPos(vec3, mat4, float, float);
 float fractalNoise(vec2, int, float, float, float, float);
 
 mat4 metric(vec4, vec3, float);
 Path geodesicStep(Path, float, vec3, float);
 
-vec3 getGrad(vec3, int, int);
-vec3 getNormal(vec3, int, int);
+vec3 getGrad(vec3, mat4);
+vec3 getNormal(vec3, mat4);
 vec3 getSNormal(vec3, int);
 
 float sceneSDF(vec3, int);
@@ -199,9 +199,9 @@ void setStageRay_hack(int stg, vec3 newPos, vec3 newDPos) {
 	bounceCount += 1;
 }
 
-vec3 reflectStage(int stg, float density) {
+vec3 reflectStage(int stg, mat4 obj, float density) {
 	stage[stg].density = density;
-	vec3 norm = getNormal(stage[stg].path.spot.yzw, stage[stg].world, stage[stg].closestInd);
+	vec3 norm = getNormal(stage[stg].path.spot.yzw, obj);
 	vec3 incident = stage[stg].path.vel;
 	// float mu = stage[stg].density / density;
 	return normalize((stage[stg].density * incident - norm) / density);
@@ -303,6 +303,10 @@ mat4 objData(int world, int index) {
 	vec4 data2 = texelFetch(uUniverseTex, ivec3(index, 2, world), 0);
 	vec4 data3 = texelFetch(uUniverseTex, ivec3(index, 3, world), 0);
 	return mat4(data0, data1, data2, data3);
+}
+
+vec3 objPos(int world, int index) {
+	return texelFetch(uUniverseTex, ivec3(index, 1, world), 0).xyz;
 }
 
 mat4 matData(int world, int index) {
@@ -782,9 +786,7 @@ float boxFrameSDF(vec3 point, float data1, vec4 data2) {
 }
 
 
-float objSDF(vec3 p, int world, int index) {
-	mat4 data = objData(world, index);
-	
+float objSDF(vec3 p, mat4 data) {
 	int type = (floatBitsToInt(data[0][0]) & 0xFFFF);
 	int nature = int(data[0][1]);
 	int rotations = floatBitsToInt(data[0][2]);
@@ -894,36 +896,32 @@ float objSDF(vec3 p, int world, int index) {
 	if ((nature & N_ANTI) > 0) {
 		d = -d;
 	}
-	if ((nature & N_FOG) > 0) {
+	if ((nature & N_FOG) > 0 || (nature & N_GRAVITY) > 0) {
 		d = max(d, nearDist - minDist);
-	}
-	if ((nature & N_GRAVITY) > 0) {
-		// d = max(d, data[3][0]);
-		d = max(d, 10.);
 	}
 	return d;
 }
 
 //gets the sdf's gradient at a particular point
-vec3 getGrad(vec3 p, int worldIndex, int objIndex) {
-	float d = objSDF(p, worldIndex, objIndex);
+vec3 getGrad(vec3 p, mat4 obj) {
+	float d = objSDF(p, obj);
 	vec2 e = vec2(0.001, 0.);
 	vec3 n = vec3(d) - vec3(
-		objSDF(p + e.xyy, worldIndex, objIndex),
-		objSDF(p + e.yxy, worldIndex, objIndex),
-		objSDF(p + e.yyx, worldIndex, objIndex)
+		objSDF(p + e.xyy, obj),
+		objSDF(p + e.yxy, obj),
+		objSDF(p + e.yyx, obj)
 	);
 	return (-n / e[0]);
 }
 
 //gets the sdf's normal at a particular point (gradient with length 1)
-vec3 getNormal(vec3 p, int worldIndex, int objIndex) {
-	float d = objSDF(p, worldIndex, objIndex);
+vec3 getNormal(vec3 p, mat4 obj) {
+	float d = objSDF(p, obj);
 	vec2 e = vec2(0.001, 0.);
 	vec3 n = vec3(d) - vec3(
-		objSDF(p + e.xyy, worldIndex, objIndex),
-		objSDF(p + e.yxy, worldIndex, objIndex),
-		objSDF(p + e.yyx, worldIndex, objIndex)
+		objSDF(p + e.xyy, obj),
+		objSDF(p + e.yxy, obj),
+		objSDF(p + e.yyx, obj)
 	);
 	n = -n;
 	return normalize(n);
@@ -944,13 +942,13 @@ vec3 getSNormal(vec3 p, int stg) {
 
 
 
-int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 data1, vec4 data2) {
+int applyHitEffect(int stg, float oldLocalDist, mat4 obj, int matType, vec4 data0, vec4 data1, vec4 data2) {
 	// mat4 data = matData(stage[stg].world, stage[stg].closestInd);
 	int res = 1;
 	switch (matType) {
 		case M_COLOR: {
 			if (stg == 0) {
-				findHitPos(stage[0].path.spot.yzw, stage[0].world, stage[0].closestInd, oldLocalDist, stage[0].localDist);
+				findHitPos(stage[0].path.spot.yzw, obj, oldLocalDist, stage[0].localDist);
 				groundColor = data0.rgb;
 			}
 			res = 1;
@@ -959,8 +957,8 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 		case M_NORMAL: {
 			if (stg == 0) {
 				//theoretically this should work. try 0 -> stg if not
-				findHitPos(stage[0].path.spot.yzw, stage[0].world, stage[0].closestInd, oldLocalDist, stage[0].localDist);
-				vec3 norm = getNormal(stage[0].path.spot.yzw, stage[0].world, stage[0].closestInd);
+				findHitPos(stage[0].path.spot.yzw, obj, oldLocalDist, stage[0].localDist);
+				vec3 norm = getNormal(stage[0].path.spot.yzw, obj);
 				// vec3 norm = getSNormal(stage[0].path.spot.yzw, 0);
 				groundColor = norm*0.5 + 0.5;
 			}
@@ -969,7 +967,7 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 		
 		case M_RUBBER: {
 			if (stg == 0) {
-				findHitPos(stage[0].path.spot.yzw, stage[0].world, stage[0].closestInd, oldLocalDist, stage[0].localDist);
+				findHitPos(stage[0].path.spot.yzw, obj, oldLocalDist, stage[0].localDist);
 				float localVal = mod(stage[stg].path.spot.y + stage[stg].path.spot.w, 10.) - 5.;
 				vec3 mult = vec3(4.0/255., 4.0/255., 4.8/255.);
 				vec3 paint = (vec3(47./255., 48./255., 66./255.) + localVal * mult);
@@ -991,10 +989,10 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 			
 			// oldOldPos ---oo--- oldPos ---oldLD--- currPos ---newLD--- nextPos
 			
-			float oldDist = objSDF(oldPos, stage[stg].world, stage[stg].closestInd);
+			float oldDist = objSDF(oldPos, obj);
 			float newDist = stage[stg].localDist;
 			vec3 nextPos = currPos + stage[stg].path.vel * newLocalDist;
-			float futureDist = objSDF(nextPos, stage[stg].world, stage[stg].closestInd);
+			float futureDist = objSDF(nextPos, obj);
 
 			bool entering = (oldDist > minDist && newDist <= minDist);
 			bool exiting = (newDist < minDist && futureDist >= minDist);
@@ -1002,7 +1000,7 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 			//entering
 			if (entering) {
 				if (matType == M_GLASS) {
-					setStageRay_hack(stg, stage[stg].path.spot.yzw, reflectStage(stg, density));
+					setStageRay_hack(stg, stage[stg].path.spot.yzw, reflectStage(stg, obj, density));
 				}
 				applyColor(stg, data0);
 			}
@@ -1010,7 +1008,7 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 			//exiting
 			if (exiting) {
 				if (matType == M_GLASS) {
-					setStageRay(stg, nextPos, reflectStage(stg, 1.0));
+					setStageRay(stg, nextPos, reflectStage(stg, obj, 1.0));
 				}
 				applyColor(stg, data0);
 			}
@@ -1031,13 +1029,13 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 			res = 0;
 		} break;
 		case M_MIRROR: {
-			findHitPos(stage[0].path.spot.yzw, stage[0].world, stage[0].closestInd, oldLocalDist, stage[0].localDist);
+			findHitPos(stage[0].path.spot.yzw, obj, oldLocalDist, stage[0].localDist);
 			if (stage[stg].distSinceBounce < 0.5) {
 				break;
 			}
 			applyColor(stg, data0);
 			if (stg == 0) {
-				vec3 normal = getNormal(stage[stg].path.spot.yzw, stage[stg].world, stage[stg].closestInd);
+				vec3 normal = getNormal(stage[stg].path.spot.yzw, obj);
 				setStageRay(stg, stage[stg].path.spot.yzw, reflect(stage[stg].path.vel, normal));
 				res = int(stage[stg].color.a >= 1. || bounceCount > ray_maxBounces);
 			} else {
@@ -1065,12 +1063,11 @@ int applyHitEffect(int stg, float oldLocalDist, int matType, vec4 data0, vec4 da
 				float scale = data0[1];
 				float isRelative = data0[2];
 				float blend = (data0[3] > 5.) ? 10.*data0[3] - 45. : data0[3];
-			
-				mat4 trix = objData(stage[stg].world, stage[stg].closestInd);
-				vec3 objPos = trix[1].xyz;
+				
+				vec3 objPos = obj[1].xyz;
 				vec3 currPos = stage[stg].path.spot.yzw;
 				vec3 relPos = scale * tex_scale * (currPos - isRelative*objPos);
-				vec3 norm = abs(getNormal(currPos, stage[stg].world, stage[stg].closestInd));
+				vec3 norm = abs(getNormal(currPos, obj));
 				norm = normalize(vec3(pow(norm.x, blend), pow(norm.y, blend), pow(norm.z, blend)));
 				
 				mat3 uvs = mat3(
@@ -1132,8 +1129,7 @@ void applyNearEffect(int stg, int matType, vec4 data0, vec4 data1, vec4 data2) {
 }
 
 
-bool intersects(vec3 p, vec3 v, vec3 minPos, vec3 maxPos) {
-	vec3 invV = 1.0 / v;
+bool intersects(vec3 p, vec3 invV, vec3 minPos, vec3 maxPos) {
 	vec3 tLow = (minPos - p) * invV;
 	vec3 tHigh = (maxPos - p) * invV;
 	vec3 tClose = min(tLow, tHigh);
@@ -1165,6 +1161,7 @@ void calcSceneObjs(int stg, float tolerance) {
 	//there are 2*objs nodes in the tree. At maximum, we explore every one of them
 	int len = 4 * w_objCount(stage[stg].world);
 	int explored = 0;
+	vec3 invV = 1.0 / stage[stg].path.vel;
 	for (int f=0; f<len; f++) {
 		//valid node checks
 		if (currNode < 0) {
@@ -1178,7 +1175,7 @@ void calcSceneObjs(int stg, float tolerance) {
 		}
 		
 		//evaluate using slab test
-		bool isIn = intersects(stage[stg].path.spot.yzw, stage[stg].path.vel, data0.xyz - tolerance, data1.xyz + tolerance);
+		bool isIn = intersects(stage[stg].path.spot.yzw, invV, data0.xyz - tolerance, data1.xyz + tolerance);
 		bool hasChildren = (data0[3] == -1.);
 		
 		//in current node?
@@ -1226,7 +1223,7 @@ void calcLightPositions() {
 			continue;
 		}
 		//figure out distance to said light
-		float dist = length(objData(world, l)[1].xyz - currPos);
+		float dist = length(objPos(world, l) - currPos);
 		int ind = l;
 		if (dist > maxLightDist) {
 			continue;
@@ -1271,9 +1268,8 @@ float smoothMin(float d1, float d2, float k) {
 
 //given oldDist and a index/newDist/nature pairing, returns what the new sceneDist should be
 //also sets closestInd if necessary to set materials
-float applyDist(int stg, float oldDist, float newDist, int nature, int index) {
+float applyDist(int stg, float oldDist, float newDist, int nature, int gAmt, int index) {
 	//tnd = trueNewDist
-	int gAmt = floatBitsToInt(objData(stage[stg].world, index)[0][3]);
 	int deletables = N_SMOOTH | N_EXTRUDE;
 	int ignorables = N_FOG;
 	nature = nature & ~deletables;
@@ -1330,16 +1326,17 @@ float sceneSDF(vec3 p, int stg) {
 	float sceneDist = 9999999.;
 	
 	for(int i=0; i<objCount; i++) {
-		float d = objSDF(p, stage[stg].world, objIndices[i]);
+		mat4 data = objData(stage[stg].world, objIndices[i]);
+		float d = objSDF(p, data);
 		int nature = natureData(stage[stg].world, objIndices[i]);
-		sceneDist = applyDist(stg, sceneDist, d, nature, objIndices[i]);
+		sceneDist = applyDist(stg, sceneDist, d, nature, floatBitsToInt(data[0][3]), objIndices[i]);
 	}
 	return sceneDist;
 }
 
 // Raymarching steps
 
-void findHitPos(vec3 startPos, int world, int objID, float oldLocalDist, float newLocalDist) {
+void findHitPos(vec3 startPos, mat4 obj, float oldLocalDist, float newLocalDist) {
 	//don't even bother with anti
 	//idea:
 	// p0 ----a --- p1 -----b---- p2
@@ -1355,7 +1352,7 @@ void findHitPos(vec3 startPos, int world, int objID, float oldLocalDist, float n
 		if (newLocalDist < minDist) {
 			p1 += min(newLocalDist, -minDist) * 5.0 * lineVec;
 		}
-		newLocalDist = objSDF(p1, world, objID);
+		newLocalDist = objSDF(p1, obj);
 	}
 	
 	stage[0].path.spot.yzw = p1;
@@ -1374,7 +1371,7 @@ void raymarch() {
 			int type = matType(stage[0].world, stage[0].closestInd);
 		
 			if (stage[0].localDist < minDist) {
-				int res = applyHitEffect(0, oldLocalDist, type, matDat[0], matDat[1], matDat[2]);
+				int res = applyHitEffect(0, oldLocalDist, objData(stage[0].world, stage[0].closestInd), type, matDat[0], matDat[1], matDat[2]);
 				if (res > 0) {
 					hit = true;
 					return;
@@ -1422,7 +1419,7 @@ void shadow(int stg, vec3 startPos, vec3 normal, vec3 lightVec) {
 			int type = matType(stage[stg].world, stage[stg].closestInd);
 			
 			if (stage[stg].localDist < minDist) {
-				int res = applyHitEffect(stg, stage[stg].localDist, type, matDat[0], matDat[1], matDat[2]);
+				int res = applyHitEffect(stg, stage[stg].localDist, objData(stage[stg].world, stage[stg].closestInd), type, matDat[0], matDat[1], matDat[2]);
 				if (res > 0) {
 					//IN HERE THE GAMMA IS RESCALED TO THE LIGHT COLOR
 					stage[stg].color[3] *= float(res - 1);
@@ -1714,7 +1711,8 @@ void main() {
 	// stage 1
 	if (hit && stage[1].iters < maxIters) {
 		//figure out proper starting position
-		vec3 normal = getNormal(stage[0].path.spot.yzw, stage[0].world, stage[0].closestInd);
+		vec3 normal = getNormal(stage[0].path.spot.yzw, objData(stage[0].world, stage[0].closestInd));
+		//TODO: use this for lighting
 		vec3 reflected = reflect(stage[0].path.vel, normal);
 		vec3 startPos = stage[0].path.spot.yzw + normal * minDist * 5.;
 		
@@ -1724,7 +1722,7 @@ void main() {
 		//it's hit an object, run shadow stage
 		shadow(1, startPos, normal, w_sunVec(stage[0].world));
 		for (int l=1; l<lightIndices[0]; l++) {
-			vec3 lPos = objData(stage[0].world, lightIndices[l])[1].xyz;
+			vec3 lPos = objPos(stage[0].world, lightIndices[l]);
 			vec3 dir = normalize(lPos - startPos);
 			shadow(l+1, startPos, normal, dir);
 		}
