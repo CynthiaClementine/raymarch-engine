@@ -391,7 +391,7 @@ function handleKeyPress(a) {
 						return;
 					case "Escape":
 					case "Backquote":
-						if (ec.axis) {
+						if (ec.axis.size) {
 							ec.axis.clear();
 							return;
 						}

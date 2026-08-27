@@ -509,6 +509,7 @@ function ec_initialize() {
 	editor_controls.edit = ec_compile([
 		`C Surface_snap editor.flags.snapSurface`,
 		`C Pos_snap editor.flags.snapPos`,
+		`C Axis_snap editor.flags.snapAxis`,
 		`editor.snapDist (snapDist: ##) 1—99 u1`,
 		`C Show_grid debug_flags.showGrid`,
 		`C Grid_snap editor.flags.snapGrid`,
@@ -611,15 +612,15 @@ function ec_updatePanelsFor(obj) {
 		Lamppost
 	];
 	
-	if (!thetaless.includes(cons)) {
-		shouldSee.push(`.theta (<br>θ: #.###) 0—6.283 u0.01745`);
-	}
-	if (!philess.includes(cons)) {
-		shouldSee.push(`.phi (φ: ±#.###) -1.571—1.571 u0.01745`);
-	}
-	if (!rotless.includes(cons)) {
-		shouldSee.push(`.rot (ρ: #.###) 0—6.283 u0.01745`);
-	}
+	// if (!thetaless.includes(cons)) {
+	// 	shouldSee.push(`.theta (<br>θ: #.###) 0—6.283 u0.01745`);
+	// }
+	// if (!philess.includes(cons)) {
+	// 	shouldSee.push(`.phi (φ: ±#.###) -1.571—1.571 u0.01745`);
+	// }
+	// if (!rotless.includes(cons)) {
+	// 	shouldSee.push(`.rot (ρ: #.###) 0—6.283 u0.01745`);
+	// }
 
 	function syncNature(val, nat) {
 		if (val != null) {

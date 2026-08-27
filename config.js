@@ -258,6 +258,7 @@ var editor = {
 		snapSurface: true,
 		snapGrid: true,
 		snapPos: true,
+		snapAxis: true,
 	},
 	holp: Pos(0,0,0),
 	selected: undefined,
@@ -436,6 +437,8 @@ var texture_bvh;
 var texture_bvhArr;
 var texture_exes;
 var texture_exesArr;
+var texture_sin;
+var texture_sinArr;
 
 
 //uniforms

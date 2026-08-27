@@ -181,7 +181,7 @@ function setupGLState(vertexShaderCode, fragmentShaderCode) {
 	if (!success) {
 		console.error(`program creation failure: ${success}`);
 		gl.deleteProgram(program);
-		return;xw
+		return;
 	}
 	
 	gl.useProgram(program);
@@ -336,14 +336,14 @@ function setObject(worldOff, rowOff, objInd, objRef) {
 	const data = texture_universeArr;
 	const type = objRef.type;
 	const material = objRef.material.type;
-	var [theta, phi, rot] = [0, 90, 0];
+	var quat = quatIdentity();
 	var pos;
 	var nature;
 	
 	if (objRef.constructor.type == TYPE_CLASS_LOOP) {
 		var shadow = objRef.objects[0];
 		pos = objRef.pos;
-		[theta, phi, rot] = [shadow.theta, shadow.phi, shadow.rot];
+		quat = shadow.quat;
 		nature = shadow.nature;
 	} else {
 		if (objRef.constructor.type != TYPE_FRACTAL) {
@@ -360,7 +360,8 @@ function setObject(worldOff, rowOff, objInd, objRef) {
 	const typeMat = buf32_float[0];
 	buf32_int[0] = ((2*objRef.smoothness & 0xFFFF) << 0) | ((2*objRef.gloopiness & 0xFFFF) << 16);
 	const gloopiSmooth = buf32_float[0];
-	const rotation = packageRot(theta, phi, rot);
+	buf32_int[0] = packageQrot(objRef.quat);
+	const rotation = buf32_float[0];
 	
 	// Row 0: object type + material type, nature, unused
 	var base = worldOff + objInd * 4;

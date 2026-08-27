@@ -126,6 +126,7 @@ function deserialize(str) {
 	
 	//base structure is consistent across objects
 	var [type, pos, nature, theta, phi, rot] = base;
+	
 	type = map_strObj[type];
 	if (!type) {
 		throw new Error(`cannot deserialize type "${type}"!`);
@@ -133,15 +134,14 @@ function deserialize(str) {
 	pos = JSON.parse(pos);
 	var gloop, smooth, ex, ey, ez;
 	[nature, gloop, smooth, ex, ey, ez] = deserializeNat(nature);
-	if (theta == `R`) {
-		[theta, phi, rot] = [`0`, `90`, `0`];
-	}
-	[theta, phi, rot] = [+theta, +phi, +rot];
+	[quat, theta, phi, rot] = deserializeRot(theta, phi, rot);
+	
 	var posRotObj = {
 		pos: Pos(...pos),
-		theta: theta * degToRad,
-		phi: (phi - 90) * degToRad,
-		rot: rot * degToRad
+		quat: quat,
+		theta: theta,
+		phi: phi,
+		rot: rot
 	};
 	
 	var finalArgs = [posRotObj];
@@ -155,6 +155,21 @@ function deserialize(str) {
 		finalArgs.push(...params.map(a => +a));
 	}
 	return new type(...finalArgs, objs);
+}
+
+function deserializeRot(theta, phi, rot) {
+	if (theta == `R`) {
+		return [quatIdentity(), null, null, null];
+	}
+	
+	//figure out if it's a quaternion or not
+	if (phi == undefined) {
+		//quat case
+		return [unpackageQrot(parseInt(theta, 32)), null, null, null];
+	}
+
+	//euler case
+	return [null, theta * degToRad, (phi - 90) * degToRad, rot * degToRad];
 }
 
 function deserializeMat(str) {
@@ -207,7 +222,7 @@ function calcPlacePos() {
 	var exclude = trueObj(editor.selected);
 	var pos = null;
 	var dist = 1e101;
-	var snapSet = loading_world.bvh.objectsInBox(...bounds_expand([[...base], [...base]], 4*editor.snapDist));
+	var snapSet = loading_world.bvh.objectsInBox(...bounds_expandU([[...base], [...base]], 4*editor.snapDist));
 	snapSet = snapSet.filter(o => trueObj(o) != exclude);
 	if (editor.flags.snapPos) {
 		//direct pos snapping
@@ -223,7 +238,7 @@ function calcPlacePos() {
 			base[0] = pos[0];
 			base[1] = pos[1];
 			base[2] = pos[2];
-		} else {
+		} else if (editor.flags.snapAxis) {
 			snapSet.forEach(o => {
 				//2/3 axis snapping
 				var px = Pos(base[0], o.pos[1], o.pos[2]);
@@ -404,20 +419,19 @@ function editor_applyDrag(dragVec) {
 		ea = Array.from(ea).sort();
 		dragVec[0] *= 0.01;
 		dragVec[1] *= 0.01;
+
+		//just give up
+		
+		var qApply = quatFromEuler(
+			dragVec[0]*(ea[0] == `y`) + dragVec[1]*(ea[1] == `y`),
+			dragVec[0]*(ea[0] == `x`) + dragVec[1]*(ea[1] == `x`), 
+			dragVec[0]*(ea[0] == `z`) + dragVec[1]*(ea[1] == `z`));
+
 		if (editor.local) {
-			es.theta += dragVec[0]*(ea[0] == `x`) + dragVec[1]*(ea[1] == `x`);
-			es.phi +=   dragVec[0]*(ea[0] == `y`) + dragVec[1]*(ea[1] == `y`);
-			es.rot +=   dragVec[0]*(ea[0] == `z`) + dragVec[1]*(ea[1] == `z`);
+			es.quat = normalize(quatMultiply(qApply, es.quat));
 		} else {
-			var res = transformTransform([0, 0, 0], es.theta, es.phi, es.rot, [0, 0, 0], 
-				dragVec[0]*(ea[0] == `x`) + dragVec[1]*(ea[1] == `x`), 
-				dragVec[0]*(ea[0] == `y`) + dragVec[1]*(ea[1] == `y`), 
-				dragVec[0]*(ea[0] == `z`) + dragVec[1]*(ea[1] == `z`));
-			[es.theta, es.phi, es.rot] = [res.theta, res.phi, res.rot];
+			es.quat = normalize(quatMultiply(es.quat, qApply));
 		}
-		es.theta = modulate(es.theta, Math.PI * 2);
-		es.phi = clamp(es.phi, -Math.PI / 2, Math.PI / 2);
-		es.rot = modulate(es.rot, Math.PI * 2);
 		return;
 	}
 }
@@ -477,7 +491,7 @@ function editor_loopify(e, object) {
 	const targetSize = [b[1][0] - b[0][0], b[1][1] - b[0][1], b[1][2] - b[0][2]];
 	const loopObj = new Scene3dLoop({
 		pos: posStore,
-		theta: 0, phi: 0, rot: 0
+		quat: quatIdentity(),
 	}, 1, 1, 1, ...targetSize, [object]);
 
 	
@@ -495,19 +509,15 @@ function editor_unloopify(e, object) {
 	editor_removeObj(null, object);
 	var base = {
 		pos: object.pos,
-		theta: object.theta,
-		phi: object.phi,
-		rot: object.rot,
+		quat: object.quat,
 	};
 
 	var list = object.objects;
 
 	list.forEach(o => {
-		var final = transformTransform(o.pos, o.theta, o.phi, o.rot, base.pos, base.theta, base.phi, base.rot);
+		var final = transformTransform(o.pos, o.quat, base.pos, base.quat);
 		o.pos = final.pos;
-		o.theta = final.theta;
-		o.phi = final.phi;
-		o.rot = final.rot;
+		o.quat = final.quat;
 		loading_world.objects.push(o);
 	});
 
@@ -679,32 +689,30 @@ function editor_toggleAxisSet(setType) {
 	editor.axisType = setType;
 }
 
-// local axis vector is the axis vector of the world based on the selected objects given rotation. 
-//This could maybe be a helper function, but you'd need to pass the object in
+// local axis vector is the world-space vector of the object-space axis.
+//This could maybe be an honest function, but you'd need to pass the object in
 function editor_getAxisVec(axis) {
 	if (!axis || !editor.axisType) {
 		return [0, 0, 0];
 	}
-	var theta = editor.selected.theta ?? 0;
-	var phi = editor.selected.phi ?? 0;
-	var rot = editor.selected.rot ?? 0;
+	var qLocal = editor.selected.quat ?? quatIdentity();
 	const zeroPos = [0, 0, 0];
 	
 	if (editor.axisType == `grab` || editor.axisType == `scale`) {
 		if (!editor.local) {
-			[theta, phi, rot] = [0, 0, 0];
+			qLocal = quatIdentity();
 		}
-		return transform([+(axis == `x`), +(axis == `y`), +(axis == `z`)], zeroPos, theta, phi, rot);
+		return transform([+(axis == `x`), +(axis == `y`), +(axis == `z`)], zeroPos, qLocal);
 	}
 	if (editor.axisType == `rotate`) {
 		if (editor.local) {
 			switch (axis) {
 				case `x`:
-					return transform([0, 1, 0], zeroPos, theta, 0, 0);
+					return transform([0, 1, 0], zeroPos, qLocal);
 				case `y`:
-					return transform([1, 0, 0], zeroPos, theta, phi, 0);
+					return transform([1, 0, 0], zeroPos, qLocal);
 				case `z`:
-					return transform([0, 0, 1], zeroPos, theta, phi, 0);
+					return transform([0, 0, 1], zeroPos, qLocal);
 			}
 		}
 		return [+(axis == `x`), +(axis == `y`), +(axis == `z`)];

@@ -7,8 +7,11 @@
 #define PI 3.14159265359
 #define TAU 6.2831853072
 #define PHI 1.6180339887
+#define INVSQRT2 0.7071067812
+#define INVSQRT3 0.5773502692
 #define fencepost 4278259968.
 #define grav_constant 6.674
+#define quat_iden 2007498239u
 
 //precision / quality
 #define maxIters 500
@@ -242,6 +245,28 @@ float noise(vec2 pos) {
 				mix(randStable(i + vec2(0,1)), randStable(i + vec2(1,1)), f.x), f.y);
 }
 
+vec4 unpackageQRot(uint inter) {
+	if (inter == quat_iden) {
+		return vec4(1,0,0,0);
+	}
+	uint range = 0x1FFu;
+	vec4 q = vec4(0.);
+	int iLarg = int(inter >> 30u);
+	float sum = 0.0;
+	for (int i=3; i>=0; i--) {
+		if (i == iLarg) {
+			continue;
+		}
+		float val = float(inter & range);
+		uint negate = (inter >> 9u) & 1u;
+		q[i] = ((negate == 1u) ? -INVSQRT2 : INVSQRT2) * val / float(range);
+		sum += q[i] * q[i];
+		inter = inter >> 10u;
+	}
+	q[iLarg] = sqrt(1. - sum);
+	return q;
+}
+
 vec2 rotate(vec2 pos, int deg) {
 	float angle = float(deg) * 0.01745329252;
 	float sn = sin(angle);
@@ -260,6 +285,10 @@ vec3 rotate3d(vec3 p, int theta, int phi, int rot) {
 	p.yz = rotate(p.yz, phi);
 	p.xy = rotate(p.xy, -rot);
 	return p;
+}
+
+vec3 rotate3d(vec3 p, vec4 quat) {
+	return p + 2. * cross(quat.yzw, cross(quat.yzw, p) + quat.x * p);
 }
 
 float smootherstep(float t) {
@@ -486,7 +515,7 @@ float isoTriSDF(vec2 p, vec2 wh) {
 }
 
 float hexagonSDF(vec2 point, float r) {
-	vec3 magicNums = vec3(-0.86603, 0.5, 0.57735);
+	vec3 magicNums = vec3(-0.86603, 0.5, INVSQRT3);
 	point = abs(point);
 	point -= 2. * min(dot(magicNums.xy, point), 0.) * magicNums.xy;
 	point.x -= clamp(point.x, -magicNums[2] * r, magicNums[2] * r);
@@ -789,21 +818,15 @@ float boxFrameSDF(vec3 point, float data1, vec4 data2) {
 float objSDF(vec3 p, mat4 data) {
 	int type = (floatBitsToInt(data[0][0]) & 0xFFFF);
 	int nature = int(data[0][1]);
-	int rotations = floatBitsToInt(data[0][2]);
-	int theta = rotations       & 0x1FF;
-	int phi = ((rotations >> 9) & 0x1FF) - 90;
-	int rot = (rotations >> 18) & 0x1FF;
+	vec4 rotations = unpackageQRot(floatBitsToUint(data[0][2]));
 	float d = 9999.;
 	
 	//it's a loop object. Do the modulation beforehand
 	if (type >= 100) {
 		type -= 100;
 		p -= data[1].xyz;
-		int anglBits = floatBitsToInt(data[3][2]);
-		int lTheta = anglBits       & 0x1FF;
-		int lPhi = ((anglBits >> 9) & 0x1FF) - 90;
-		int lRot = (anglBits >> 18) & 0x1FF;
-		p = rotate3d(p, lTheta, lPhi, lRot);
+		vec4 angle = unpackageQRot(floatBitsToUint(data[3][2]));
+		p = rotate3d(p, angle);
 
 		int iterBits = floatBitsToInt(data[0][3]);
 		vec3 loopNums = vec3(
@@ -827,7 +850,7 @@ float objSDF(vec3 p, mat4 data) {
 	
 	//transform to object coordinates
 	p -= data[1].xyz;
-	p = rotate3d(p, theta, phi, rot);
+	p = rotate3d(p, rotations);
 
 	//extrusion??????
 	if ((nature & N_EXTRUDE) > 0) {
@@ -1069,19 +1092,11 @@ int applyHitEffect(int stg, float oldLocalDist, mat4 obj, int matType, vec4 data
 				vec3 relPos = scale * tex_scale * (currPos - isRelative*objPos);
 				vec3 norm = getNormal(currPos, obj);
 				if (true) {
-					int rotations = floatBitsToInt(obj[0][2]);
-					int theta = rotations       & 0x1FF;
-					int phi = ((rotations >> 9) & 0x1FF) - 90;
-					int rot = (rotations >> 18) & 0x1FF;
-					norm = rotate3d(norm, theta, phi, rot);
-					relPos = rotate3d(relPos, theta, phi, rot);
+					vec4 rotations = unpackageQRot(floatBitsToUint(obj[0][2]));
+					norm = rotate3d(norm, rotations);
+					relPos = rotate3d(relPos, rotations);
 				}
-				norm = abs(norm);
-				norm = normalize(vec3(
-					pow(norm.x, blend), 
-					pow(norm.y, blend), 
-					pow(norm.z, blend))
-				);
+				norm = normalize(pow(abs(norm), vec3(blend)));
 				
 				mat3 uvs = mat3(
 					texture(uTex2, vec3(relPos.z + 0.5, -relPos.y + 0.5, material)).rgb,
@@ -1675,7 +1690,6 @@ void drawBvh() {
 }
 
 void main() {
-	outColor = vec4(0., 0., 0., 1.);
 	if (uDebug == 1) {
 		drawWorld();
 		return;
