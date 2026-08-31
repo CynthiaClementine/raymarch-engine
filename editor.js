@@ -421,16 +421,16 @@ function editor_applyDrag(dragVec) {
 		dragVec[1] *= 0.01;
 
 		//just give up
-		
-		var qApply = quatFromEuler(
-			dragVec[0]*(ea[0] == `y`) + dragVec[1]*(ea[1] == `y`),
-			dragVec[0]*(ea[0] == `x`) + dragVec[1]*(ea[1] == `x`), 
-			dragVec[0]*(ea[0] == `z`) + dragVec[1]*(ea[1] == `z`));
-
 		if (editor.local) {
-			es.quat = normalize(quatMultiply(qApply, es.quat));
+			es.quat = normalize(quatMultiply(quatFromEuler(
+				dragVec[0]*(ea[0] == `x`) + dragVec[1]*(ea[1] == `x`), 
+				dragVec[0]*(ea[0] == `y`) + dragVec[1]*(ea[1] == `y`),
+				dragVec[0]*(ea[0] == `z`) + dragVec[1]*(ea[1] == `z`)), es.quat));
 		} else {
-			es.quat = normalize(quatMultiply(es.quat, qApply));
+			es.quat = normalize(quatMultiply(es.quat, quatFromEuler(
+				dragVec[0]*(ea[0] == `y`) + dragVec[1]*(ea[1] == `y`),
+				dragVec[0]*(ea[0] == `x`) + dragVec[1]*(ea[1] == `x`), 
+				dragVec[0]*(ea[0] == `z`) + dragVec[1]*(ea[1] == `z`))));
 		}
 		return;
 	}
@@ -548,12 +548,14 @@ function editor_raycast() {
 	var rayL = editor_raycastSimple(ray_nearDist);
 	var rayT = editor_raycastSimple(ray_minDist);
 
+	console.log(rayL.object, rayT.object);
+
 	//if they've selected the same object, we're good
 	if (rayL.object == rayT.object) {
 		obj = rayL.object;
 	} else {
 		//if the difference is fog, then it's important to select that
-		if (rayL.nature & (N_FOG | N_GRAVITY)) {
+		if (rayL.object.nature & (N_FOG | N_GRAVITY)) {
 			obj = rayL.object;
 		} else {
 			obj = rayT.object;

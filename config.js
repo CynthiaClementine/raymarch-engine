@@ -420,10 +420,10 @@ const tree_minD = 2;
 const tree_l = 41;
 var tree_sets = 7;
 
-const texture_rowsPerObj = 4;
+const texture_rowsPerObj = 5;
 const texture_rowsPerMat = 3;
 const texture_rowsPerNode = 2;
-const texture_worldCols = 6;
+const texture_worldCols = 8;
 const texture_n = 64;
 const texture_maxID = 10;
 const texture_sources = [

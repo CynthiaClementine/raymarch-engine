@@ -18,7 +18,7 @@ var mesh_skyBunny = [
 var mesh_lamppost = [
 	`CYLINDER~[0,1,0]~0~0~0~0|color:38~43~95|5~68.1`,
 	`CAPSULE~[0,68,24]~0~0~90~0|color:38~43~95|5~24`,
-	`SPHERE~[1,62,44]~0~0~90~0|light:255~235~162~255|4`,
+	`SPHERE~[1,62,44]~0~0~90~0|light:255~235~162~384|4`,
 ];
 
 var mesh_turtle = [
@@ -117,19 +117,34 @@ class SkyBunny extends SceneCollection {
 			);
 		}
 	}
+
+	pickGoal(n) {
+		n = n ?? 0;
+		if (n > 10) {
+			return;
+		}
+		
+		//pick a new goal
+		this.posGoal = [
+			randomBounded(-this.homeR, this.homeR) | 0, 
+			randomBounded(-this.homeR / 4, this.homeR / 4) | 0, 
+			randomBounded(-this.homeR, this.homeR) | 0, 
+		];
+
+		//check to make sure the goal isn't inside anything
+		var potentialObjs = loading_world.bvh.objectsInBox(this.posGoal, this.posGoal);
+		if (sceneSDF(potentialObjs, this.posGoal) < this.satisfyDist * 2) {
+			this.pickGoal(n + 1);
+		}
+	}
 	
 	tick() {
 		//all coordinates here are relative to typical pos
-		//TODO: don't do this. This is stupid
+		//TODO: don't do the relative thing. This is stupid
 		super.tick();
-		
+
 		if (getDistancePos(this.posGoal, this.posOffset) < this.satisfyDist) {
-			//pick a new goal
-			this.posGoal = [
-				randomBounded(-this.homeR, this.homeR) | 0, 
-				randomBounded(-this.homeR / 4, this.homeR / 4) | 0, 
-				randomBounded(-this.homeR, this.homeR) | 0, 
-			];
+			this.pickGoal();
 		}
 		
 		//attract towards goal
@@ -142,10 +157,10 @@ class SkyBunny extends SceneCollection {
 		const force = this.force - Math.min(this.force / goalDist, this.force);
 		goalVec = normalizeTo(goalVec, force);
 		this.dPos[0] -= goalVec[0];
-		this.dPos[0] *= this.friction;
 		this.dPos[1] -= goalVec[1];
-		this.dPos[1] *= this.friction;
 		this.dPos[2] -= goalVec[2];
+		this.dPos[0] *= this.friction;
+		this.dPos[1] *= this.friction;
 		this.dPos[2] *= this.friction;
 		var mag = getDistancePos(this.dPos, [0, 0, 0]);
 		if (mag > this.dMax) {
@@ -153,12 +168,15 @@ class SkyBunny extends SceneCollection {
 			this.dPos[1] = (this.dPos[1] / mag) * this.dMax;
 			this.dPos[2] = (this.dPos[2] / mag) * this.dMax;
 		}
-		
-		//TODO: rotate
 
 		//step 1: get goal rotation from dPos
+		var angles = cartToPol(...this.dPos);
+		var goalQ = quatFromAA(pi/2, [0, 1, 0]);
+		goalQ = quatMultiply(quatFromAA(angles[1] / 4, [1, 0, 0]), goalQ);
+		goalQ = quatMultiply(quatFromAA(angles[0], [0, -1, 0]), goalQ);
 
 		//step 2: take a little step towards that goal rotation
+		this.quat = nlerp(this.quat, goalQ, 1);
 		
 		//move
 		this.posOffset[0] += this.dPos[0];

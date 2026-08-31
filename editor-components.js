@@ -479,8 +479,8 @@ function ec_initialize() {
 	materialEditables = {
 		"color":	[...rgb],
 		"ghost":	[...rgba],
-		"glass":	[...rgba, `.material.density (d: #.##) 0.05—10 u0.05`],
-		"light":	[...rgb, `.material.lumi (l: ###) 0—255 u1`],
+		"glass":	[...rgba, `.material.density (d: #.##) 0.064—2.00 u0.02`],
+		"light":	[...rgb, `.material.lumi (l: ###) 0—1000 u1`],
 		"mirror":	[...rgba],
 		"normal":	[],
 		"plexi":	[...rgba],

@@ -42,8 +42,16 @@ function quatToMatrix(q) {
 	];
 }
 
-function matrixToQuat() {
-	
+/**
+ * normalized linear interpolation between two quaternions. 
+ */
+function nlerp(q1, q2, t) {
+	return normalize(linterpMulti(q1, q2, t));
+}
+
+//TODO: not sure if this actually works
+function slerp(q1, q2, t) {
+	var qDelta = quatMultiply(q2, quatInv(q1))
 }
 
 //from wikipedia, I might be wrong
