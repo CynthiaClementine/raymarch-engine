@@ -445,7 +445,11 @@ function handleKeyPress(a) {
 						if (!name) {
 							name = `${Math.round(Math.random() * 1e8).toString(32)}`;
 						}
-						createMesh(editor.selected, `mesh_${name}`);
+						if (meshes[name]) {
+							alert(`Name is already taken.`);
+							return;
+						}
+						startMesher(editor.selected, name);
 					}
 					return;
 				case "KeyC":

@@ -93,6 +93,7 @@ const TYPE_FRACTAL =		70;
 const TYPE_TERRAIN =		71;
 
 //not groups, but not primitives
+const TYPE_MESH_GENERIC =	200;
 const TYPE_MESH_DOT =		201;
 const TYPE_MESH_LAMPPOST =	203;
 const TYPE_TREE =			210;

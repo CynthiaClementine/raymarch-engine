@@ -20,6 +20,13 @@ var meshes = {
 		`CAPSULE~[0,68,24]~0~0~90~0|color:38~43~95|5~24`,
 		`SPHERE~[1,62,44]~0~0~90~0|light:255~235~162~384|4`
 	],
+	"speechBubble": [
+		`DISH~[-2,-1,0]~1.2.2~0|color:0~165~238|7~-8~0~2~0`,
+		`CYLINDER~[0,4,0]~64.2.2.40.0.0~0|color:0~165~238|6~2`,
+		`SPHERE~[-5,4,0]~0~0|color:255~255~255|3`,
+		`SPHERE~[0,4,0]~0~0|color:255~255~255|3`,
+		`SPHERE~[5,4,0]~0~0|color:255~255~255|3`,
+	],
 	"turtle": [
 		`SPHERE~[0,-6,0]~0~0~90~0|color:31~104~59|23`,
 		`BOX~[0,-14,1]~2~0~90~0|color:0~162~44|30~15~30`,
@@ -298,9 +305,9 @@ class Tree extends SceneCollection {
 
 class Worm extends SceneCollection {
 	static type = TYPE_ENT_WORM;
-	constructor(posRot, material, nature, range) {
+	constructor(posRot, range) {
 		super(posRot, []);
-		this.range = 80;
+		this.range = range ?? 80;
 		this.segments = 6;
 		this.endPos = Pos(0, this.range, 0);
 
@@ -384,6 +391,8 @@ var map_strObj = {
 	"TERRAIN": Terrain,
 	"TRI": Triangle,
 	"VOXEL": Voxel,
+
+	"GENERIC": SceneCollectionGeneric,
 	
 	"DOTDOTDOT": DotDotDot,
 	"SKYBUNNY": SkyBunny,

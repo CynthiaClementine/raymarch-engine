@@ -409,6 +409,7 @@ function ec_initialize() {
 			`.shift.1 (sy: ±#.###) -6—6 u0.005`,
 			`.shift.2 (sz: ±#.###) -6—6 u0.005`
 		],
+		"GENERIC": [`___ src: .meshName`],
 		"GYROID": [
 			...xyz, 
 			`.a (a: #.##) 0.01—2 u0.01`, 

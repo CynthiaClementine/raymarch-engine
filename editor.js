@@ -7,6 +7,9 @@
 function createDefaultObject(objType) {
 	objType = objType ?? TYPE_SPHERE;
 	var type = map_typeObj[objType];
+	if (objType >= TYPE_MESH_GENERIC) {
+		return new type({pos: Pos(0, 0, 0), quat: quatIdentity()});
+	}
 	return new type({pos: Pos(0, 0, 0), quat: quatIdentity()}, createDefaultMaterial(), 0, 10, 10, 10, 1, 12, 6, 10, 10, 10, 10, 10);
 }
 
@@ -58,7 +61,7 @@ function createDefaultWorld(name) {
 	loading_world.shouldRegen = true;
 }
 
-function createMesh(meshLgroup) {
+function startMesher(meshLgroup, meshName) {
 	const oldWorld = loading_world.name;
 	const oldPos = meshLgroup.pos;
 
@@ -66,11 +69,12 @@ function createMesh(meshLgroup) {
 
 	//set up objects
 	const newObj = deserialize(meshLgroup.serialize());
-	newObj.pos = Pos(0,0,0);
+	decrement(player.pos, newObj.pos);
+	decrement(newObj.pos, newObj.pos);
 	newObj.tick();
 	worlds[`MESH_VIEWER`].objects = [];
 	newObj.break(worlds[`MESH_VIEWER`].objects);
-	const bounds = bounds_expandU(boundsForList(worlds[`MESH_VIEWER`].objects), 100);
+	const bounds = bounds_expandU(boundsForList(worlds[`MESH_VIEWER`].objects), 300);
 
 	editor_deselect(editor.selected);
 	editor_select(newObj);
@@ -78,9 +82,9 @@ function createMesh(meshLgroup) {
 	//set up scaffolding
 	const matStr = `portal:${oldWorld}~[${oldPos}]~50`;
 	worlds[`MESH_VIEWER`].lockedObjs = [
-		createDescribedObject(TYPE_BOX, {rx: 1000, ry: 1000, rz: 1, material: new M_Plexiglass(0,0,255,10)}),
-		createDescribedObject(TYPE_BOX, {rx: 1000, ry: 1, rz: 1000, material: new M_Plexiglass(0,255,0,10)}),
-		createDescribedObject(TYPE_BOX, {rx: 1, ry: 1000, rz: 1000, material: new M_Plexiglass(255,0,0,10)}),
+		createDescribedObject(TYPE_BOX, {rx: 1000, ry: 1000, rz: 0.8, nature: N_FOG, material: new M_Ghost(0,0,255,200), intangible: true}),
+		createDescribedObject(TYPE_BOX, {rx: 1000, ry: 0.8, rz: 1000, nature: N_FOG, material: new M_Ghost(0,255,0,200), intangible: true}),
+		createDescribedObject(TYPE_BOX, {rx: 0.8, ry: 1000, rz: 1000, nature: N_FOG, material: new M_Ghost(255,0,0,200), intangible: true}),
 		
 		createDescribedObject(TYPE_BOX, {pos: Pos(bounds[0][0], 0, 0), rx: 5, ry: 1000, rz: 1000, material: deserializeMat(matStr)}),
 		createDescribedObject(TYPE_BOX, {pos: Pos(bounds[1][0], 0, 0), rx: 5, ry: 1000, rz: 1000, material: deserializeMat(matStr)}),
@@ -89,9 +93,21 @@ function createMesh(meshLgroup) {
 		createDescribedObject(TYPE_BOX, {pos: Pos(0, 0, bounds[0][2]), rx: 1000, ry: 1000, rz: 5, material: deserializeMat(matStr)}),
 		createDescribedObject(TYPE_BOX, {pos: Pos(0, 0, bounds[1][2]), rx: 1000, ry: 1000, rz: 5, material: deserializeMat(matStr)}),
 	];
-	worlds[`MESH_VIEWER`].lockedObjs.forEach(o => {o.intangible = true;});
 	worlds[`MESH_VIEWER`].shouldRegen = true;
+	worlds[`MESH_VIEWER`].tickFunc = () => {
+		var box = bounds_expandU([[...player.pos], [...player.pos]], player.dMax + player.height + player.width);
+		var escapables = worlds[`MESH_VIEWER`].bvh.objectsInBox(box[0], box[1]).filter(a => (a.material.type == M_PORTAL));
+		if (escapables.length > 0) {
+			console.log(`hi`);
+			//make it into a REAL mesh
+			createMesh(meshName, worlds[`MESH_VIEWER`].objects);
+		}
+	};
 	loadWorld(`MESH_VIEWER`);
+}
+
+function createMesh(meshName, objGroup) {
+	meshes[meshName] = objGroup.map(a => a.serialize());
 }
 
 /**
@@ -140,10 +156,11 @@ function transferPropertiesMat(oldMat, newMat) {
 function deserialize(str) {
 	str = str.replaceAll(`\t`, ``);
 	const groups = [`LOOP`, `GROUP-L`];
-	var isGroup = groups.includes(str.split(`~`)[0]);
+	const title = str.split(`~`)[0];
+	var isGroup = groups.includes(title);
 	var base, material, params;
 	var objs;
-	
+
 	if (isGroup) {
 		const lines = str.split(`\n||`);
 		objs = lines.slice(1).map(o => deserialize(o));
@@ -194,7 +211,7 @@ function deserialize(str) {
 		}
 	}
 	if (params && params != ``) {
-		finalArgs.push(...params.map(a => +a));
+		finalArgs.push(...params.map(a => JSON.parse(a)));
 	}
 	return new type(...finalArgs, objs);
 }
@@ -596,7 +613,7 @@ function paste(data, world, pos) {
 	}
 
 	//material case
-	var objs = (ec.selected.type == TYPE_CLASS_LGROUP) ? ec.selected.objects : new Set([ec.selected]);
+	var objs = (editor.selected.type == TYPE_CLASS_LGROUP) ? editor.selected.objects : new Set([editor.selected]);
 	objs.forEach(o => {
 		if (o.material) {
 			o.material = deserializeMat(data);
@@ -659,7 +676,7 @@ function editor_raycast() {
 		obj = rayL.object;
 	} else {
 		//if the difference is fog, then it's important to select that
-		if (rayL.object.nature & (N_FOG | N_GRAVITY)) {
+		if (rayL.object.nature & (N_FOG | N_GRAVITY) && !rayL.object.intangible) {
 			obj = rayL.object;
 		} else {
 			obj = rayT.object;

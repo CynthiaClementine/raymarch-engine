@@ -98,22 +98,14 @@ function benchmark(pxMult) {
 }
 
 function bounds_expandU(bounds, extraDist) {
-	bounds[0][0] -= extraDist;
-	bounds[0][1] -= extraDist;
-	bounds[0][2] -= extraDist;
-	bounds[1][0] += extraDist;
-	bounds[1][1] += extraDist;
-	bounds[1][2] += extraDist;
+	decrementS(bounds[0], extraDist);
+	incrementS(bounds[1], extraDist);
 	return bounds;
 }
 
 function bounds_expand(bounds, extraDists) {
-	bounds[0][0] -= extraDists[0];
-	bounds[0][1] -= extraDists[1];
-	bounds[0][2] -= extraDists[2];
-	bounds[1][0] += extraDists[0];
-	bounds[1][1] += extraDists[1];
-	bounds[1][2] += extraDists[2];
+	decrement(bounds[0], extraDists);
+	increment(bounds[1], extraDists);
 	return bounds;
 }
 

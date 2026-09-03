@@ -376,6 +376,24 @@ class SceneCollection {
 	}
 }
 
+class SceneCollectionGeneric extends SceneCollection {
+	static type = TYPE_MESH_GENERIC;
+	constructor(posRot, meshName) {
+		meshName = meshName ?? `dotdotdot`;
+		super(posRot, meshes[meshName]);
+		this.meshName = meshName;
+	}
+
+	express() {
+		this.baseObjects = meshes[this.meshName] ?? meshes[`dotdotdot`];
+		return super.express();
+	}
+	
+	serialize() {
+		return `GENERIC${super.serializeKernel()}"${this.meshName}"`;
+	}
+}
+
 class SceneCollectionLoose {
 	static type = TYPE_CLASS_LGROUP;
 	/**
@@ -384,7 +402,7 @@ class SceneCollectionLoose {
 	 * It's not a SceneCollection, because it's not intended to be cohesive. 
 	 * Instead, you are intended to just throw things in here, modify them, and then safely dissolve the collection.
 	 */
-	constructor(posRot, objects, a1, a2, a3) {
+	constructor(posRot, objects) {
 		this.type = this.constructor.type;
 		if (objects && objects.type != undefined) {
 			objects = [objects];
@@ -823,15 +841,20 @@ class Line extends Scene3dObject {
 	}
 
 	selectFrom(obj) {
-		if (obj == this) {
+		if (obj.type == TYPE_LINE) {
 			return this;
 		}
 		const endDist = getDistancePos(obj.pos, this.posEnd);
 		const startDist = getDistancePos(obj.pos, this.pos);
+		var p;
 		if (endDist < startDist) {
-			return new Point(this.offP, this.pos);
+			p = new Point(this.offP, this.pos);
+			p.parent = this;
+			return p;
 		} else {
-			return new Point(this.pos, Pos(0,0,0), [this.offP]);
+			p = new Point(this.pos, Pos(0,0,0), [this.offP]);
+			p.parent = this;
+			return p;
 		}
 	}
 
@@ -943,11 +966,12 @@ class Dish extends Line {
 
 class Catenary extends Line {
 	static type = TYPE_CATENARY;
-	constructor(posRot, material, nature, rx, ry, rz, thickness, arclen) {
+	constructor(posRot, material, nature, rx, ry, rz, thickness, arclen, flipVertical) {
 		super(posRot, material, nature, rx, ry, rz, thickness);
 		this.arclen = arclen;
 		this.pts = 9;
 		this.pointSet = [];
+		this.flip = flipVertical;
 		
 	}
 
@@ -1035,21 +1059,6 @@ class Catenary extends Line {
 			}
 			this.pointSet[this.pts] = this.posEnd;
 		}
-	}
-
-	selectFrom(obj) {
-		const endDist = getDistancePos(obj.pos, this.posEnd);
-		const startDist = getDistancePos(obj.pos, this.pos);
-		if (obj.type == TYPE_LINE) {
-			return this;
-		}
-		if (endDist < this.r) {
-			return new Point(this.offP, this.pos);
-		} 
-		if (startDist < this.r) {
-			return new Point(this.pos);
-		}
-		return this;
 	}
 
 	serialize() {
