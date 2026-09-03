@@ -4,6 +4,7 @@ like functions-math, but dealing with multi-dimensional problems instead of sing
 INDEX
 cartToPol(x, y, z);
 cross(a, b);
+distance(a, b);
 dot(a, b);
 magnitude(vector);
 clipToZ0(polyPoints, tolerance, invertClipDirection);
@@ -24,6 +25,20 @@ function cartToPol(x, y, z) {
 
 function cross(a, b) {
 	return [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]];
+}
+
+/**
+ * takes in two arbitrary-length vectors and returns the pythagorean distance between them.
+ * @param {Number[]} a vector A
+ * @param {Number[]} b vector B
+ * @returns {Number} `sqrt(sum{1,n} (a[i] - b[i]) ** 2)`
+ */
+function distance(a, b) {
+	var accum = 0;
+	for (var y=a.length; y>=0; y--) {
+		accum += (a[y] - b[y]) ** 2;
+	}
+	return Math.sqrt(accum);
 }
 
 /**

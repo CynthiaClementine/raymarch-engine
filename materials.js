@@ -37,9 +37,8 @@ class Material {
 		const pos = ray.pos;
 		const norm = object.normalAt(pos);
 		const dist = ray_minDist * 2 - ray.localDist;
-		pos[0] += norm[0] * dist;
-		pos[1] += norm[1] * dist;
-		pos[2] += norm[2] * dist;
+		increment(pos, v3_mulS(norm, dist));
+		
 		ray.localDist = object.distanceToPos(pos);
 		if (ray.localDist < ray_minDist) {
 			if (!recursed) {
@@ -66,7 +65,6 @@ class M_Color extends Material {
 	}
 	
 	applyHitEffect(ray, obj) {
-		applyColor(this.color, ray.color);
 		this.pushOut(ray, obj);
 		return true;
 	}
@@ -193,9 +191,6 @@ class M_Normal extends Material {
 	applyNearEffect(ray) {}
 	
 	applyHitEffect(ray, object) {
-		const normal = object.normalAt(ray.pos);
-		const color = Color4(128 + normal[0] * 127, 128 + normal[1] * 127, 128 + normal[2] * 127, 255);
-		applyColor(color, ray.color);
 		return true;
 	}
 	
@@ -206,19 +201,18 @@ class M_Normal extends Material {
 
 class M_Portal extends Material {
 	static type = M_PORTAL;
-	constructor(newWorldName, posOffset) {
+	constructor(newWorldName, posOffset, opacity) {
 		super(Color4(255, 255, 255, 255), 0);
 		this.str = newWorldName;
 		this.offset = Pos(...posOffset);
+		this.a = opacity ?? 0;
 	}
 	
 	applyNearEffect(ray) {
 		//move tracking rays earlier
 		if (worlds[this.str] && !ray.color) {
 			ray.world = worlds[this.str];
-			ray.pos[0] += this.offset[0];
-			ray.pos[1] += this.offset[1];
-			ray.pos[2] += this.offset[2];
+			increment(ray.pos, this.offset);
 		}
 	}
 	
@@ -226,9 +220,7 @@ class M_Portal extends Material {
 		// this.applyNearEffect(ray);
 		if (worlds[this.str]) {
 			ray.world = worlds[this.str];
-			ray.pos[0] += this.offset[0];
-			ray.pos[1] += this.offset[1];
-			ray.pos[2] += this.offset[2];
+			increment(ray.pos, this.offset);
 		}
 		ray.localDist = ray_minDist * 2;
 		return false;
@@ -241,14 +233,14 @@ class M_Portal extends Material {
 	}
 	
 	serialize() {
-		return `portal:${this.str}~[${this.offset}]`;
+		return `portal:${this.str}~[${this.offset}]~${this.a}`;
 	}
 	
 	serializeGPU() {
 		//indirection on newWorld reference so that it works even before syncing
 		var newWorld = worlds[this.str] ?? {id: 9999};
 		return [...this.offset, 
-				newWorld.id];
+				newWorld.id, this.a / 255];
 	}
 }
 
@@ -261,28 +253,7 @@ class M_Mirror extends Material {
 	applyNearEffect(ray) {}
 	
 	applyHitEffect(ray, parent) {
-		if (ray.color[3] == 255) {
-			return true;
-		}
-		//bounce the ray away
-		//angle of incidence = angle of reflection. Or in this case, 
-		//reflected = incident - 2 * normal * (incident • normal )
-		
-		const incident = ray.dPos;
-		const normal = parent.normalAt(ray.pos);
-		const product = dot(incident, normal);
-		// const fresnel = (1 - product) ** 2; //(1 - product) ** reflectivity
-		
-		applyColor(this.color, ray.color);
-		if (Number.isNaN(normal[0])) {
-			return true;
-		}
-		
-		incident[0] = incident[0] - 2 * normal[0] * product;
-		incident[1] = incident[1] - 2 * normal[1] * product;
-		incident[2] = incident[2] - 2 * normal[2] * product;
-		this.pushOut(ray, parent);
-		return (ray.hit == 1);
+		return true;
 	}
 	
 	serialize() {
@@ -300,14 +271,6 @@ class M_Rubber extends Material {
 	applyNearEffect(ray) {}
 	
 	applyHitEffect(ray) {
-		var localVal = ((ray.pos[0] + ray.pos[2]) % 10) - 5;
-		var paint = Color4(
-			this.color[0] + this.lumi * localVal,
-			this.color[1] + this.lumi * localVal,
-			this.color[2] + this.lumi * localVal * 1.2,
-			255
-		);
-		applyColor(paint, ray.color);
 		ray.localDist = ray_minDist * 2;
 		return true;
 	}

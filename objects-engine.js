@@ -74,9 +74,7 @@ class Ray_Tracking {
 			dist = Math.min(dist, this.distCap - this.distance);
 			
 			//move distance
-			this.pos[0] += this.dPos[0] * dist;
-			this.pos[1] += this.dPos[1] * dist;
-			this.pos[2] += this.dPos[2] * dist;
+			increment(this.pos, v3_mulS(this.dPos, dist));
 			this.distance += dist;
 			
 			//if we've reached the cap, return

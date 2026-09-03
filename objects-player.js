@@ -4,14 +4,25 @@ class Camera {
 	constructor(world, pos) {
 		this.world = world;
 		this.pos = pos;
-		this.theta = 0;
-		this.phi = 0;
+		this.quat = quatIdentity();
+	}
+
+	/**
+	 * Returns the camera's basis vectors (right/X, up/Y, forward/Z).
+	 * @returns {Object} `{right: Pos, up: Pos, forward: Pos}` (each is a normalized Pos vector)
+	 */
+	basis() {
+		return {
+			right:	quatRotate([1, 0, 0], this.quat),
+			up:		quatRotate([0, 1, 0], this.quat),
+			forward:quatRotate([0, 0, 1], this.quat)
+		};
 	}
 	
-	calcMatrix() {
-		var cxDir = polToCart(this.theta + (Math.PI / 2), 0, 1);
-		var cyDir = polToCart(this.theta, this.phi + (Math.PI / 2), 1);
-		var czDir = polToCart(this.theta, this.phi, 1);
+	matrix() {
+		var cxDir = quatRotate([1, 0, 0], this.quat);
+		var cyDir = quatRotate([0, 1, 0], this.quat);
+		var czDir = quatRotate([0, 0, 1], this.quat);
 	
 		return [
 			cxDir[0], cxDir[1], cxDir[2],
@@ -21,12 +32,9 @@ class Camera {
 	}
 	
 	tick() {
-		camera.theta = this.theta;
-		camera.phi = this.phi;
-		
 		//update GPU with current data
 		gl.uniform3fv(uCamPos, Array.from(this.pos));
-		gl.uniformMatrix3fv(uCamRot, false, this.calcMatrix());
+		gl.uniformMatrix3fv(uCamRot, false, this.matrix());
 		gl.uniform1i(uCamWorld, this.world.id);
 	}
 }
@@ -66,6 +74,7 @@ class Player {
 		
 		this.theta = theta ?? 0;
 		this.phi = phi ?? 0;
+		this.quat = quatFromEuler(-this.theta, this.phi, 0);
 	}
 	
 	calcPossibleObjs() {
@@ -85,14 +94,10 @@ class Player {
 		//add false velocity
 		
 		//take 2 half-steps
-		this.dPos[0] /= 2;
-		this.dPos[1] /= 2;
-		this.dPos[2] /= 2;
+		recrementS(this.dPos, 2);
 		this.updatePosition();
 		this.updatePosition();
-		this.dPos[0] *= 2;
-		this.dPos[1] *= 2;
-		this.dPos[2] *= 2;
+		mulrementS(this.dPos, 2);
 
 		//subtract false velocity
 
@@ -107,16 +112,14 @@ class Player {
 			camera.pos = Pos(this.pos[0], this.pos[1] + this.height / 2, this.pos[2]);
 		
 		}
-		camera.theta = this.theta;
-		camera.phi = this.phi;
+		this.quat = quatFromEuler(-this.theta, this.phi, 0);
+		copyArr(this.quat, camera.quat);
 	}
 
 	updateMomentum() {
 		//subtract velocity of touching objects
 		this.contactObjs.forEach((obj => {
-			this.dPos[0] -= obj.dPos[0];
-			this.dPos[1] -= obj.dPos[1];
-			this.dPos[2] -= obj.dPos[2];
+			decrement(this.dPos, obj.dPos);
 		}).bind(this));
 		
 		//transform dPos to relative coordinates
@@ -128,9 +131,7 @@ class Player {
 		[this.dPos[0], this.dPos[2]] = rotate(this.dPos[0], this.dPos[2], -this.theta);
 
 		this.contactObjs.forEach((obj => {
-			this.dPos[0] += obj.dPos[0];
-			this.dPos[1] += obj.dPos[1];
-			this.dPos[2] += obj.dPos[2];
+			increment(this.dPos, obj.dPos);
 			this.contactObjs.delete(obj);
 		}).bind(this));
 
@@ -223,9 +224,7 @@ class Player {
 	}
 
 	stealVelFrom(obj) {
-		this.dPos[0] += obj.dPos[0];
-		this.dPos[1] += obj.dPos[1];
-		this.dPos[2] += obj.dPos[2];
+		increment(this.dPos, obj.dPos);
 	}
 	
 	//slightly simpler sphere calculation that just says if the sphere collides. Returns after the first collision.
@@ -260,9 +259,7 @@ class Player {
 			var saved = distObj.material;
 			//weirdness because the actual pos being passed out is different from the test pos
 			if (this.portalTest(distObj, pos)) {
-				spherePos[0] += saved.offset[0];
-				spherePos[1] += saved.offset[1];
-				spherePos[2] += saved.offset[2];
+				increment(spherePos, saved.offset);
 				this.calcPossibleObjs();
 				return null;
 			}
@@ -300,9 +297,7 @@ class Player {
 		//don't even bother if dPos is too small
 		var [max, abs] = [Math.max, Math.abs];
 		if (max(abs(dChange[0]), abs(dChange[1]), abs(dChange[2])) < 0.0001) {
-			this.dPos[0] = 0;
-			this.dPos[1] = 0;
-			this.dPos[2] = 0;
+			copyArr([0,0,0], this.dPos);
 			return;
 		}
 		
@@ -327,19 +322,15 @@ class Player {
 		
 		//update real coordinates
 		// var initialSpeed = getDistancePos(this.dPos, zeroPos);
-		this.dPos[0] = dChange[0];
-		this.dPos[1] = dChange[1];
-		this.dPos[2] = dChange[2];
+		copyArr(dChange, this.dPos);
 		// var finalSpeed = getDistancePos(this.dPos, zeroPos);
 		// if (finalSpeed > initialSpeed) {
 		// 	this.dPos[0] *= initialSpeed / finalSpeed;
 		// 	this.dPos[1] *= initialSpeed / finalSpeed;
 		// 	this.dPos[2] *= initialSpeed / finalSpeed;
 		// }
-		
-		this.pos[0] = coords[0];
-		this.pos[1] = coords[1];
-		this.pos[2] = coords[2];
+
+		copyArr(coords, this.pos);
 	}
 	
 	/**
@@ -382,9 +373,7 @@ class Player {
 			if (normalsList[0] == undefined) {
 				// console.log(`good! Moving to ${printPos(pY)}`);
 				//that's good! Just move there
-				coords[0] = pY[0];
-				coords[1] = pY[1];
-				coords[2] = pY[2];
+				copyArr(pY, coords);
 				// if (Math.random() < 0.001) {console.log(`moving full distance`);}
 				continue;
 			}
@@ -417,17 +406,13 @@ class Player {
 			// if (Math.random() < 0.01) {console.log(normalsList);}
 			
 			// console.log(`first: ${printPos(pX)}    last: ${printPos(pY)}`);
-			coords[0] = pX[0];
-			coords[1] = pX[1];
-			coords[2] = pX[2];
+			copyArr(pX, coords);
 			
 			//special case: if the number of normals > panicPoints, make the player FASTER and move them upwards
 			if (normalsList.length > panicPoints) {
 				console.log(`panic!`);
 				coords[1] += 1.5;
-				vChange[0] += this.dPos[0] * 0.1;
-				vChange[1] += this.dPos[1] * 0.1;
-				vChange[2] += this.dPos[2] * 0.1;
+				increment(vChange, v3_mulS(this.dPos, 0.1));
 				speed = 0;
 				continue;
 			}
@@ -442,21 +427,15 @@ class Player {
 			while (normalsList[n]) {
 				var colProj = proj(vHat, normalsList[n]);
 				var amt = (1 + normalsList[n][3]);
-				vHat[0] -= colProj[0] * amt;
-				vHat[1] -= colProj[1] * amt;
-				vHat[2] -= colProj[2] * amt;
-				// coords[0] -= normalsList[n][0] * e;
-				// coords[1] -= normalsList[n][1] * e;
-				// coords[2] -= normalsList[n][2] * e;
+				decrement(vHat, v3_mulS(colProj, amt));
+				// decrement(coords, v3_mulS(normalsList[n], e));
 				
 				//speed should be affected, but vHat needs to be a unit vector. So that's this
 				var newLen = getDistancePos(vHat, Pos(0, 0, 0));
 				speed *= newLen;
 				vHat = normalize(vHat);
 
-				vChange[0] -= colProj[0] * safeSpeed;
-				vChange[1] -= colProj[1] * safeSpeed;
-				vChange[2] -= colProj[2] * safeSpeed;
+				decrement(vChange, v3_mulS(colProj, safeSpeed));
 				safeSpeed *= newLen;
 				n += 1;
 			}
@@ -470,9 +449,7 @@ class Player {
 		if (obj.distanceToPos(coords) < ray_nearDist && mat.constructor.name == "M_Portal") {
 			if (worlds[mat.str]) {
 				this.world = worlds[mat.str];
-				coords[0] += mat.offset[0];
-				coords[1] += mat.offset[1];
-				coords[2] += mat.offset[2];
+				increment(coords, mat.offset);
 				return true;
 			}
 		}
@@ -510,13 +487,9 @@ class Player {
 		var speed = getDistancePos(this.dPos, Pos(0, 0, 0));
 		if (speed > this.accel && speed < this.dashBase) {
 			this.dPos = normalize(this.dPos);
-			this.dPos[0] *= this.dashBase;
-			this.dPos[1] *= this.dashBase;
-			this.dPos[2] *= this.dashBase;
+			mulrementS(this.dPos, this.dashBase);
 		}
-		this.dPos[0] *= this.dashMult;
-		this.dPos[1] *= this.dashMult;
-		this.dPos[2] *= this.dashMult;
+		mulrementS(this.dPos, this.dashMult);
 	}
 
 	jump() {
@@ -560,8 +533,6 @@ class Player_Noclip extends Player {
 	
 	updatePosition() {
 		const dPos = this.dPos;
-		this.pos[0] += dPos[0];
-		this.pos[1] += dPos[1];
-		this.pos[2] += dPos[2];
+		increment(this.pos, dPos);
 	}
 }

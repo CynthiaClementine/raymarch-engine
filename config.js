@@ -253,6 +253,7 @@ var editor = {
 	stable: true,
 	
 	snapDist: 25,
+	snapAngle: 45,
 	gridDist: 1,
 	flags: {
 		snapSurface: true,
@@ -261,6 +262,7 @@ var editor = {
 		snapAxis: true,
 	},
 	holp: Pos(0,0,0),
+	holr: quatIdentity(),
 	selected: undefined,
 };
 

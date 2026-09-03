@@ -488,6 +488,7 @@ function ec_initialize() {
 			`.material.offset.0 (offX: ±###) r100 u1`,
 			`.material.offset.1 (offY: ±###) r100 u1`,
 			`.material.offset.2 (offZ: ±###) r100 u1`,
+			`.material.a (a: ###) 0—255 u1`,
 			`___ dest: .material.str`,
 		],
 		"gravity":	[],

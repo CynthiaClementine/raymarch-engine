@@ -1,35 +1,35 @@
-var mesh_dotdotdot = [
-	`SPHERE~[0,0,20]~0~0~90~0|color:128~0~255|10`,
-	`SPHERE~[0,0,10]~0~0~90~0|color:128~64~255|10`,
-	`SPHERE~[0,0,0]~0~0~90~0|color:128~128~255|10`,
-	`SPHERE~[0,0,-10]~0~0~90~0|color:128~192~255|10`,
-	`SPHERE~[0,0,-20]~0~0~90~0|color:128~255~255|10`
-];
 
-var mesh_skyBunny = [
-	`ELLIPSE~[0,-3,0]~0~0~90~0|color:255~145~0|40~25~30`,
-	`ELLIPSE~[18,14,-19]~0~0~90~0|color:255~184~25|20~10~10`,
-	`ELLIPSE~[17,14,17]~0~0~90~0|color:255~185~25|20~10~10`,
-	`SPHERE~[26,-1,-18]~0~0~90~0|color:0~0~0|7`,
-	`SPHERE~[26,-1,19]~0~0~90~0|color:0~0~0|7`,
-	// `BOX-FRAME~[0,0,0]~0~0~90~0|color:255~0~255|39~26~26~1`
-];
-
-var mesh_lamppost = [
-	`CYLINDER~[0,1,0]~0~0~0~0|color:38~43~95|5~68.1`,
-	`CAPSULE~[0,68,24]~0~0~90~0|color:38~43~95|5~24`,
-	`SPHERE~[1,62,44]~0~0~90~0|light:255~235~162~384|4`,
-];
-
-var mesh_turtle = [
-	`SPHERE~[0,-6,0]~0~0~90~0|color:31~104~59|23`,
-	`BOX~[0,-14,1]~2~0~90~0|color:0~162~44|30~15~30`,
-	`ELLIPSE~[0,3,21]~0~0~90~0|color:85~29~0|7~4~7`,
-	`ELLIPSE~[17.931272506713867,2,-8.143157958984375]~0~332~90~0|color:85~29~0|7~2~2`,
-	`ELLIPSE~[19.931272506713867,2,4.856842041015625]~0~21~90~0|color:85~29~0|7~2~2`,
-	`ELLIPSE~[21.933889389038086,15,-16.16176986694336]~0~21~90~0|color:85~29~0|7~2~2`,
-	`ELLIPSE~[19.933889389038086,15,-29.16176986694336]~0~332~90~0|color:85~29~0|7~2~2`,
-];
+var meshes = {
+	"dotdotdot": [
+		`SPHERE~[0,0,20]~0~0~90~0|color:128~0~255|10`,
+		`SPHERE~[0,0,10]~0~0~90~0|color:128~64~255|10`,
+		`SPHERE~[0,0,0]~0~0~90~0|color:128~128~255|10`,
+		`SPHERE~[0,0,-10]~0~0~90~0|color:128~192~255|10`,
+		`SPHERE~[0,0,-20]~0~0~90~0|color:128~255~255|10`
+	],
+	"skyBunny": [
+		`ELLIPSE~[0,-3,0]~0~0~90~0|color:255~145~0|40~25~30`,
+		`ELLIPSE~[18,14,-19]~0~0~90~0|color:255~184~25|20~10~10`,
+		`ELLIPSE~[17,14,17]~0~0~90~0|color:255~185~25|20~10~10`,
+		`SPHERE~[26,-1,-18]~0~0~90~0|color:0~0~0|7`,
+		`SPHERE~[26,-1,19]~0~0~90~0|color:0~0~0|7`
+		// `BOX-FRAME~[0,0,0]~0~0~90~0|color:255~0~255|39~26~26~1`
+	],
+	"lamppost": [
+		`CYLINDER~[0,1,0]~0~0~0~0|color:38~43~95|5~68.1`,
+		`CAPSULE~[0,68,24]~0~0~90~0|color:38~43~95|5~24`,
+		`SPHERE~[1,62,44]~0~0~90~0|light:255~235~162~384|4`
+	],
+	"turtle": [
+		`SPHERE~[0,-6,0]~0~0~90~0|color:31~104~59|23`,
+		`BOX~[0,-14,1]~2~0~90~0|color:0~162~44|30~15~30`,
+		`ELLIPSE~[0,3,21]~0~0~90~0|color:85~29~0|7~4~7`,
+		`ELLIPSE~[17.931272506713867,2,-8.143157958984375]~0~332~90~0|color:85~29~0|7~2~2`,
+		`ELLIPSE~[19.931272506713867,2,4.856842041015625]~0~21~90~0|color:85~29~0|7~2~2`,
+		`ELLIPSE~[21.933889389038086,15,-16.16176986694336]~0~21~90~0|color:85~29~0|7~2~2`,
+		`ELLIPSE~[19.933889389038086,15,-29.16176986694336]~0~332~90~0|color:85~29~0|7~2~2`,
+	],
+};
 
 class Rail extends SceneCollection {
 	constructor(posRot, objects, positions, tStart, isReversible, isVelocityNormal) {
@@ -68,7 +68,7 @@ class Rail extends SceneCollection {
 class DotDotDot extends SceneCollection {
 	static type = TYPE_MESH_DOT;
 	constructor(posRot) {
-		super(posRot, mesh_dotdotdot);
+		super(posRot, meshes[`dotdotdot`]);
 	}
 	
 	serialize() {
@@ -79,7 +79,7 @@ class DotDotDot extends SceneCollection {
 class SkyBunny extends SceneCollection {
 	static type = TYPE_ENT_SKYBUNNY;
 	constructor(posRot) {
-		super(posRot, mesh_skyBunny);
+		super(posRot, meshes[`skyBunny`]);
 		
 		this.posOffset = [0, 0, 0];
 		this.posGoal = [0, 0, 0];
@@ -103,9 +103,7 @@ class SkyBunny extends SceneCollection {
 	transform(objGroup) {
 		var offset = this.posOffset;
 		objGroup.forEach(o => {
-			o.pos[0] += offset[0];
-			o.pos[1] += offset[1];
-			o.pos[2] += offset[2];
+			increment(o.pos, offset);
 		});
 		
 		if (debug_flags.bunnyTargets) {
@@ -148,25 +146,15 @@ class SkyBunny extends SceneCollection {
 		}
 		
 		//attract towards goal
-		var goalVec = [
-			this.posOffset[0] - this.posGoal[0],
-			this.posOffset[1] - this.posGoal[1],
-			this.posOffset[2] - this.posGoal[2]
-		];
-		var goalDist = getDistancePos(goalVec, [0, 0, 0]);
+		var goalVec = v3_sub(this.posOffset, this.posGoal);
+		var goalDist = magnitude(goalVec);
 		const force = this.force - Math.min(this.force / goalDist, this.force);
 		goalVec = normalizeTo(goalVec, force);
-		this.dPos[0] -= goalVec[0];
-		this.dPos[1] -= goalVec[1];
-		this.dPos[2] -= goalVec[2];
-		this.dPos[0] *= this.friction;
-		this.dPos[1] *= this.friction;
-		this.dPos[2] *= this.friction;
-		var mag = getDistancePos(this.dPos, [0, 0, 0]);
+		decrement(this.dPos, goalVec);
+		mulrementS(this.dPos, this.friction);
+		var mag = magnitude(this.dPos);
 		if (mag > this.dMax) {
-			this.dPos[0] = (this.dPos[0] / mag) * this.dMax;
-			this.dPos[1] = (this.dPos[1] / mag) * this.dMax;
-			this.dPos[2] = (this.dPos[2] / mag) * this.dMax;
+			mulrementS(this.dPos, this.dMax / mag);
 		}
 
 		//step 1: get goal rotation from dPos
@@ -179,10 +167,7 @@ class SkyBunny extends SceneCollection {
 		this.quat = nlerp(this.quat, goalQ, 1);
 		
 		//move
-		this.posOffset[0] += this.dPos[0];
-		this.posOffset[1] += this.dPos[1];
-		this.posOffset[2] += this.dPos[2];
-		
+		increment(this.posOffset, this.dPos);
 		loading_world.shouldRegen = true;
 	}
 	
@@ -199,7 +184,7 @@ class SkyBunny extends SceneCollection {
 class Lamppost extends SceneCollection {
 	static type = TYPE_MESH_LAMPPOST;
 	constructor(posRot) {
-		super(posRot, mesh_lamppost);
+		super(posRot, meshes[`lamppost`]);
 	}
 	
 	serialize() {
@@ -299,10 +284,8 @@ class Tree extends SceneCollection {
 		}
 
 		//fix bounds (animate is centered on origin, bounds shouldn't be)
-		for (var d=0; d<3; d++) {
-			this.bbStore[0][d] += this.pos[d];
-			this.bbStore[1][d] += this.pos[d];
-		}
+		increment(this.bbStore[0], this.pos);
+		increment(this.bbStore[1], this.pos);
 	}
 
 	serialize() {
@@ -349,28 +332,16 @@ class Worm extends SceneCollection {
 		//uhh target player I guess.
 		var len = getDistancePos(player.pos, this.pos);
 		var goalLen = Math.max(len - player.width * 4, 0);
-		var targ = Pos(
-			camera.pos[0] - this.pos[0],
-			camera.pos[1] - this.pos[1],
-			camera.pos[2] - this.pos[2]
-		);
-		targ[0] *= goalLen / len;
-		targ[1] *= goalLen / len;
-		targ[2] *= goalLen / len;
+		var targ = v3_sub(camera.pos, this.pos);
+		mulrementS(targ, goalLen / len);
 		
-		var dTarg = [
-			targ[0] - this.endPos[0],
-			targ[1] - this.endPos[1],
-			targ[2] - this.endPos[2],
-		];
-		if (Math.hypot(...dTarg) > 1) {
+		var dTarg = v3_sub(targ, this.endPos);
+		if (magnitude(dTarg) > 1) {
 			dTarg = normalize(dTarg);
 		} else {
-			dTarg[0] *= 0.6; dTarg[1] *= 0.6; dTarg[2] *= 0.6;
+			mulrementS(dTarg, 0.6);
 		}
-		this.endPos[0] += dTarg[0];
-		this.endPos[1] += dTarg[1];
-		this.endPos[2] += dTarg[2];
+		increment(this.endPos, dTarg);
 		this.vecs = fabrik(this.vecs, this.endPos, 1);
 		loading_world.shouldRegen = true;
 	}

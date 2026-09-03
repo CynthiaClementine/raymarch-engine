@@ -328,7 +328,7 @@ function handleKeyPress(a) {
 		all debug effects are activated by pressing ] and then another key.
 		DEBUG EFFECTS:
 			SELECTION:
-				Left-click or O - select object
+				Left-click  - select object
 				shift-click - select multiple objects
 				alt-click - deselect object
 				click + drag or E - move object around
@@ -439,6 +439,15 @@ function handleKeyPress(a) {
 					}
 					loading_world.shouldRegen = true;
 					return;
+				case "KeyO":
+					if (editor.selected.type == TYPE_CLASS_LGROUP) {
+						var name = prompt(`Name your object.`);
+						if (!name) {
+							name = `${Math.round(Math.random() * 1e8).toString(32)}`;
+						}
+						createMesh(editor.selected, `mesh_${name}`);
+					}
+					return;
 				case "KeyC":
 					if (ec.selected != player) {
 						var select = ec.selected;
@@ -450,29 +459,7 @@ function handleKeyPress(a) {
 					return;
 				case "KeyV":
 					if (clipboard) {
-						//material case
-						if (!clipboard.includes(`|`)) {
-							var objs = (ec.selected.type == TYPE_CLASS_LGROUP) ? ec.selected.objects : new Set([ec.selected]);
-							objs.forEach(o => {
-								if (o.material) {
-									o.material = deserializeMat(clipboard);
-								}
-							});
-							loading_world.shouldRegen = true;
-							return;
-						}
-	
-						//object case
-						var newObj = deserialize(clipboard);
-						newObj.pos = controls.alt ? Pos(...ec.selected.pos) : calcPlacePos();
-						loading_world.objects.push(newObj);
-						if (newObj.type == TYPE_CLASS_LGROUP) {
-							newObj.tick();
-							newObj.break(loading_world.objects);
-						}
-						editor_deselect(editor.selected);
-						editor_select(newObj);
-						loading_world.shouldRegen = true;
+						paste(clipboard, loading_world, controls.alt ? Pos(...ec.selected.pos) : calcPlacePos());
 					}
 					return;
 				case "KeyG":
@@ -506,11 +493,7 @@ function handleKeyPress(a) {
 				editor.local = !editor.local;
 				return;
 			case "KeyO":
-				if (controls.alt) {
-					editor_deselect(editor.selected);
-					return;
-				}
-				editor_raycast();
+				//objectify the current group
 				return;
 			case "KeyP":
 				var r = Math.round;

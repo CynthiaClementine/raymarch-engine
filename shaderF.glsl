@@ -866,8 +866,7 @@ float objSDF(vec3 p, Objdata obj) {
 			float(xyBits & 0xFFFF),
 			obj.data3[1]
 		) / 10.;
-		vec3 extrP = clamp(p, -extrusions, extrusions);
-		p -= extrP;
+		p -= clamp(p, -extrusions, extrusions);
 	}
 	
 	
@@ -1092,6 +1091,9 @@ int applyHitEffect(int stg, float oldLocalDist, Objdata obj, int matType, vec3 d
 			teleport(stg, stage[stg].path.spot.yzw + data0.xyz);
 			stage[stg].distSinceBounce = 0.0;
 			stage[stg].localDist = minDist * 2.;
+			if (stg == 0) {
+				applyColor(stg, vec4(1., 1., 1., data1[1]));
+			}
 			res = 0;
 		} break;
 		case M_MIRROR: {

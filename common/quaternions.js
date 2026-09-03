@@ -135,6 +135,56 @@ function quatFromEuler(theta, phi, rot) {
 	return normalize(q);
 }
 
+// function quatFromEuler(theta, phi, rot) {
+// 	const cos = Math.cos;
+// 	const sin = Math.sin;
+
+// 	const ct = cos(theta / 2);
+// 	const st = sin(theta / 2);
+// 	const cp = cos(phi / 2);
+// 	const sp = sin(phi / 2);
+// 	const cr = cos(rot / 2);
+// 	const sr = sin(rot / 2);
+	
+// 	return [
+// 		ct*cp*cr + st*sp*sr,
+// 		st*cp*cr - ct*sp*sr,
+// 		ct*sp*cr + st*cp*sr,
+// 		ct*cp*sr - st*sp*cr
+// 	];
+// }
+
+// function quatToEuler(q) {
+// 	const vx = quatRotate([1, 0, 0], q);
+// 	const vy = quatRotate([0, 1, 0], q);
+// 	const vz = quatRotate([0, 0, 1], q);
+
+// 	const theta = Math.atan2(vx[1], vx[0]);
+// 	const phi = -Math.asin(vx[2]);
+// 	const rot = Math.atan2(vy[2], vz[2]);
+// 	return [theta, phi, rot];
+// }
+
+function quatToEuler(q) {
+	const ww = q[0]*q[0];
+	const xx = q[1]*q[1];
+	const yy = q[2]*q[2];
+	const zz = q[3]*q[3];
+	
+	const wx = q[0]*q[1];
+	const wy = q[0]*q[2];
+	const wz = q[0]*q[3];
+	const xy = q[1]*q[2];
+	const xz = q[1]*q[3];
+	const yz = q[2]*q[3];
+
+	const theta = Math.atan2(2*(wx + yz), ww - xx - yy + zz);
+	const phi = Math.asin(2*(wy - xz));
+	const rot = Math.atan2(2*(wz + xy), ww + xx - yy - zz);
+	return [theta, phi, rot];
+}
+
+
 /**
  * left-multiplies q1 and q2.
  * @param {Number[]} q1 quaternion to apply

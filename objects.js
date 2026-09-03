@@ -431,9 +431,7 @@ class SceneCollectionLoose {
 			//TODO: figure this out
 
 			this.objects.forEach(o => {
-				o.pos[0] -= this.sPos[0];
-				o.pos[1] -= this.sPos[1];
-				o.pos[2] -= this.sPos[2];
+				decrement(o.pos, this.sPos);
 				var newTrans = transformTransform(o.pos, o.quat, this.sPos, offsetQuat);
 				o.pos = newTrans.pos;
 				o.quat = [...newTrans.quat];
@@ -446,22 +444,15 @@ class SceneCollectionLoose {
 
 		//apply translation
 		if (getDistancePos(this.pos, this.sPos) > 0.01) {
-			const diff = [
-				this.pos[0] - this.sPos[0],
-				this.pos[1] - this.sPos[1],
-				this.pos[2] - this.sPos[2],
-			];
+			const diff = v3_sub(this.pos, this.sPos);
 			this.objects.forEach(o => {
-				o.pos[0] += diff[0];
-				o.pos[1] += diff[1];
-				o.pos[2] += diff[2];
+				increment(o.pos, diff);
 			});
 
-			for (var t=0; t<3; t++) {
-				this.minPos[t] += diff[t];
-				this.maxPos[t] += diff[t];
-				this.sPos[t] = this.pos[t];
-			}
+			increment(this.minPos, diff);
+			increment(this.maxPos, diff);
+			copyArr(this.pos, this.sPos);
+
 			loading_world.shouldRegen = true;
 		}
 	}
@@ -469,7 +460,9 @@ class SceneCollectionLoose {
 	//remove self from the objectsArray and add each of the constituent parts to said array
 	break(objectsArr) {
 		var ind = objectsArr.indexOf(this);
-		objectsArr.splice(ind, 1);
+		if (ind != -1) {
+			objectsArr.splice(ind, 1);
+		}
 
 		this.objects.forEach(o => {
 			objectsArr.push(o);
@@ -922,7 +915,7 @@ class Dish extends Line {
 	distanceToPos(pos) {
 		const rba = this.ringR - this.r;
 		const b_a = this.offP;
-		const p_a = [pos[0] - this.pos[0], pos[1] - this.pos[1], pos[2] - this.pos[2]];
+		const p_a = v3_sub(pos, this.pos);
 		const baba = dot(b_a, b_a);
 		const papa = dot(p_a, p_a);
 		const paba = dot(p_a, b_a) / baba;
@@ -1101,10 +1094,9 @@ class Triangle extends Scene3dObject {
 		this.p1 = this.pos;
 		this.off2 = Pos(p2x, p2y, p2z);
 		this.off3 = Pos(p3x, p3y, p3z);
-		this.p2 = Pos(this.pos[0] + p2x, this.pos[1] + p2y, this.pos[2] + p2z);
-		this.p3 = Pos(this.pos[0] + p3x, this.pos[1] + p3y, this.pos[2] + p3z);
+		this.p2 = v3_add(this.pos, this.off2);
+		this.p3 = v3_add(this.pos, this.off3);
 
-		
 		this.r = thickness;
 		// this.posData = [
 		// 	[this.pos, ABSOLUTE],
@@ -1115,8 +1107,8 @@ class Triangle extends Scene3dObject {
 
 	refresh() {
 		const p = this.pos;
-		this.p2 = Pos(p[0] + this.off2[0], p[1] + this.off2[1], p[2] + this.off2[2]);
-		this.p3 = Pos(p[0] + this.off3[0], p[1] + this.off3[1], p[2] + this.off3[2]);
+		this.p2 = v3_add(p, this.off2);
+		this.p3 = v3_add(p, this.off3);
 	}
 
 	express() {
@@ -1183,12 +1175,12 @@ class Triangle extends Scene3dObject {
 		const a = this.pos;
 		const b = this.p2;
 		const c = this.p3;
-		const pa = [pos[0] - a[0], pos[1] - a[1], pos[2] - a[2]];
-		const pb = [pos[0] - b[0], pos[1] - b[1], pos[2] - b[2]];
-		const pc = [pos[0] - c[0], pos[1] - c[1], pos[2] - c[2]];
-		const ba = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-		const cb = [c[0] - b[0], c[1] - b[1], c[2] - b[2]];
-		const ac = [a[0] - c[0], a[1] - c[1], a[2] - c[2]];
+		const pa = v3_sub(pos, a);
+		const pb = v3_sub(pos, b);
+		const pc = v3_sub(pos, c);
+		const ba = v3_sub(b, a);
+		const cb = v3_sub(c, b);
+		const ac = v3_sub(a, c);
 
 		const nor = cross(ba, ac);
 

@@ -2,8 +2,26 @@
 
 INDEX
 
+aabbInside(minPos1, maxPos1, minPos2, maxPos2)
+applyDist(oldDist, testDist, nature, gloopiness, smoothness)
+	benchmark(pxMult)
+bounds_expandU(bounds, extraDist)
+bounds_expand(bounds, extraDists)
+boundsAngle(radians)
+boundsForList(objectList)
+BVHUnion(node1, node2)
 calcLine(xDir, yDir, zDir, x, pixelWidth, pixelHeight)
-dot(a, b)
+calcScreenPos(worldPos)
+constrainPlayer(xRange, yRange, zRange)
+copyArr(source, dest)
+drawPixelArt(pxData, startX, startY, pxSize)
+drawGhostDot(screenPos, color)
+drawUI()
+drawLine(x, colorArr)
+getDistance(x1, y1, z1, x2, y2, z2)
+getDistancePos(pos1, pos2)
+
+
 getDistance(x1, y1, z1, x2, y2, z2)
 getDistancePos(pos1, pos2)
 
@@ -21,23 +39,6 @@ function aabbInside(minPos1, maxPos1, minPos2, maxPos2) {
 	return  (minPos1[0] <= minPos2[0]) && (maxPos1[0] >= maxPos2[0]) && 
 			(minPos1[1] <= minPos2[1]) && (maxPos1[1] >= maxPos2[1]) && 
 			(minPos1[2] <= minPos2[2]) && (maxPos1[2] >= maxPos2[2]);
-}
-
-/**
-* applies a paint Color to a base Color4.
-* @param {Color4} paintColor the color to paint
-* @param {Color4} baseColor the color to paint onto
- */
-function applyColor(paintColor, baseColor) {
-	var availableOpacity = (255 - baseColor[3]) / 255;
-	if (availableOpacity <= 0) {
-		return;
-	}
-	
-	baseColor[0] = linterp(baseColor[0], paintColor[0], availableOpacity);
-	baseColor[1] = linterp(baseColor[1], paintColor[1], availableOpacity);
-	baseColor[2] = linterp(baseColor[2], paintColor[2], availableOpacity);
-	baseColor[3] += paintColor[3] * availableOpacity;
 }
 
 /**
@@ -130,7 +131,7 @@ function boundsAngle(radians) {
 /**
 * takes in an array of Scene3dObjects and calculates a bounding box that encompasses all the objects (by taking the min of all mins and max of all maxs)
 * @param {Scene3dObject[]} objectList the list to calculate for
-* @returns {Number[]} an array in the format [minPos, maxPos]
+* @returns {Number[]} an array in the format `[minPos, maxPos]`
  */
 function boundsForList(objectList) {
 	var min = [1e1001, 1e1001, 1e1001];
@@ -219,36 +220,38 @@ function calcLine(xDir, yDir, zDir, x, pixelWidth, pixelHeight) {
  * @return {Number[]|null} the screen position as [x, y], or null if the position is behind the camera
  */
 function calcScreenPos(worldPos) {
-	if (!worldPos) {
+	if (!worldPos || Number.isNaN(worldPos[0] + worldPos[1] + worldPos[2])) {
 		return null;
 	}
-	//first, find the offset of the world pos from the camera in the camera's coordinate system. If the offset is negative, it's behind the camera and we can ignore it.
-	if (Number.isNaN(worldPos[0] + worldPos[1] + worldPos[2])) {
+	//first, find the offset of the world pos from the camera in the camera's coordinate system.
+	var relPos = transformInverse(worldPos, camera.pos, camera.quat);
+	if (relPos[2] <= 0) {
 		return null;
 	}
-	var delta = [worldPos[0] - camera.pos[0], worldPos[1] - camera.pos[1], worldPos[2] - camera.pos[2]];
-	var offset = dot(delta, polToCart(camera.theta, camera.phi, 1));
-	if (offset <= 0) {
-		return null;
-	}
-
-	// projecting world pos to screen
-	var right = dot(delta, polToCart(camera.theta + (Math.PI / 2), 0, 1));
-	var up = dot(delta, polToCart(camera.theta, camera.phi + (Math.PI / 2), 1));
 
 	// oughhhh fov
 	var halfHeight = Math.tan(camera_FOV * degToRad / 2);
 	var halfWidth = halfHeight * (banvas.width / banvas.height);
-	var normalizedX = (right / offset) / halfWidth;
-	var normalizedY = (up / offset) / halfHeight;
+	var normalizedX = (relPos[0] / relPos[2]) / halfWidth;
+	var normalizedY = (relPos[1] / relPos[2]) / halfHeight;
 
-	return [(normalizedX * 0.5 + 0.5) * banvas.width, (1 - (normalizedY * 0.5 + 0.5)) * banvas.height];
+	return [0.5*(normalizedX + 1) * banvas.width, (1 - 0.5*(normalizedY + 1)) * banvas.height];
 }
 
 function constrainPlayer(xRange, yRange, zRange) {
 	player.pos[0] = modulate(player.pos[0] + xRange, 2 * xRange) - xRange;
 	player.pos[1] = modulate(player.pos[1] + yRange, 2 * yRange) - yRange;
 	player.pos[2] = modulate(player.pos[2] + zRange, 2 * zRange) - zRange;
+}
+
+/**
+ * puts all the components of source into dest. Useful for copying arrays of numbers without reference issues.
+ */
+function copyArr(source, dest) {
+	for (var g=0; g<dest.length; g++) {
+		dest[g] = source[g];
+	}
+	return dest;
 }
 
 /**
@@ -270,6 +273,20 @@ function drawPixelArt(pxData, startX, startY, pxSize) {
 			btx.fillRect(startX + x * pxSize, startY + y * pxSize, pxSize + 0.5, pxSize + 0.5);
 		}
 	}
+}
+
+function drawGhostDot(screenPos, color) {
+	if (!screenPos) {
+		return;
+	}
+	const alphaSave = btx.globalAlpha;
+	btx.globalAlpha = 1;
+	btx.lineWidth = 1;
+	btx.strokeStyle = color;
+	btx.beginPath();
+	btx.arc(...screenPos, 6, 0, Math.PI * 2);
+	btx.stroke();
+	btx.globalAlpha = alphaSave;
 }
 
 function drawUI() {
@@ -296,13 +313,10 @@ function drawUI() {
 	if (debug_flags.collisionRaycast) {
 		const pixelsInX = render_colN;
 		const pixelsInY = render_colN;
-	
-		const xDir = polToCart(camera.theta + (Math.PI / 2), 0, 1);
-		const yDir = polToCart(camera.theta, camera.phi - (Math.PI / 2), 1);
-		const zDir = polToCart(camera.theta, camera.phi, camera_planeOffset);
-	
+		const c = camera.basis();
+		
 		for (var x=0; x<pixelsInX; x++) {
-			drawLine(x, calcLine(xDir, yDir, zDir, x, pixelsInX, pixelsInY));
+			drawLine(x, calcLine(c.right, c.up, c.forward, x, pixelsInX, pixelsInY));
 		}
 	}
 	
@@ -323,15 +337,11 @@ function drawUI() {
 	//selected object ghost
 	if (editor.selected != player) {
 		var ghostPos = calcScreenPos(editor.selected.pos);
-		if (ghostPos) {
-			btx.globalAlpha = 1;
-			btx.lineWidth = 1;
-			btx.strokeStyle = colors16[15];
-			btx.beginPath();
-			btx.arc(...ghostPos, 6, 0, Math.PI * 2);
-			btx.stroke();
-			btx.globalAlpha = 0.3;
-		}
+		var holrPos = calcScreenPos(transform([0, 0, 20], editor.selected.pos, editor.holr));
+		var rotPos = calcScreenPos(transform([0, 0, 20], editor.selected.pos, editor.selected.quat));
+		drawGhostDot(ghostPos, colors16[15]);
+		drawGhostDot(holrPos, colors16[14]);
+		drawGhostDot(rotPos, colors16[13]);
 	}
 	
 	//global/local indicator
@@ -362,18 +372,6 @@ function drawLine(x, colorArr) {
 	
 	btx.putImageData(imageData, x * blockSizeTrue, 0);
 	render_linesDrawn += 1;
-}
-
-/**
- * Returns the camera's basis vectors (right/X, up/Y, forward/Z).
- * @returns {Object} `{right: Pos, up: Pos, forward: Pos}` (each is a normalized Pos vector)
- */
-function getCameraBasis() {
-	return {
-		right:	polToCart(camera.theta + (Math.PI / 2), 0, 1),
-		up:		polToCart(camera.theta, camera.phi + (Math.PI / 2), 1),
-		forward:polToCart(camera.theta, camera.phi, 1)
-	};
 }
 
 function getDistance(x1, y1, z1, x2, y2, z2) {
@@ -439,6 +437,10 @@ function keyDiff(dictA, dictB) {
 }
 
 
+/**
+ * puts the player, camera, and `loading_world` into a new world.
+ * @param {String} worldName
+ */
 function loadWorld(worldName) {
 	var obj = worlds[worldName];
 	if (!obj) {
@@ -735,10 +737,10 @@ function perf_logEnd(logName) {
 	return (present - past);
 }
 
-function prand(min, max) {
-	rand_seed |= 0;
-	rand_seed = rand_seed + 0x9e3779b9 | 0;
-	let t = rand_seed ^ rand_seed >>> 16;
+function prand(min, max, seedBuf) {
+	seedBuf[0] |= 0;
+	seedBuf[0] = seedBuf[0] + 0x9e3779b9 | 0;
+	let t = seedBuf[0] ^ seedBuf[0] >>> 16;
 	t = Math.imul(t, 0x21f0aaad);
 	t = t ^ t >>> 15;
 	t = Math.imul(t, 0x735a2d97);
@@ -759,6 +761,10 @@ function segmentDist2(seg, p) {
 	return dot(proj, proj);
 }
 
+function snapToGrid(num) {
+	return Math.round(num / editor.gridDist) * editor.gridDist;
+}
+
 /**
  * Returns the image of a given point when transformed by the given offset / angles
  * @param {Number[]} point the point to transform
@@ -769,18 +775,6 @@ function transform(point, offset, quat) {
 	point = quatRotate(point, quat);
 	return [point[0] + offset[0], point[1] + offset[1], point[2] + offset[2]];
 }
-
-function cartToThetaPhi(x, y, z) {
-	var theta = Math.atan2(x, z);
-	var phi = Math.atan(y / Math.sqrt((z * z) + (x * x)));
-	
-	return [(theta < 0) ? (Math.PI * 2 + theta) : theta, phi];
-}
-
-function snapToGrid(num) {
-	return Math.round(num / editor.gridDist) * editor.gridDist;
-}
-
 
 /**
  * transforms a standard transform. In this case, the first 4 args are the transform to modify, and the last 4 args are the base to apply.
@@ -834,6 +828,24 @@ function sceneSDF(sceneCollection, pos) {
 	return [dist, distObj];
 }
 
+function sdfTri(relX, relY, w, h) {
+	h *= 2;
+	relX = Math.abs(relX);
+	relY += h/2;
+
+	const buf1 = clamp((relX*w + relY*h) / (w*w + h*h), 0, 1);
+
+	const ax = relX - w * buf1;
+	const ay = relY - h * buf1;
+
+	const bx = relX - w * clamp(relX / w, 0, 1);
+	const by = relY - h;
+	const k = Math.sign(h);
+	const d = Math.min(ax*ax + ay*ay, bx*bx + by*by);
+	const s = Math.max(k*(relX*h - relY*w), k*(relY - h));
+	return Math.sqrt(d) * Math.sign(s) - 0.1;
+}
+
 function serializeRot(theta, phi, rot) {
 	phi += pi/2;
 	theta /= degToRad;
@@ -847,7 +859,6 @@ function serializeRot(theta, phi, rot) {
 	return (res == `0~90~0`) ? `R` : res;
 }
 
-
 function serializeNat(nature, gloop, smooth, ex, ey, ez) {
 	const r = Math.round;
 
@@ -858,16 +869,6 @@ function serializeNat(nature, gloop, smooth, ex, ey, ez) {
 		nature = `${nature}.${2*gloop}.${2*smooth}`;
 	}
 	return `${nature}`;
-}
-
-function deserializeNat(natStr) {
-	var s = natStr.split(`.`).map(a => +a);
-	s[1] = (s[1] ?? 1) / 2;
-	s[2] = (s[2] ?? 1) / 2;
-	s[3] = (s[3] ?? 0) / 10;
-	s[4] = (s[4] ?? 0) / 10;
-	s[5] = (s[5] ?? 0) / 10;
-	return s;
 }
 
 function updateFOV(newFOV) {
@@ -892,21 +893,3 @@ function updateFOV(newFOV) {
 	}
 }
 
-
-function sdfTri(relX, relY, w, h) {
-	h *= 2;
-	relX = Math.abs(relX);
-	relY += h/2;
-
-	const buf1 = clamp((relX*w + relY*h) / (w*w + h*h), 0, 1);
-
-	const ax = relX - w * buf1;
-	const ay = relY - h * buf1;
-
-	const bx = relX - w * clamp(relX / w, 0, 1);
-	const by = relY - h;
-	const k = Math.sign(h);
-	const d = Math.min(ax*ax + ay*ay, bx*bx + by*by);
-	const s = Math.max(k*(relX*h - relY*w), k*(relY - h));
-	return Math.sqrt(d) * Math.sign(s) - 0.1;
-}

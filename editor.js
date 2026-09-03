@@ -7,13 +7,14 @@
 function createDefaultObject(objType) {
 	objType = objType ?? TYPE_SPHERE;
 	var type = map_typeObj[objType];
-	return new type({pos: Pos(0, 0, 0), theta: 0, phi: 0, rot: 0}, createDefaultMaterial(), 0, 10, 10, 10, 1, 12, 6, 10, 10, 10, 10, 10);
+	return new type({pos: Pos(0, 0, 0), quat: quatIdentity()}, createDefaultMaterial(), 0, 10, 10, 10, 1, 12, 6, 10, 10, 10, 10, 10);
 }
 
 /**
- * creates a default object, then directly applies properties to it based on an input list of properties
+ * creates an object with properties specified in the `properties` object. If nothing is specified, creates a default object.
  * @param {Integer} objType an integer representing the type of object to create. If left undefined, defaults to 0
  * @param {Object} properties an object containing properties to apply
+ * @returns {Scene3dObject} the freshly created object
  */
 function createDescribedObject(objType, properties) {
 	var obj = createDefaultObject(objType);
@@ -57,6 +58,42 @@ function createDefaultWorld(name) {
 	loading_world.shouldRegen = true;
 }
 
+function createMesh(meshLgroup) {
+	const oldWorld = loading_world.name;
+	const oldPos = meshLgroup.pos;
+
+	createDefaultWorld(`MESH_VIEWER`);
+
+	//set up objects
+	const newObj = deserialize(meshLgroup.serialize());
+	newObj.pos = Pos(0,0,0);
+	newObj.tick();
+	worlds[`MESH_VIEWER`].objects = [];
+	newObj.break(worlds[`MESH_VIEWER`].objects);
+	const bounds = bounds_expandU(boundsForList(worlds[`MESH_VIEWER`].objects), 100);
+
+	editor_deselect(editor.selected);
+	editor_select(newObj);
+
+	//set up scaffolding
+	const matStr = `portal:${oldWorld}~[${oldPos}]~50`;
+	worlds[`MESH_VIEWER`].lockedObjs = [
+		createDescribedObject(TYPE_BOX, {rx: 1000, ry: 1000, rz: 1, material: new M_Plexiglass(0,0,255,10)}),
+		createDescribedObject(TYPE_BOX, {rx: 1000, ry: 1, rz: 1000, material: new M_Plexiglass(0,255,0,10)}),
+		createDescribedObject(TYPE_BOX, {rx: 1, ry: 1000, rz: 1000, material: new M_Plexiglass(255,0,0,10)}),
+		
+		createDescribedObject(TYPE_BOX, {pos: Pos(bounds[0][0], 0, 0), rx: 5, ry: 1000, rz: 1000, material: deserializeMat(matStr)}),
+		createDescribedObject(TYPE_BOX, {pos: Pos(bounds[1][0], 0, 0), rx: 5, ry: 1000, rz: 1000, material: deserializeMat(matStr)}),
+		createDescribedObject(TYPE_BOX, {pos: Pos(0, bounds[0][1], 0), rx: 1000, ry: 5, rz: 1000, material: deserializeMat(matStr)}),
+		createDescribedObject(TYPE_BOX, {pos: Pos(0, bounds[1][1], 0), rx: 1000, ry: 5, rz: 1000, material: deserializeMat(matStr)}),
+		createDescribedObject(TYPE_BOX, {pos: Pos(0, 0, bounds[0][2]), rx: 1000, ry: 1000, rz: 5, material: deserializeMat(matStr)}),
+		createDescribedObject(TYPE_BOX, {pos: Pos(0, 0, bounds[1][2]), rx: 1000, ry: 1000, rz: 5, material: deserializeMat(matStr)}),
+	];
+	worlds[`MESH_VIEWER`].lockedObjs.forEach(o => {o.intangible = true;});
+	worlds[`MESH_VIEWER`].shouldRegen = true;
+	loadWorld(`MESH_VIEWER`);
+}
+
 /**
 * attempts to transfer an object's properties from one to another. 
  */
@@ -95,6 +132,11 @@ function transferPropertiesMat(oldMat, newMat) {
 	});
 }
 
+/**
+ * deserializes an object string and returns the object
+ * @param {String} str the serialized string
+ * @returns {Scene3dObject} the deserialized object
+ */
 function deserialize(str) {
 	str = str.replaceAll(`\t`, ``);
 	const groups = [`LOOP`, `GROUP-L`];
@@ -200,9 +242,18 @@ function deserializeMat(str) {
 	return obj;
 }
 
+function deserializeNat(natStr) {
+	var s = natStr.split(`.`).map(a => +a);
+	s[1] = (s[1] ?? 1) / 2;
+	s[2] = (s[2] ?? 1) / 2;
+	s[3] = (s[3] ?? 0) / 10;
+	s[4] = (s[4] ?? 0) / 10;
+	s[5] = (s[5] ?? 0) / 10;
+	return s;
+}
+
 function calcPlacePos() {
-	var offset = polToCart(camera.theta, camera.phi, editor.placeOff);
-	var base = Pos(camera.pos[0] + offset[0], camera.pos[1] + offset[1], camera.pos[2] + offset[2]);
+	var base = transform([0, 0, editor.placeOff], camera.pos, camera.quat);
 	const sd = editor.snapDist;
 
 	if (editor.flags.snapGrid) {
@@ -235,9 +286,7 @@ function calcPlacePos() {
 			}
 		});
 		if (dist < sd) {
-			base[0] = pos[0];
-			base[1] = pos[1];
-			base[2] = pos[2];
+			copyArr(pos, base);
 		} else if (editor.flags.snapAxis) {
 			snapSet.forEach(o => {
 				//2/3 axis snapping
@@ -261,9 +310,7 @@ function calcPlacePos() {
 				}
 			});
 			if (dist < sd) {
-				base[0] = pos[0];
-				base[1] = pos[1];
-				base[2] = pos[2];
+				copyArr(pos, base);
 			}
 		}
 	}
@@ -329,9 +376,9 @@ function editor_applyDrag(dragVec) {
 	const es = editor.selected;
 
 	//TODO:
-	var cMat = camera.calcMatrix();
-	var worldVecX = cMat.slice(0, 3);
-	var worldVecY = cMat.slice(3, 6);
+	var cMat = camera.basis();
+	var worldVecX = cMat.right;
+	var worldVecY = cMat.up;
 	// new system. Any dimensional projection can be represented as [full space] - [space not in subspace]
 	// when projecting onto a plane, it's 3d - 1d. When projecting onto a line it's 3d - 2d. 
 	// to have a system with 1, 2, or 3 vectors selected, just subtract out all the non-selected vectors.
@@ -342,17 +389,9 @@ function editor_applyDrag(dragVec) {
 		const vec = editor_getAxisVec(v);
 		
 		const XoN = proj(worldVecX, vec);
-		worldVecX = [
-			worldVecX[0] - XoN[0],
-			worldVecX[1] - XoN[1],
-			worldVecX[2] - XoN[2]
-		];
 		const YoN = proj(worldVecY, vec);
-		worldVecY = [
-			worldVecY[0] - YoN[0],
-			worldVecY[1] - YoN[1],
-			worldVecY[2] - YoN[2]
-		];
+		decrement(worldVecX, XoN);
+		decrement(worldVecY, YoN);
 	});
 
 	// Apply accumulated drag offset to actual position
@@ -398,40 +437,72 @@ function editor_applyDrag(dragVec) {
 	if (editor.axisType == `grab`) {
 		//dragging will move the HOLP, and then the HOLP controls where the object goes. 
 		//This is so we can have grid snapping as well as smooth movement
-		editor.holp[0] += xDelta;
-		editor.holp[1] += yDelta;
-		editor.holp[2] += zDelta;
+		increment(editor.holp, [xDelta, yDelta, zDelta]);
 
+		copyArr(editor.holp, es.pos);
 		if (editor.flags.snapGrid) {
-			es.pos[0] = snapToGrid(editor.holp[0]);
-			es.pos[1] = snapToGrid(editor.holp[1]);
-			es.pos[2] = snapToGrid(editor.holp[2]);
-		} else {
-			es.pos[0] = editor.holp[0];
-			es.pos[1] = editor.holp[1];
-			es.pos[2] = editor.holp[2];
+			es.pos[0] = snapToGrid(es.pos[0]);
+			es.pos[1] = snapToGrid(es.pos[1]);
+			es.pos[2] = snapToGrid(es.pos[2]);
 		}
 		return;
 	}
 
 	//global rotate
 	if (editor.axisType == `rotate`) {
+		//similarly, dragging moves the HOLR; the HOLR controls the rotation.
 		ea = Array.from(ea).sort();
 		dragVec[0] *= 0.01;
 		dragVec[1] *= 0.01;
 
 		//just give up
 		if (editor.local) {
-			es.quat = normalize(quatMultiply(quatFromEuler(
+			editor.holr = normalize(quatMultiply(quatFromEuler(
 				dragVec[0]*(ea[0] == `x`) + dragVec[1]*(ea[1] == `x`), 
 				dragVec[0]*(ea[0] == `y`) + dragVec[1]*(ea[1] == `y`),
-				dragVec[0]*(ea[0] == `z`) + dragVec[1]*(ea[1] == `z`)), es.quat));
+				dragVec[0]*(ea[0] == `z`) + dragVec[1]*(ea[1] == `z`)), editor.holr));
 		} else {
-			es.quat = normalize(quatMultiply(es.quat, quatFromEuler(
+			editor.holr = normalize(quatMultiply(editor.holr, quatFromEuler(
 				dragVec[0]*(ea[0] == `y`) + dragVec[1]*(ea[1] == `y`),
 				dragVec[0]*(ea[0] == `x`) + dragVec[1]*(ea[1] == `x`), 
 				dragVec[0]*(ea[0] == `z`) + dragVec[1]*(ea[1] == `z`))));
 		}
+
+		var angleOff = degToRad * (controls.shift ? editor.snapAngle : 1);
+
+		
+		const dragMag = 100 * (Math.abs(dragVec[0]) + Math.abs(dragVec[1]));
+		for (var a=0; a<dragMag; a++) {
+			var quats = [
+				es.quat,
+				quatMultiply(es.quat, quatFromAA(angleOff, [1, 0, 0])),
+				quatMultiply(es.quat, quatFromAA(-angleOff, [1, 0, 0])),
+				quatMultiply(es.quat, quatFromAA(angleOff, [0, 1, 0])),
+				quatMultiply(es.quat, quatFromAA(-angleOff, [0, 1, 0])),
+			];
+	
+			// //select closest, etc
+			// var [cInd, cDist] = [-1, 1e101];
+			// const hPos = quatRotate([0,0,1], editor.holr);
+			// for (var i=0; i<quats.length; i++) {
+			// 	const qPos = quatRotate([0,0,1], quats[i]);
+			// 	var error = Math.hypot(qPos[0] - hPos[0], qPos[1] - hPos[1], qPos[2] - hPos[2]);
+			// 	if (error < cDist) {
+			// 		cDist = error;
+			// 		cInd = i;
+			// 	}
+			// }
+			// if (i == 0) {
+			// 	return;
+			// }
+			// es.quat = quats[cInd];
+
+
+			es.quat = [
+				editor.holr
+			];
+		}
+
 		return;
 	}
 }
@@ -472,7 +543,7 @@ function editor_removeObj(e, object) {
 	return removed;
 }
 
-function editor_loopify(e, object) {
+function editor_loopify(object) {
 	object = object ?? editor.selected;
 	editor_deselect(editor.selected);
 	if (object == player) {
@@ -480,7 +551,7 @@ function editor_loopify(e, object) {
 	}
 	if (object.constructor.type == TYPE_CLASS_LOOP) {
 		//unloop instead
-		return editor_unloopify(e, object);
+		return editor_unloopify(object);
 	}
 
 	const posStore = Pos(...object.pos);
@@ -488,7 +559,7 @@ function editor_loopify(e, object) {
 	object.pos = Pos(0, 0, 0);
 
 	const b = object.bounds();
-	const targetSize = [b[1][0] - b[0][0], b[1][1] - b[0][1], b[1][2] - b[0][2]];
+	const targetSize = v3_sub(b[1], b[0]);
 	const loopObj = new Scene3dLoop({
 		pos: posStore,
 		quat: quatIdentity(),
@@ -501,7 +572,40 @@ function editor_loopify(e, object) {
 	return loopObj;
 }
 
-function editor_unloopify(e, object) {
+//very similar to loopify
+function editor_objectify(e, object) {
+	object = object ?? editor.selected;
+}
+
+function paste(data, world, pos) {
+	const isObj = data.includes(`|`);
+
+	if (isObj) {
+		//object case
+		var newObj = deserialize(data);
+		newObj.pos = pos;
+		world.objects.push(newObj);
+		if (newObj.type == TYPE_CLASS_LGROUP) {
+			newObj.tick();
+			newObj.break(world.objects);
+		}
+		editor_deselect(editor.selected);
+		editor_select(newObj);
+		world.shouldRegen = true;
+		return;
+	}
+
+	//material case
+	var objs = (ec.selected.type == TYPE_CLASS_LGROUP) ? ec.selected.objects : new Set([ec.selected]);
+	objs.forEach(o => {
+		if (o.material) {
+			o.material = deserializeMat(data);
+		}
+	});
+	world.shouldRegen = true;
+}
+
+function editor_unloopify(object) {
 	if (object.constructor.type != TYPE_CLASS_LOOP) {
 		return null;
 	}
@@ -526,13 +630,13 @@ function editor_unloopify(e, object) {
 }
 
 function editor_raycastSimple(minDist) {
-	var ray = new Ray_Tracking(loading_world, camera.pos, polToCart(camera.theta, camera.phi, 1), ray_maxDist, minDist);
+	var ray = new Ray_Tracking(loading_world, camera.pos, transform([0,0,1], [0,0,0], camera.quat), ray_maxDist, minDist);
 	ray.iterate();
 	if (ray.world != loading_world) {
 		//it's gone through a portal. It's hard to tell which one though because of the whole teleporting business
 		var validPortals = [];
 		loading_world.objects.forEach(o => {
-			if (o.material.newWorld == ray.world) {
+			if (o.material && worlds[o.material.str] == ray.world) {
 				validPortals.push(o);
 			}
 		});
@@ -635,6 +739,7 @@ function editor_select(object) {
 	}
 
 	editor.holp = Pos(...editor.selected.pos);
+	editor.holr = [...editor.selected.quat];
 	ec_updatePanelsFor(editor.selected);
 }
 
@@ -667,6 +772,7 @@ function editor_updateHolp() {
 	}
 	var newPos = calcPlacePos();
 	editor.holp = Pos(...newPos);
+	editor.holr = [...editor.selected.quat];
 	if (getDistancePos(newPos, editor.selected.pos) > 0.05) {
 		editor.selected.pos = newPos;
 		loading_world.shouldRegen = true;
@@ -697,28 +803,14 @@ function editor_getAxisVec(axis) {
 	if (!axis || !editor.axisType) {
 		return [0, 0, 0];
 	}
-	var qLocal = editor.selected.quat ?? quatIdentity();
+	var qLocal = (editor.selected.quat && editor.local) ? editor.selected.quat : quatIdentity();
 	const zeroPos = [0, 0, 0];
+	const axisBasis = [+(axis == `x`), +(axis == `y`), +(axis == `z`)];
 	
-	if (editor.axisType == `grab` || editor.axisType == `scale`) {
-		if (!editor.local) {
-			qLocal = quatIdentity();
-		}
-		return transform([+(axis == `x`), +(axis == `y`), +(axis == `z`)], zeroPos, qLocal);
+	if (editor.axisType == `rotate` && !editor.local) {
+		return axisBasis;
 	}
-	if (editor.axisType == `rotate`) {
-		if (editor.local) {
-			switch (axis) {
-				case `x`:
-					return transform([0, 1, 0], zeroPos, qLocal);
-				case `y`:
-					return transform([1, 0, 0], zeroPos, qLocal);
-				case `z`:
-					return transform([0, 0, 1], zeroPos, qLocal);
-			}
-		}
-		return [+(axis == `x`), +(axis == `y`), +(axis == `z`)];
-	}
+	return transform(axisBasis, zeroPos, qLocal);
 }
 
 

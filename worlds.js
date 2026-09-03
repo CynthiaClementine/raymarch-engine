@@ -31,6 +31,8 @@ class World {
 		//this is because a single object could be made of multiple overlapping SDFs, 
 		//or an object could decide to unload itself and not contribute at all
 		this.expObjs = [];
+		//lockedObjs is a hidden array that contains uneditable objects. They will be expressed, but cannot be selected and modified.
+		this.lockedObjs = [];
 		this.shouldRegen = false;
 		
 		this.id = null;
@@ -150,11 +152,19 @@ class World {
 	express() {
 		var expObjs = [];
 		this.expObjs = expObjs;
+
+		this.lockedObjs.forEach(o => {
+			o.express().forEach(q => {
+				expObjs.push(q);
+			});
+		});
+
 		this.objects.forEach(o => {
 			o.express().forEach(q => {
 				expObjs.push(q);
 			});
 		});
+		
 		if (debug_flags.showGrid && editor.selected != player) {
 			const r = Math.round;
 			var eDist = editor.gridDist;
