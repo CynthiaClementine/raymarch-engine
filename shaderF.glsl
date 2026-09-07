@@ -1307,7 +1307,8 @@ void calcLightPositions() {
 		}
 		float lumi = p0[3];
 		float expectedLumi = (lumi * lumi) * gamma_reg / (dist * dist);
-		if (expectedLumi < gamma_cutoff) {
+		//fudge factor
+		if (expectedLumi * 0.9 < gamma_cutoff) {
 			continue;
 		}
 		float temp;
@@ -1821,7 +1822,7 @@ void main() {
 		vec3 gamma = (stage[1].color.rgb + stage[2].color.rgb + stage[3].color.rgb + stage[4].color.rgb) / gamma_max;
 		float ambient = w_ambientLight(stage[0].world);
 		gamma = ambient + (1. - ambient) * gamma;
-		gamma = clamp(gamma, 0.0, 1.5);
+		gamma = clamp(gamma, 0.0, 1.3);
 		groundColor.rgb *= gamma;
 	}
 	applyColor(0, vec4(groundColor, 1.));

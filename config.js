@@ -53,6 +53,7 @@ const M_PORTAL =	20;
 const M_GRAVITY =	25;
 const M_MIRROR =	30;
 const M_LIGHT =		40;
+const M_SOUND =		45;
 const M_TEXTURE =	50;
 
 const TYPE_CLASS_OBJ =		-1;
@@ -63,6 +64,7 @@ const TYPE_CLASS_GROUP =	-5;
 const TYPE_CLASS_LGROUP =	-6;
 const TYPE_CLASS_SPUN =		-7;
 const TYPE_CLASS_EXTRUDE =	-8;
+const TYPE_CLASS_PHYSOBJ = 	-10;
 
 
 const TYPE_SPHERE =			0;
@@ -101,9 +103,16 @@ const TYPE_TREE =			210;
 const TYPE_ENT_SKYBUNNY =	250;
 const TYPE_ENT_WORM =		251;
 
+//collision types
+const COL_SPH = `SPHERE`;
+const COL_BOX = `BOX`;
+const COL_CYL = `CYL`;
+
 //other enums
 const ABSOLUTE = 0;
 const RELATIVE = 1;
+
+
 
 //quick type
 const U8Arr = Uint8Array;

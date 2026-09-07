@@ -501,7 +501,7 @@ function handleKeyPress(a) {
 				return;
 			case "KeyP":
 				var r = Math.round;
-				var c = camera;
+				var c = player;
 				navigator.clipboard.writeText(`${r(c.pos[0])},${r(c.pos[1])},${r(c.pos[2])}, ${c.theta.toFixed(3)},${c.phi.toFixed(3)}`);
 				return;
 			case "Escape":
@@ -555,6 +555,10 @@ function handleKeyPress(a) {
 			debug_listening = !debug_listening;
 			loading_world.shouldRegen = true;
 			break;
+		case "Backquote":
+			overlay.style.display = `none`;
+			document.exitPointerLock();
+			return;
 	}
 }
 

@@ -16,6 +16,14 @@ Meta-Objects:
 	SceneCollection
  */
 
+class ObjPropSet {
+	constructor() {
+		this.pos;
+		this.quat;
+		this.material;
+		this.nature;
+	}
+}
 
 //main object contract
 class Scene3dObject {
@@ -23,21 +31,19 @@ class Scene3dObject {
 	static canCreate = true;
 	/**
 	 * creates a basic scene3dObject. This is an abstract class, you can't put it into the world.
-	 * @param {Object} posRot an object containing pos, theta, phi, and rot, in radians. This comprises the standard transform.
-	 * @param {Material} material the object's material. C
-	 * @param {Integer|Number[]} nature A bitmask representing the nature(s) of the object. 0 by default.
+	 * @param {ObjPropSet} baseProps an object containing position, quaternion, and material.
 	 */
-	constructor(posRot, material, nature) {
+	constructor(baseProps) {
 		this.type = this.constructor.type;
+		var {pos, material, nature, quat, theta, phi, rot} = baseProps;
 		
-		this.pos = posRot.pos;
-		this.material = material;
+		this.pos = pos;
+		this.material = material ?? createDefaultMaterial();
 		
-		nature = nature ?? N_NORMAL;
-		if (!nature.length) {
+		if (!nature || !nature.length) {
 			nature = [nature, 1, 1, 0, 0, 0];
 		}
-		this.nature = nature[0];
+		this.nature = nature[0] ?? N_NORMAL;
 		this.gloopiness = nature[1] ?? 0.5;
 		this.smoothness = nature[2] ?? 0.5;
 		this.gloopExt = 0;
@@ -46,9 +52,9 @@ class Scene3dObject {
 		this.ey = nature[4] ?? 0;
 		this.ez = nature[5] ?? 0;
 		
-		this.quat = posRot.quat ?? quatIdentity();
-		if (posRot.theta != undefined) {
-			this.quat = quatFromEuler(posRot.theta ?? 0, posRot.phi ?? 0, posRot.rot ?? 0);
+		this.quat = quat ?? quatIdentity();
+		if (theta != undefined) {
+			this.quat = quatFromEuler(theta ?? 0, phi ?? 0, rot ?? 0);
 		}
 	}
 	
@@ -126,8 +132,8 @@ class Scene3dObject {
 
 class Scene3dObject_Axes extends Scene3dObject {
 	static type = TYPE_CLASS_OBJAX;
-	constructor(posRot, material, nature, rx, ry, rz) {
-		super(posRot, material, nature);
+	constructor(posRot, rx, ry, rz) {
+		super(posRot);
 		this.rx = Math.max(rx, 0);
 		this.ry = Math.max(ry, 0);
 		this.rz = Math.max(rz, 0);
@@ -152,8 +158,8 @@ class Scene3dObject_Axes extends Scene3dObject {
 
 class Prism extends Scene3dObject_Axes {
 	static type = TYPE_CLASS_PRISM;
-	constructor(posRot, material, nature, rx, h, rz) {
-		super(posRot, material, nature, rx, h, rz);
+	constructor(posRot, rx, h, rz) {
+		super(posRot, rx, h, rz);
 	}
 	
 	sdf2D(relX, relY) {
@@ -226,16 +232,16 @@ class Scene3dLoop {
 		var arr = this.objects.map((o) => {
 			var newO = deserialize(o.serialize());
 			newO.pos = Pos(0, 0, 0);
-			var a = new Scene3dLoop({pos: [self.pos[0] + o.pos[0], self.pos[1] + o.pos[1], self.pos[2] + o.pos[2]], quat: [...self.quat]},
+			var a = new Scene3dLoop({pos: v3_add(self.pos, o.pos), quat: copyArr(self.quat, [])},
 									self.rx, self.ry, self.rz, self.dx, self.dy, self.dz, [newO]);
 			a.parent = self;
 			return a;
 		});
 
 		if (debug_flags.showLoopBounds) {
-			arr.push(new BoxFrame({pos: [self.pos[0] + o0.pos[0], self.pos[1] + o0.pos[1], self.pos[2] + o0.pos[2]], quat: [...self.quat]}, 
-									createDefaultMaterial(), N_NORMAL, 
-									(this.rx + 0.5) * this.dx, (this.ry + 0.5) * this.dy, (this.rz + 0.5) * this.dz, 1));
+			arr.push(new BoxFrame({
+				pos: v3_add(self.pos, o0.pos), quat: copyArr(self.quat, [])}, 
+				(this.rx + 0.5) * this.dx, (this.ry + 0.5) * this.dy, (this.rz + 0.5) * this.dz, 1));
 		}
 		return arr;
 	}
@@ -251,7 +257,7 @@ class Scene3dLoop {
 	}
 
 	relPos(pos) {
-		return quatUnrotate([pos[0] - this.pos[0], pos[1] - this.pos[1], pos[2] - this.pos[2]], this.quat);
+		return quatUnrotate(v3_sub(pos, this.pos), this.quat);
 	}
 	
 	distanceToPos(pos) {
@@ -280,9 +286,8 @@ class Scene3dLoop {
 	
 	serialize() {
 		const grStr = this.objects.map(a => a.serialize()).join(`\n\t||`);
-		const pos = this.pos;
 		const rot = packageQrot(this.quat).toString(32);
-		return `LOOP~[${pos}]~X~${rot}|${this.rx}~${this.ry}~${this.rz}~${this.dx}~${this.dy}~${this.dz}\n\t||${grStr}`;
+		return `LOOP~[${this.pos}]~X~${rot}|${this.rx}~${this.ry}~${this.rz}~${this.dx}~${this.dy}~${this.dz}\n\t||${grStr}`;
 	}
 	
 	serializeGPU() {
@@ -306,11 +311,12 @@ class SceneCollection {
 	constructor(posRot, objects) {
 		this.type = this.constructor.type;
 		this.pos = posRot.pos;
+		this.material = posRot.material;
 		this.quat = posRot.quat ?? quatIdentity();
 		if (posRot.theta != undefined) {
 			this.quat = quatFromEuler(posRot.theta ?? 0, posRot.phi ?? 0, posRot.rot ?? 0);
 		}
-		
+
 		this.baseObjects = objects;
 		this.expObjs = [];
 	}
@@ -355,8 +361,14 @@ class SceneCollection {
 			o.quat = t.quat;
 		});
 		this.transform(objs);
-		this.expObjs = objs;
-		return objs;
+		this.expObjs = [];
+		objs.forEach(o => {
+			var exp = o.express();
+			exp.forEach(oo => {
+				this.expObjs.push(oo);
+			});
+		});
+		return this.expObjs;
 	}
 
 	tick() {}
@@ -393,6 +405,38 @@ class SceneCollectionGeneric extends SceneCollection {
 		return `GENERIC${super.serializeKernel()}"${this.meshName}"`;
 	}
 }
+
+class PhysicsObject extends SceneCollection {
+	static type = TYPE_CLASS_PHYSOBJ;
+	/**
+	 * a PhysicsObject is an object that will move through the world and interact with 
+	 * @param {ObjPropSet} posRot the standard parameters
+	 * @param {SceneCollection} contained the SceneCollection to contain as the PhysObj
+	 * @param {COL_SPH|COL_BOX|COL_CYL} collisionType the type of simplified collision mesh to use.
+	 * @param {Number} paramX the collision X parameter
+	 * @param {Number} paramY the collision Y parameter
+	 * @param {Number} paramZ the collision Z parameter
+	 */
+	constructor(posRot, contained, collisionType, paramX, paramY, paramZ) {
+		this.obj = containedObject;
+		this.cType = collisionType;
+		this.cx = paramX;
+		this.cy = paramY;
+		this.cz = paramZ;
+
+		this.dPos = Pos(0,0,0);
+		this.dAngle = quatIdentity();
+	}
+
+	express() {
+		
+	}
+
+	serialize() {
+		return `PHYSOBJ${super.serializeKernel()}""`
+	}
+}
+
 
 class SceneCollectionLoose {
 	static type = TYPE_CLASS_LGROUP;
@@ -446,17 +490,17 @@ class SceneCollectionLoose {
 		const q1 = this.quat;
 		const q2 = this.sQuat;
 		if (q1[0] != q2[0] || q1[1] != q2[1] || q1[2] != q2[2] || q1[3] != q2[3]) {
+			var offsetQuat = normalize(quatMultiply(quatInv(this.sQuat), this.quat));
+		
 			//TODO: figure this out
-
 			this.objects.forEach(o => {
 				decrement(o.pos, this.sPos);
-				var newTrans = transformTransform(o.pos, o.quat, this.sPos, offsetQuat);
+				const newTrans = transformTransform(o.pos, o.quat, this.sPos, offsetQuat);
 				o.pos = newTrans.pos;
-				o.quat = [...newTrans.quat];
+				o.quat = newTrans.quat;
 			});
 
-			this.sQuat = [...this.quat];
-			
+			copyArr(this.quat, this.sQuat);
 			loading_world.shouldRegen = true;
 		}
 
@@ -506,8 +550,8 @@ class SceneCollectionLoose {
 
 class Box extends Scene3dObject_Axes {
 	static type = TYPE_BOX;
-	constructor(posRot, material, nature, rx, ry, rz) {
-		super(posRot, material, nature, rx, ry, rz);
+	constructor(posRot, rx, ry, rz) {
+		super(posRot, rx, ry, rz);
 	}
 
 	distanceToPos(pos) {
@@ -529,8 +573,8 @@ class Box extends Scene3dObject_Axes {
 
 class BoxFrame extends Scene3dObject_Axes {
 	static type = TYPE_BOXFRAME;
-	constructor(posRot, material, nature, rx, ry, rz, thickness) {
-		super(posRot, material, nature, rx, ry, rz);
+	constructor(posRot, rx, ry, rz, thickness) {
+		super(posRot, rx, ry, rz);
 		this.e = thickness;
 	}
 	
@@ -563,8 +607,8 @@ class BoxFrame extends Scene3dObject_Axes {
 //just an extruded sphere... should I really keep this?
 class Capsule extends Scene3dObject {
 	static type = TYPE_CAPSULE;
-	constructor(posRot, material, nature, r, h) {
-		super(posRot, material, nature);
+	constructor(posRot, r, h) {
+		super(posRot);
 		this.r = r;
 		this.h = h;
 	}
@@ -594,8 +638,8 @@ class Capsule extends Scene3dObject {
 //cube, standard object
 class Cube extends Scene3dObject {
 	static type = TYPE_CUBE;
-	constructor(posRot, material, nature, r) {
-		super(posRot, material, nature);
+	constructor(posRot, r) {
+		super(posRot);
 		this.r = r;
 	}
 
@@ -626,8 +670,8 @@ class Cube extends Scene3dObject {
 
 class Cylinder extends Scene3dObject {
 	static type = TYPE_CYLINDER;
-	constructor(posRot, material, nature, r, h) {
-		super(posRot, material, nature);
+	constructor(posRot, r, h) {
+		super(posRot);
 		this.r = r;
 		this.h = h;
 	}
@@ -659,8 +703,8 @@ class Cylinder extends Scene3dObject {
 //TODO: SDF is wrong, not a proper euclidian distance
 class Ellipsoid extends Scene3dObject_Axes {
 	static type = TYPE_ELLIPSE;
-	constructor(posRot, material, nature, rx, ry, rz) {
-		super(posRot, material, nature, rx, ry, rz);
+	constructor(posRot, rx, ry, rz) {
+		super(posRot, rx, ry, rz);
 	}
 	
 	distanceToPos(pos) {
@@ -686,8 +730,8 @@ class Ellipsoid extends Scene3dObject_Axes {
 
 class Fractal extends Scene3dObject {
 	static type = TYPE_FRACTAL;
-	constructor(posRot, material, nature, r, scale, shiftX, shiftY, shiftZ) {
-		super(posRot, material, nature);
+	constructor(posRot, r, scale, shiftX, shiftY, shiftZ) {
+		super(posRot);
 		this.r = r;
 		this.b = scale;
 		this.shift = Pos(shiftX, shiftY, shiftZ);
@@ -720,6 +764,7 @@ class Fractal extends Scene3dObject {
 			px = Math.abs(px);
 			py = Math.abs(py);
 			pz = Math.abs(pz);
+			//TODO: pull this rotate call out of the loop
 			[px, py] = rotate(px, py, a1);
 			
 			var a = Math.min(px - py, 0);
@@ -765,8 +810,8 @@ class Fractal extends Scene3dObject {
 
 class Gyroid extends Scene3dObject_Axes {
 	static type = TYPE_GYROID;
-	constructor(posRot, material, nature, rx, ry, rz, a, b, h) {
-		super(posRot, material, nature, rx, ry, rz);
+	constructor(posRot, rx, ry, rz, a, b, h) {
+		super(posRot, rx, ry, rz);
 		this.a = a ?? 0.08;
 		this.b = b ?? 13;
 		this.h = h;
@@ -810,14 +855,15 @@ class Gyroid extends Scene3dObject_Axes {
 //The offset point is not really a "radius" by any metric but eh. whatever.
 class Line extends Scene3dObject {
 	static type = TYPE_LINE;
-	constructor(posRot, material, nature, rx, ry, rz, thickness) {
-		super(posRot, material, nature);
+	constructor(posRot, rx, ry, rz, thickness) {
+		super(posRot);
 		this.offP = Pos(rx, ry, rz);
 		this.posEnd = Pos(
 			this.pos[0] + rx,
 			this.pos[1] + ry,
 			this.pos[2] + rz
 		);
+		this.quat = quatIdentity();
 		this.r = thickness;
 	}
 
@@ -841,7 +887,7 @@ class Line extends Scene3dObject {
 	}
 
 	selectFrom(obj) {
-		if (obj.type == TYPE_LINE) {
+		if (obj.type) {
 			return this;
 		}
 		const endDist = getDistancePos(obj.pos, this.posEnd);
@@ -906,8 +952,8 @@ class Line extends Scene3dObject {
 //like a line but with 2 separate radii
 class Dish extends Line {
 	static type = TYPE_DISH;
-	constructor(posRot, material, nature, rx, ry, rz, ra, rb) {
-		super(posRot, material, nature, rx, ry, rz, ra);
+	constructor(posRot, rx, ry, rz, ra, rb) {
+		super(posRot, rx, ry, rz, ra);
 		this.ringR = rb;
 	}
 
@@ -966,12 +1012,12 @@ class Dish extends Line {
 
 class Catenary extends Line {
 	static type = TYPE_CATENARY;
-	constructor(posRot, material, nature, rx, ry, rz, thickness, arclen, flipVertical) {
-		super(posRot, material, nature, rx, ry, rz, thickness);
+	constructor(posRot, rx, ry, rz, thickness, arclen, flipVertical) {
+		super(posRot, rx, ry, rz, thickness);
 		this.arclen = arclen;
 		this.pts = 9;
 		this.pointSet = [];
-		this.flip = flipVertical;
+		this.flip = flipVertical ?? 0;
 		
 	}
 
@@ -993,7 +1039,7 @@ class Catenary extends Line {
 				yMax,
 				Math.max(this.pos[2], this.posEnd[2]),
 			)
-		], this.bAugAmt()), r);
+		], this.bAugAmt()), this.r);
 	}
 
 	express() {
@@ -1001,7 +1047,7 @@ class Catenary extends Line {
 		const ps = this.pointSet;
 		var base = super.express().slice(1);
 		for (var v=1; v<ps.length; v++) {
-			const o = new Line({pos: ps[v-1]}, this.material, this.nature, 
+			const o = new Line({pos: ps[v-1], material: this.material, nature: this.nature},
 				ps[v][0] - ps[v-1][0], ps[v][1] - ps[v-1][1], ps[v][2] - ps[v-1][2], 
 				this.r);
 			o.parent = this;
@@ -1018,10 +1064,14 @@ class Catenary extends Line {
 		Hyperbolic functions are messy so there's a little newton's method along the way. Other than that it's not too bad
 		*/
 
+		if (this.flip) {
+			this.offP[1] = -this.offP[1];
+		}
+
 		//set up: parametrize
 		var vec = [this.offP[0], this.offP[2]];
-		var dx = Math.sqrt(vec[0]**2 + vec[1]**2);
-		var vecHat = [vec[0], vec[2]];
+		const sign = -2*this.flip + 1;
+		const dx = Math.sqrt(vec[0]**2 + vec[1]**2);
 		var h = this.offP[1] / dx;
 		var L = this.arclen / dx;
 
@@ -1053,16 +1103,20 @@ class Catenary extends Line {
 				const result = (a * Math.cosh((t - b) / a) + c);
 				this.pointSet[e] = [
 					linterp(this.pos[0], this.posEnd[0], t),
-					this.pos[1] + dx * result,
+					this.pos[1] + sign * dx * result,
 					linterp(this.pos[2], this.posEnd[2], t),
 				];
 			}
 			this.pointSet[this.pts] = this.posEnd;
 		}
+
+		if (this.flip) {
+			this.offP[1] = -this.offP[1];
+		}
 	}
 
 	serialize() {
-		return `CATENARY${super.serialize().slice(4)}~${this.arclen}`;
+		return `CATENARY${super.serialize().slice(4)}~${this.arclen}~${+this.flip}`;
 	}
 }
 
@@ -1097,8 +1151,8 @@ class Point {
 
 class Triangle extends Scene3dObject {
 	static type = TYPE_TRIANGLE;
-	constructor(posRot, material, nature, p2x, p2y, p2z, thickness, p3x, p3y, p3z) {
-		super(posRot, material, nature);
+	constructor(posRot, p2x, p2y, p2z, thickness, p3x, p3y, p3z) {
+		super(posRot);
 		this.quat = quatIdentity();
 		this.p1 = this.pos;
 		this.off2 = Pos(p2x, p2y, p2z);
@@ -1223,8 +1277,8 @@ class Triangle extends Scene3dObject {
 
 class Octahedron extends Scene3dObject_Axes {
 	static type = TYPE_OCTAHEDRON;
-	constructor(posRot, material, nature, rx, ry, rz) {
-		super(posRot, material, nature, rx, ry, rz);
+	constructor(posRot, rx, ry, rz) {
+		super(posRot, rx, ry, rz);
 	}
 	
 	//TODO: probably broken in some way
@@ -1248,8 +1302,8 @@ class Octahedron extends Scene3dObject_Axes {
 
 class PrismRhombus extends Prism {
 	static type = TYPE_PRISM_RHOMBUS;
-	constructor(posRot, material, nature, rx, h, rz, skew) {
-		super(posRot, material, nature, rx, h, rz);
+	constructor(posRot, rx, h, rz, skew) {
+		super(posRot, rx, h, rz);
 		this.skew = skew;
 	}
 
@@ -1306,8 +1360,8 @@ class PrismRhombus extends Prism {
 
 class PrismTri extends Prism {
 	static type = TYPE_PRISM_TRI;
-	constructor(posRot, material, nature, rx, ry, h) {
-		super(posRot, material, nature, rx, ry, h);
+	constructor(posRot, rx, ry, h) {
+		super(posRot, rx, ry, h);
 	}
 
 	sdf2D(relX, relY) {
@@ -1321,8 +1375,8 @@ class PrismTri extends Prism {
 
 class PrismHexagon extends Prism {
 	static type = TYPE_PRISM_HEX;
-	constructor(posRot, material, nature, rx, ry, h) {
-		super(posRot, material, nature, rx, ry, h);
+	constructor(posRot, rx, ry, h) {
+		super(posRot, rx, ry, h);
 		this.ry = this.rx;
 	}
 
@@ -1349,14 +1403,23 @@ class PrismHexagon extends Prism {
 
 class PrismOctagon extends Prism {
 	static type = TYPE_PRISM_OCT;
-	constructor(posRot, material, nature, rx, ry, h) {
-		super(posRot, material, nature, rx, ry, h);
+	constructor(posRot, rx, ry, h) {
+		super(posRot, rx, ry, h);
 		this.ry = this.rx;
 	}
 
 	// express() {
 	// 	return [];
 	// }
+
+
+	// vec3 magicNums = vec3(-0.9238795325, 0.382683, 0.4142135);
+	// point = abs(point);
+	// point -= 2. * min(dot(magicNums.xy, point), 0.) * magicNums.xy;
+	// point -= 2. * min(dot(vec2(-magicNums.x, magicNums.y), point), 0.) * vec2(-magicNums.x, magicNums.y);
+	// point.x -= clamp(point.x, -magicNums.z * r, magicNums.z * r);
+	// point.y -= r;
+	// return (point.y > 0.) ? length(point) : -length(point);
 	
 	sdf2D(relX, relY) {
 		relX = Math.abs(relX);
@@ -1364,16 +1427,17 @@ class PrismOctagon extends Prism {
 	
 		const magic0 = -0.9238795325;
 		const magic1 = 0.3826834323;
-		const Imsqrt2 = 1 - Math.SQRT2;
+		const magic2 = Math.SQRT2 - 1;
+		const r = this.rx;
 		
 		const dot1 = 2 * Math.min(magic0 * relX + magic1 * relY, 0);
 		relX -= dot1 * magic0;
 		relY -= dot1 * magic1;
 		const dot2 = 2 * Math.min(-magic0 * relX + magic1 * relY, 0);
-		relX -= dot1 * -magic0;
-		relY -= dot1 * magic1;
-		relX -= clamp(relX, -Imsqrt2 * this.rx, Imsqrt2 * this.rx);
-		relY -= this.rx;
+		relX -= dot2 * -magic0;
+		relY -= dot2 * magic1;
+		relX -= clamp(relX, -magic2 * r, magic2 * r);
+		relY -= r;
 		
 		return Math.sqrt(relX * relX + relY * relY) * Math.sign(relY);
 	}
@@ -1394,8 +1458,8 @@ class Ramp extends PrismRhombus {
 
 class Spun extends Scene3dObject {
 	static type = TYPE_CLASS_SPUN;
-	constructor(posRot, material, nature, r, rx, ry) {
-		super(posRot, material, nature);
+	constructor(posRot, r, rx, ry) {
+		super(posRot);
 		this.r = r;
 		this.rx = rx;
 		this.ry = ry;
@@ -1430,8 +1494,8 @@ class Spun extends Scene3dObject {
 
 class Ring extends Spun {
 	static type = TYPE_RING;
-	constructor(posRot, material, nature, r, ringR) {
-		super(posRot, material, nature, r, ringR, ringR);
+	constructor(posRot, r, ringR) {
+		super(posRot, r, ringR, ringR);
 		this.ringR = ringR;
 	}
 
@@ -1484,8 +1548,8 @@ class RingTri extends Spun {
 
 class Terrain extends Scene3dObject_Axes {
 	static type = TYPE_TERRAIN;
-	constructor(posRot, material, nature, rx, ry, rz, baseAmplitude, baseFrequency, octaves, lacunarity, gain) {
-		super(posRot, material, nature, rx, ry, rz);
+	constructor(posRot, rx, ry, rz, baseAmplitude, baseFrequency, octaves, lacunarity, gain) {
+		super(posRot, rx, ry, rz);
 		this.ampl = baseAmplitude;
 		this.freq = baseFrequency;
 		this.n = octaves;
@@ -1528,8 +1592,8 @@ class Terrain extends Scene3dObject_Axes {
 class Shell extends Scene3dObject {
 	static type = TYPE_SHELL;
 	//like sphere but the inside is hollow
-	constructor(posRot, material, nature, r, thickness) {
-		super(posRot, material, nature);
+	constructor(posRot, r, thickness) {
+		super(posRot);
 		this.r = r;
 		this.h = thickness;
 	}
@@ -1555,8 +1619,8 @@ class Shell extends Scene3dObject {
 
 class Sphere extends Scene3dObject {
 	static type = TYPE_SPHERE;
-	constructor(posRot, material, nature, r) {
-		super(posRot, material, nature)
+	constructor(posRot, r) {
+		super(posRot)
 		this.r = r;
 	}
 	
@@ -1581,8 +1645,8 @@ class Sphere extends Scene3dObject {
 
 class Blobble extends Sphere {
 	static type = TYPE_BLOB;
-	constructor(posRot, material, nature, r) {
-		super(posRot, material, nature, r);
+	constructor(posRot, r) {
+		super(posRot, r);
 	}
 
 	serialize() {
@@ -1607,8 +1671,8 @@ class Singularity extends Sphere {
 
 class Voxel extends Scene3dObject {
 	static type = TYPE_VOXEL;
-	constructor(posRot, material, nature, r, c1, c2, c3, c4, c5, c6, c7, c8) {
-		super(posRot, material, nature);
+	constructor(posRot, r, c1, c2, c3, c4, c5, c6, c7, c8) {
+		super(posRot);
 		this.r = r;
 		this.c = [c1, c2, c3, c4, c5, c6, c7, c8];
 	}

@@ -36,6 +36,24 @@ var meshes = {
 		`ELLIPSE~[21.933889389038086,15,-16.16176986694336]~0~21~90~0|color:85~29~0|7~2~2`,
 		`ELLIPSE~[19.933889389038086,15,-29.16176986694336]~0~332~90~0|color:85~29~0|7~2~2`,
 	],
+	"cinderBlock": [
+		`BOX~[0,0,0]~0~0|color:128~124~137|4~4~8`, 
+		`BOX~[0,0,-4]~2~0|color:128~124~137|3~5~3`, 
+		`BOX~[0,0,4]~2~0|color:128~124~137|3~5~3`
+	],
+	"cinderSpider": [
+		`ELLIPSE~[0,0,0]~0~-1fvfvg0|color:182~255~190|16~9~9`,
+		`SPHERE~[-7,0,-6.77]~0~fv00|color:0~0~106|3`,
+		`SPHERE~[7,0,-6.77]~0~fv00|color:0~0~106|3`,
+		`CATENARY~[-12,0,-5]~0~0|color:90~128~85|-16~-20~0~1~50~1`,
+		`CATENARY~[-12,0,5]~0~0|color:90~128~85|-16~-20~0~1~50~1`,
+		`CATENARY~[-14,0,2]~0~0|color:90~128~85|-16~-20~0~1~50~1`,
+		`CATENARY~[-14,0,-2]~0~0|color:90~128~85|-16~-20~0~1~50~1`,
+		`CATENARY~[12,0,-5]~0~0|color:90~128~85|16~-20~0~1~50~1`,
+		`CATENARY~[14,0,2]~0~0|color:90~128~85|16~-20~0~1~50~1`,
+		`CATENARY~[14,0,-2]~0~0|color:90~128~85|16~-20~0~1~50~1`,
+		`CATENARY~[12,0,5]~0~0|color:90~128~85|16~-20~0~1~50~1`,
+	],
 };
 
 class Rail extends SceneCollection {
@@ -71,6 +89,17 @@ class Rail extends SceneCollection {
 		return `RAIL~`;
 	}
 }
+
+// class CinderSpider extends SceneCollection {
+// 	static type = TYPE_MESH_SPIDER_CINDER;
+// 	constructor(posRot) {
+// 		super(posRot, meshes[`cinderSpider`]);
+// 	}
+
+// 	serialize() {
+// 		return `SPIDER-C${super.serializeKernel()}`;
+// 	}
+// }
 
 class DotDotDot extends SceneCollection {
 	static type = TYPE_MESH_DOT;
@@ -179,7 +208,6 @@ class SkyBunny extends SceneCollection {
 	}
 	
 	serialize() {
-		
 		var qSave = this.quat;
 		this.quat = quatIdentity();
 		var sup = super.serializeKernel();
@@ -204,9 +232,8 @@ class Lamppost extends SceneCollection {
 //procedurally generated tree of branches
 class Tree extends SceneCollection {
 	static type = TYPE_TREE;
-	constructor(posRot, material, seed, trunkAmpl, branchFactor, wobbleAmount, gain, iters) {
+	constructor(posRot, seed, trunkAmpl, branchFactor, wobbleAmount, gain, iters) {
 		super(posRot, []);
-		this.material = material;
 		this.seed = seed;
 		this.crand = seed;
 		this.ampl = trunkAmpl;
@@ -270,7 +297,7 @@ class Tree extends SceneCollection {
 				);
 				this.includeBoundsP(fPos, cRadius);
 				//generate the branch based on the vector
-				var o = new Line({pos: cPos, quat: quatIdentity()}, material, N_NORMAL, ...cVec, cRadius);
+				var o = new Line({pos: cPos, material: material}, ...cVec, cRadius);
 				o.parent = this;
 				objGroup.push(o);
 
@@ -321,7 +348,7 @@ class Worm extends SceneCollection {
 	animate(objGroup) {
 		var refPos = Pos(0, 0, 0);
 		for (var v=0; v<this.vecs.length; v++) {
-			var o = new Line({pos: refPos}, new M_Color(40, 0, 40), N_NORMAL, ...this.vecs[v], this.r);
+			var o = new Line({pos: refPos, material: new M_Color(40, 0, 40)}, ...this.vecs[v], this.r);
 			o.parent = this;
 			objGroup.push(o);
 			refPos = Pos(
@@ -330,7 +357,7 @@ class Worm extends SceneCollection {
 				refPos[2] + this.vecs[v][2],
 			);
 		}
-		var head = new Sphere({pos: this.endPos}, new M_Color(60, 0, 40), N_NORMAL, this.r * 1.5);
+		var head = new Sphere({pos: this.endPos, material: new M_Color(60, 0, 40)}, this.r * 1.5);
 		head.parent = this;
 		objGroup.push(head);
 	}

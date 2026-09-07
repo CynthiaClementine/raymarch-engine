@@ -152,18 +152,21 @@ class World {
 	express() {
 		var expObjs = [];
 		this.expObjs = expObjs;
-
 		this.lockedObjs.forEach(o => {
 			o.express().forEach(q => {
 				expObjs.push(q);
 			});
 		});
-
 		this.objects.forEach(o => {
 			o.express().forEach(q => {
 				expObjs.push(q);
 			});
 		});
+		if (loading_world == this) {
+			player.express().forEach(q => {
+				expObjs.push(q);
+			});
+		}
 		
 		if (debug_flags.showGrid && editor.selected != player) {
 			const r = Math.round;
@@ -381,17 +384,16 @@ function createWorlds() {
 			E_SUN [255,255,240] 0.002
 			E_FADE [100,90,70] 1000
 		sun:	0 0.7
-		shadow:	0.3
-		spawn:	815 145 521 3.269 -0.185`,
+		shadow:	0.35
+		spawn:	85 -1542 -838 1.815 1.090`,
 		`CUBE~[-100,330,100]~0~R|color:90~114~187|45`,
-		`PRISM-RHOMBUS~[-127,195,-191]~0~270~90~87|color:255~64~64|8~255~18~316`,
+		`PRISM-RHOMBUS~[-127,202,-215]~0~b9r9b9|color:255~64~64|8~270~18~330`,
 		`BOX-FRAME~[100,100,100]~0~R|texture:1~1~1~0.5|50~50~50~10`,
 		`CYLINDER~[155,-545,-400]~0~0~0~0|color:64~255~150|1500~595`,
 		`CYLINDER~[-500,300,0]~0~0~0~0|rubber|100~250`,
 		`RING~[-36,-171,-1806]~1.210.16~0~180~0|color:33~177~121|238~334`,
 		`BOX~[-12,104,-1806]~0~R|color:33~177~121|223~53~187`,
 		`ELLIPSE~[-115,115,357]~0~R|mirror:128~128~255~30|100~80~60`,
-		`ELLIPSE~[0,500,0]~16~0~0~0|normal|100~100~100`,
 		`GYROID~[100,100,-300]~0~R|color:255~240~10|50~50~50~0.08~13~10`,
 		`RING~[500,400,0]~0~77~122~0|normal|100~20`,
 		`BOX~[-570,60,-760]~0~R|mirror:255~0~255~9|1~10~10`,
@@ -499,7 +501,10 @@ function createWorlds() {
 		`DISH~[428,65,800]~1.2.2~R|color:0~165~238|7~-8~0~2~0`,
 		`CATENARY~[-404,526,-7]~0~0|color:255~0~255|273~-196~107~9~506.1`,
 		`CATENARY~[-409,526,19]~0~0|color:255~0~255|278~-196~81~9~620.4`,
-		`CATENARY~[-414,526,-31]~0~0|color:56~55~64|283~-196~131~9~469`
+		`CATENARY~[-414,526,-31]~0~0|color:56~55~64|283~-196~131~9~469`,
+		`SPHERE~[420,-1204,-865]~0~0|light:207~247~255~255|10`,
+		`SPHERE~[163,-1243,-1060]~0~0|light:207~247~255~255|10`,
+		`SPHERE~[215,-1219,-669]~0~0|light:207~247~0~583|10`
 	);
 	//"god's grace is infinite.. my grace is 4 days"
 	
@@ -547,7 +552,12 @@ function createWorlds() {
 		`ELLIPSE~[974,370,1174]~8~83~90~331|color:182~255~190|203~87~157`,
 		`ELLIPSE~[961,463,990]~9.20.2~83~90~357|color:182~255~190|262.5676536164341~87~162.93138930918744`,
 		`BOX~[-1267.5108927562696,11.570394796845818,-1582.2196070578334]~0~123~90~0|color:255~255~255|233~34~314`,
-		`BOX~[-1791.8649875219758,127.42763068103707,-1925.2646247970679]~0~123~90~0|color:255~255~255|233~147~314`
+		`BOX~[-1791.8649875219758,127.42763068103707,-1925.2646247970679]~0~123~90~0|color:255~255~255|233~147~314`,
+		`ELLIPSE~[1336,64,-327]~0~vm00|color:182~255~190|16~9~9`,
+		`ELLIPSE~[1329,64,-332]~0~0|color:0~0~106|3~3~3`,
+		`ELLIPSE~[1329,64,-321]~0~0|color:0~0~106|3~3~3`,
+		`CATENARY~[1336,64,-341]~0~0|color:255~0~255|-1~-20~-20~1~50~1`,
+		`CATENARY~[1336,64,-313]~0~0|color:255~0~255|-1~-20~18~1~50~1`
 	);
 	
 	new World(0, `fractal:
@@ -3021,10 +3031,11 @@ function createWorlds() {
 	`SKYBUNNY~[-1259,145,-791]~X~R||`,
 	`SKYBUNNY~[481,-17,126]~X~R||`,
 	`SKYBUNNY~[1359,496,-1190]~X~R||`,
-	`ELLIPSE~[565,76,-281]~0~R|color:162~139~99|100~232~100`
+	`ELLIPSE~[565,76,-281]~0~R|color:162~139~99|100~232~100`,
+	`GENERIC~[-326,-7,-175]~X~0||"cinderSpider"`
 	);
 	
 	console.log(`finished loading ${worldsByID.length} worlds.`);
 	
-	loading_world = worlds["desert"];
+	loading_world = worlds["start"];
 }

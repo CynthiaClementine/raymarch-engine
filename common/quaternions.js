@@ -112,6 +112,11 @@ function unpackageQrot(inter) {
 	const invSqrt2 = 1 / Math.sqrt(2);
 	var q = [0,0,0,0];
 	var iLarg = inter >> 30;
+	//javascript doesn't allow unsigned integers. This fixes that, because only the first 30 bits contain proper data.
+	if (iLarg < 0) {
+		iLarg = 4 + iLarg;
+		inter = inter & 0x3FFFFFFF;
+	}
 	var sum = 0;
 	for (var i=3; i>=0; i--) {
 		if (i == iLarg) {
@@ -128,42 +133,23 @@ function unpackageQrot(inter) {
 }
 
 function quatFromEuler(theta, phi, rot) {
-	var q = quatIdentity();
-	q = quatMultiply(quatFromAA(theta, [0,1,0]), q);
-	q = quatMultiply(quatFromAA(phi, [1,0,0]), q);
-	q = quatMultiply(quatFromAA(rot, [0,0,1]), q);
-	return normalize(q);
-}
+	const cos = Math.cos;
+	const sin = Math.sin;
 
-// function quatFromEuler(theta, phi, rot) {
-// 	const cos = Math.cos;
-// 	const sin = Math.sin;
-
-// 	const ct = cos(theta / 2);
-// 	const st = sin(theta / 2);
-// 	const cp = cos(phi / 2);
-// 	const sp = sin(phi / 2);
-// 	const cr = cos(rot / 2);
-// 	const sr = sin(rot / 2);
+	const ct = cos(rot / 2);
+	const st = sin(rot / 2);
+	const cp = cos(phi / 2);
+	const sp = sin(phi / 2);
+	const cr = cos(theta / 2);
+	const sr = sin(theta / 2);
 	
-// 	return [
-// 		ct*cp*cr + st*sp*sr,
-// 		st*cp*cr - ct*sp*sr,
-// 		ct*sp*cr + st*cp*sr,
-// 		ct*cp*sr - st*sp*cr
-// 	];
-// }
-
-// function quatToEuler(q) {
-// 	const vx = quatRotate([1, 0, 0], q);
-// 	const vy = quatRotate([0, 1, 0], q);
-// 	const vz = quatRotate([0, 0, 1], q);
-
-// 	const theta = Math.atan2(vx[1], vx[0]);
-// 	const phi = -Math.asin(vx[2]);
-// 	const rot = Math.atan2(vy[2], vz[2]);
-// 	return [theta, phi, rot];
-// }
+	return [
+		ct*cp*cr + st*sp*sr, //w
+		ct*sp*cr + st*cp*sr, //y
+		st*sp*cr - ct*cp*sr, //z
+		st*cp*cr - ct*sp*sr, //x
+	];
+}
 
 function quatToEuler(q) {
 	const ww = q[0]*q[0];
@@ -178,9 +164,9 @@ function quatToEuler(q) {
 	const xz = q[1]*q[3];
 	const yz = q[2]*q[3];
 
-	const theta = Math.atan2(2*(wx + yz), ww - xx - yy + zz);
-	const phi = Math.asin(2*(wy - xz));
-	const rot = Math.atan2(2*(wz + xy), ww + xx - yy - zz);
+	const theta = Math.atan2(2*(xz - wy), ww - xx - yy + zz);
+	const phi = Math.asin(2*(wx + yz));
+	const rot = Math.atan2(2*(wz - xy), ww - xx + yy - zz);
 	return [theta, phi, rot];
 }
 

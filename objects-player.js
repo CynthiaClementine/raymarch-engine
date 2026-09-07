@@ -63,8 +63,9 @@ class Player {
 		this.grounded = 0;
 		this.maxGroundDot = 0.1;
 
-		this.height = player_width*3;
-		this.width = player_width;
+		this.height = 9;
+		this.eyeHeight = 7;
+		this.width = 3;
 
 		this.colPoints = 16;
 		this.possibleObjs = [];
@@ -74,7 +75,33 @@ class Player {
 		
 		this.theta = theta ?? 0;
 		this.phi = phi ?? 0;
-		this.quat = quatFromEuler(-this.theta, this.phi, 0);
+		this.quat = quatFromEuler(this.theta, this.phi, 0);
+	}
+
+	express() {
+		return [];
+		var p = this.pos;
+		var θ = pi * 1.5 - this.theta;
+		var upPos = [1.1, 6, 2];
+		var dnPos = [3.5, 1, 4];
+		var p1 = polToXY(p[0],p[2], θ, upPos[0]);
+		p1 = [p1[0], p[1] + upPos[1], p1[1]];
+		var p2 = polToXY(p[0],p[2], θ, dnPos[0]);
+		p2 = [p2[0], p[1] + dnPos[1], p2[1]];
+
+		var delta = v3_sub(p2, p1);
+	
+		var obj = createDescribedObject(TYPE_DISH, {
+			pos: Pos(...p1),
+			posEnd: Pos(...p2),
+			offP: Pos(...delta),
+			r: upPos[2],
+			ringR: dnPos[2],
+			material: new M_Color(128, 128, 255),
+			parent: this,
+			intangible: true,
+		});
+		return [obj];
 	}
 	
 	calcPossibleObjs() {
@@ -83,6 +110,9 @@ class Player {
 			Pos(this.pos[0] + this.trueMax, this.pos[1] + this.trueMax, this.pos[2] + this.trueMax)
 		);
 		this.possibleObjs = this.possibleObjs.filter(a => !(a.intangible));
+		if (Math.random() < 0.01) {
+			console.log(this.possibleObjs);
+		}
 	}
 
 	tick() {
@@ -90,8 +120,6 @@ class Player {
 		this.calcPossibleObjs();
 
 		//log contactObjs here
-
-		//add false velocity
 		
 		//take 2 half-steps
 		recrementS(this.dPos, 2);
@@ -99,21 +127,19 @@ class Player {
 		this.updatePosition();
 		mulrementS(this.dPos, 2);
 
-		//subtract false velocity
-
 		//log contactObjs here
 		//add velocity from diff
 		
-		
 		camera.world = this.world;
 		if (getDistancePos(camera.pos, this.pos) < 10) {
-			camera.pos = Pos(...linterpMulti(camera.pos, Pos(this.pos[0], this.pos[1] + this.height / 2, this.pos[2]), 0.6));
+			camera.pos = Pos(...linterpMulti(camera.pos, Pos(this.pos[0], this.pos[1] + this.eyeHeight, this.pos[2]), 0.6));
 		} else {
-			camera.pos = Pos(this.pos[0], this.pos[1] + this.height / 2, this.pos[2]);
+			camera.pos = Pos(this.pos[0], this.pos[1] + this.eyeHeight, this.pos[2]);
 		
 		}
-		this.quat = quatFromEuler(-this.theta, this.phi, 0);
+		this.quat = quatFromEuler(this.theta, this.phi, 0);
 		copyArr(this.quat, camera.quat);
+		loading_world.shouldRegen = true;
 	}
 
 	updateMomentum() {
@@ -269,6 +295,7 @@ class Player {
 	}
 	
 	updatePosition() {
+		var [max, abs] = [Math.max, Math.abs];
 		/* movement follows a simple 3-part plan
 		1. cast ray upwards from self's feet
 		2. try to move ray in the movement directions, to whatever varying success
@@ -290,12 +317,11 @@ class Player {
 		const zeroPos = Pos(0, 0, 0);
 		//calculate number of collision points on the sphere. If we ever collide with too many, the sphere is being CRUSHED!
 		const panicPoints = (this.colPoints * (this.colPoints / 2 - 1) + 2) * this.colPanicThreshold;
-		var coords = Pos(this.pos[0], this.pos[1], this.pos[2]);
-		var dChange = Pos(...this.dPos);
+		var coords = copyArr(this.pos, []);
+		var dChange = copyArr(this.dPos, []);
 		var dHat = normalize(this.dPos);
 		
 		//don't even bother if dPos is too small
-		var [max, abs] = [Math.max, Math.abs];
 		if (max(abs(dChange[0]), abs(dChange[1]), abs(dChange[2])) < 0.0001) {
 			copyArr([0,0,0], this.dPos);
 			return;

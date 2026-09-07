@@ -108,7 +108,7 @@ class Sliderify {
 		}
 		
 		// Call the calculate function on startup
-		this.applyInput(this.rValue);
+		this.synchronize();
 	}
 
 	// A very scrappy function to quickly work out how many 
@@ -263,6 +263,7 @@ function ec_compile(arr, destination) {
 				const getSetSimple = (val) => {
 					if (val != null) {
 						pathSet(loc, val);
+						loading_world.shouldRegen = true;
 					}
 					return pathGet(loc);
 				}
@@ -397,7 +398,9 @@ function ec_initialize() {
 		"BOX": 			[...xyz],
 		"BOX-FRAME": 	[...xyz, `.e (e: ±###) r10 u0.25`],
 		"CAPSULE":		[sl_r, sl_h],
-		"CATENARY":		[sl_r, `.arclen (L: ###.#) 1—9999 u0.1`],
+		"CATENARY":		[
+			sl_r, 
+			`.arclen (L: ###.#) 1—9999 u0.1`, `C Flip editor.selected.flip`, `|Swap| editor_flipLine`],
 		"CUBE":			[sl_r],
 		"CYLINDER":		[sl_r, sl_h],
 		"DISH":			[sl_r, sl_rr],

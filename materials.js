@@ -284,6 +284,13 @@ class M_Rubber extends Material {
 	}
 }
 
+class M_Sound extends Material {
+	static type = M_SOUND;
+	constructor() {
+	
+	}
+}
+
 class M_Texture extends Material {
 	static type = M_TEXTURE;
 	constructor(materialID, scale, isRelative, blendFactor) {

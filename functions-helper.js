@@ -18,6 +18,7 @@ drawPixelArt(pxData, startX, startY, pxSize)
 drawGhostDot(screenPos, color)
 drawUI()
 drawLine(x, colorArr)
+flipLine(obj)
 getDistance(x1, y1, z1, x2, y2, z2)
 getDistancePos(pos1, pos2)
 
@@ -238,9 +239,10 @@ function constrainPlayer(xRange, yRange, zRange) {
 
 /**
  * puts all the components of source into dest. Useful for copying arrays of numbers without reference issues.
+ * @returns {Number[]} dest
  */
 function copyArr(source, dest) {
-	for (var g=0; g<dest.length; g++) {
+	for (var g=0; g<source.length; g++) {
 		dest[g] = source[g];
 	}
 	return dest;
@@ -364,6 +366,20 @@ function drawLine(x, colorArr) {
 	
 	btx.putImageData(imageData, x * blockSizeTrue, 0);
 	render_linesDrawn += 1;
+}
+
+function flipLine(obj) {
+	//build startPos and endPos as absolute coordinates
+	var startPos = copyArr(obj.pos, []);
+	var endPos = copyArr(obj.pos, []);
+	increment(endPos, obj.offP);
+
+	//flip, write back
+	[startPos, endPos] = [endPos, startPos];
+	
+	decrement(endPos, startPos);
+	copyArr(startPos, obj.pos);
+	copyArr(endPos, obj.offP);
 }
 
 function getDistance(x1, y1, z1, x2, y2, z2) {
@@ -754,7 +770,7 @@ function segmentDist2(seg, p) {
 }
 
 function snapToGrid(num) {
-	return Math.round(num / editor.gridDist) * editor.gridDist;
+	return round(num, editor.gridDist);
 }
 
 /**

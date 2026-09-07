@@ -236,6 +236,10 @@ function rotate(x, z, radians) {
 	return [x * cos - z * sin, z * cos + x * sin];
 }
 
+function round(num, unit) {
+	return Math.round(num / unit) * unit;
+}
+
 //approximate integral of sin(k)/k from 0 -> x
 function si(x) {
 	var sum = x;

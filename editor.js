@@ -7,10 +7,12 @@
 function createDefaultObject(objType) {
 	objType = objType ?? TYPE_SPHERE;
 	var type = map_typeObj[objType];
-	if (objType >= TYPE_MESH_GENERIC) {
-		return new type({pos: Pos(0, 0, 0), quat: quatIdentity()});
-	}
-	return new type({pos: Pos(0, 0, 0), quat: quatIdentity()}, createDefaultMaterial(), 0, 10, 10, 10, 1, 12, 6, 10, 10, 10, 10, 10);
+	return new type({
+		pos: Pos(0, 0, 0), 
+		quat: quatIdentity(), 
+		material: createDefaultMaterial(), 
+		nature: N_NORMAL
+	}, 10, 10, 10, 1, 12, 6, 10, 10, 10, 10, 10);
 }
 
 /**
@@ -200,14 +202,14 @@ function deserialize(str) {
 		quat: quat,
 		theta: theta,
 		phi: phi,
-		rot: rot
+		rot: rot,
 	};
 	
 	var finalArgs = [posRotObj];
 	if (material) {
-		finalArgs.push(material);
+		posRotObj.material = material;
 		if (!Number.isNaN(nature)) {
-			finalArgs.push([nature, gloop, smooth, ex, ey, ez])
+			posRotObj.nature = [nature, gloop, smooth, ex, ey, ez];
 		}
 	}
 	if (params && params != ``) {
@@ -389,7 +391,7 @@ function editor_applyDrag(dragVec) {
 		return;
 	}
 	loading_world.shouldRegen = true;
-	const [max, round] = [Math.max, Math.round];
+	const [max, rnd] = [Math.max, Math.round];
 	const es = editor.selected;
 
 	//TODO:
@@ -468,21 +470,25 @@ function editor_applyDrag(dragVec) {
 	//global rotate
 	if (editor.axisType == `rotate`) {
 		//similarly, dragging moves the HOLR; the HOLR controls the rotation.
-		ea = Array.from(ea).sort();
-		dragVec[0] *= 0.01;
-		dragVec[1] *= 0.01;
+		//this code is the result of me giving up entirely. Rotations are annoying
+		var keep = Array.from(ea)[ea.size-1];
+		if (ea.size > 1) {
+			ea.clear();
+			ea.add(keep);
+		}
+		var dragAmt = dragVec[0] * 0.02;
 
-		//just give up
+		//why are x and y swapped????? does anyone know???
 		if (editor.local) {
 			editor.holr = normalize(quatMultiply(quatFromEuler(
-				dragVec[0]*(ea[0] == `x`) + dragVec[1]*(ea[1] == `x`), 
-				dragVec[0]*(ea[0] == `y`) + dragVec[1]*(ea[1] == `y`),
-				dragVec[0]*(ea[0] == `z`) + dragVec[1]*(ea[1] == `z`)), editor.holr));
+				dragAmt*(keep == `y`), 
+				dragAmt*(keep == `x`),
+				dragAmt*(keep == `z`)), editor.holr));
 		} else {
 			editor.holr = normalize(quatMultiply(editor.holr, quatFromEuler(
-				dragVec[0]*(ea[0] == `y`) + dragVec[1]*(ea[1] == `y`),
-				dragVec[0]*(ea[0] == `x`) + dragVec[1]*(ea[1] == `x`), 
-				dragVec[0]*(ea[0] == `z`) + dragVec[1]*(ea[1] == `z`))));
+				dragAmt*(keep == `y`),
+				dragAmt*(keep == `x`), 
+				dragAmt*(keep == `z`))));
 		}
 
 		var angleOff = degToRad * (controls.shift ? editor.snapAngle : 1);
@@ -497,27 +503,20 @@ function editor_applyDrag(dragVec) {
 				quatMultiply(es.quat, quatFromAA(angleOff, [0, 1, 0])),
 				quatMultiply(es.quat, quatFromAA(-angleOff, [0, 1, 0])),
 			];
-	
-			// //select closest, etc
-			// var [cInd, cDist] = [-1, 1e101];
-			// const hPos = quatRotate([0,0,1], editor.holr);
-			// for (var i=0; i<quats.length; i++) {
-			// 	const qPos = quatRotate([0,0,1], quats[i]);
-			// 	var error = Math.hypot(qPos[0] - hPos[0], qPos[1] - hPos[1], qPos[2] - hPos[2]);
-			// 	if (error < cDist) {
-			// 		cDist = error;
-			// 		cInd = i;
-			// 	}
-			// }
-			// if (i == 0) {
-			// 	return;
-			// }
-			// es.quat = quats[cInd];
 
+			// copyArr(editor.holr, es.quat);
 
-			es.quat = [
-				editor.holr
-			];
+			//rotation quantization
+			var euler = quatToEuler(editor.holr);
+			var quantAmt = controls.shift ? pi / 4 : degToRad;
+			euler[0] = round(euler[0], quantAmt);
+			euler[1] = round(euler[1], quantAmt);
+			euler[2] = round(euler[2], quantAmt);
+			if (Math.random() < 0.01) {
+				console.log(``+euler);
+			}
+			var newQuat = quatFromEuler(...euler);
+			copyArr(newQuat, es.quat);
 		}
 
 		return;
@@ -535,6 +534,7 @@ function editor_removeObj(e, object) {
 	if (object == player) {
 		return null;
 	}
+	editor_deselect(object);
 
 	//if it's a group, remove the component parts
 	if (object.type == TYPE_CLASS_LGROUP) {
@@ -556,6 +556,7 @@ function editor_removeObj(e, object) {
 	if (loading_world.objects.length == 0) {
 		loading_world.objects.push(createDefaultObject());
 	}
+
 	
 	return removed;
 }
@@ -830,6 +831,15 @@ function editor_getAxisVec(axis) {
 	return transform(axisBasis, zeroPos, qLocal);
 }
 
+function editor_flipLine() {
+	var oldPos = copyArr(editor.selected.pos, []);
+	flipLine(editor.selected);
+	var newPos = copyArr(editor.selected.pos, []);
+	decrement(newPos, oldPos);
+	increment(editor.holp, newPos);
+	
+}
+
 
 function saveWorldState() {
 	var name = loading_world.name;
@@ -875,7 +885,9 @@ function loadWorldState(dir) {
 	editHistory[name].curr = curr;
 	
 	var args = eval(`[`+editHistory[name][curr]+`]`);
+	const oldWorld = loading_world;
 	new World(loading_world.tickFunc, ...args);
+	worlds[name].lockedObjs = oldWorld.lockedObjs;
 	loadWorld(name);
 	loading_world.shouldRegen = true;
 }
