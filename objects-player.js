@@ -45,21 +45,23 @@ class Player {
 		this.pos = pos;
 		this.dPos = Pos(0, 0, 0);
 		this.aPos = Pos(0, 0, 0);
-		this.dMax = 1.5;
-		this.dMin = 0.05;
+		this.dMax = 3;
+		
+		this.inputs = Pos(0,0,0);
 
 		//how fast the player accelerates
-		this.accel = 0.07;
-		this.jumpSpeed = 4.75;
-		this.dashBase = 3;
-		this.dashMult = 1.5;
-		this.frictionBrake = 0.8;
-		this.frictionGround = 0.98;
-		this.frictionAir = 0.995;
+		this.accel = 0.3;
+		this.accelStrafe = 0.25;
+		this.jumpForce = 16;
+		this.dashBase = 0.5;
+		this.dashMult = 1.1;
+		this.frictionBrake = 0.2;
+		
+		this.frictionGround = 0.1;
+		this.frictionAir = 0.05;
 
-		this.gravity = 0.08;
+		this.gravity = phys_grav;
 		this.fallMax = 10;
-		this.trueMax = 30;
 		this.grounded = 0;
 		this.maxGroundDot = 0.1;
 
@@ -67,407 +69,171 @@ class Player {
 		this.eyeHeight = 7;
 		this.width = 3;
 
+		this.collider = new PhysStruct_Player(this.world, copyArr(this.pos, []), quatIdentity(), this.width, this.height / 2);
+
 		this.colPoints = 16;
 		this.possibleObjs = [];
 		this.contactObjs = new Set();
-		this.colPanicThreshold = 0.75;
+		// this.colPanicThreshold = 0.75;
 		this.mmtmFactor = 1 - (1 / Math.E);
 		
 		this.theta = theta ?? 0;
 		this.phi = phi ?? 0;
 		this.quat = quatFromEuler(this.theta, this.phi, 0);
+
+		// this.colStrengthMult = 0.6;
+		// this.colStrengthMax = 1.3;
 	}
 
 	express() {
-		return [];
-		var p = this.pos;
+		this.setCameraPos();
+		var p = v3_sub(this.pos, this.dPos);
 		var θ = pi * 1.5 - this.theta;
-		var upPos = [1.1, 6, 2];
-		var dnPos = [3.5, 1, 4];
+		var upPos = [1.1, 1, 2];
+		var dnPos = [3.5, -4, 4];
+		
 		var p1 = polToXY(p[0],p[2], θ, upPos[0]);
 		p1 = [p1[0], p[1] + upPos[1], p1[1]];
 		var p2 = polToXY(p[0],p[2], θ, dnPos[0]);
 		p2 = [p2[0], p[1] + dnPos[1], p2[1]];
 
-		var delta = v3_sub(p2, p1);
-	
+		var set = (debug_flags.collisionDots ? this.collider.express() : []);
 		var obj = createDescribedObject(TYPE_DISH, {
 			pos: Pos(...p1),
 			posEnd: Pos(...p2),
-			offP: Pos(...delta),
+			offP: Pos(...v3_sub(p2, p1)),
 			r: upPos[2],
 			ringR: dnPos[2],
-			material: new M_Color(128, 128, 255),
+			material: new M_Plexiglass(128, 128, 255, 100),
 			parent: this,
 			intangible: true,
 		});
-		return [obj];
+		return set.concat(obj);
 	}
 	
 	calcPossibleObjs() {
-		this.possibleObjs = this.world.bvh.objectsInBox(
-			Pos(this.pos[0] - this.trueMax, this.pos[1] - this.trueMax, this.pos[2] - this.trueMax),
-			Pos(this.pos[0] + this.trueMax, this.pos[1] + this.trueMax, this.pos[2] + this.trueMax)
-		);
+		const tMax = this.trueMax;
+		this.possibleObjs = this.world.bvh.objectsInBox(v3_subS(this.pos, tMax), v3_addS(this.pos, tMax));
 		this.possibleObjs = this.possibleObjs.filter(a => !(a.intangible));
-		if (Math.random() < 0.01) {
-			console.log(this.possibleObjs);
+	}
+
+	jump() {
+		console.log(`jumping, ${JSON.stringify([[0, this.jumpForce, 0]])}`);
+		this.inputs[1] = 0;
+		this.grounded = 0;
+		return [0, this.jumpForce, 0];
+	}
+
+	dash() {
+		var speed = getDistancePos(this.dPos, Pos(0, 0, 0));
+		if (speed > this.accel && speed < this.dashBase) {
+			this.dPos = normalize(this.dPos);
+			mulrementS(this.dPos, this.dashBase);
 		}
+		mulrementS(this.dPos, this.dashMult);
+		return [0,0,0];
 	}
 
 	tick() {
-		this.updateMomentum();
-		this.calcPossibleObjs();
-
-		//log contactObjs here
+		//forces come in the form [x, y, z, strength]
+		var xHat = rotate(1, 0, -this.theta);
+		xHat = [xHat[0], 0, xHat[1]];
+		var zHat = rotate(0, 1, -this.theta);
+		zHat = [zHat[0], 0, zHat[1]];
+		// var dHat = normalize(this.dPos);
 		
-		//take 2 half-steps
-		recrementS(this.dPos, 2);
-		this.updatePosition();
-		this.updatePosition();
-		mulrementS(this.dPos, 2);
-
-		//log contactObjs here
-		//add velocity from diff
-		
-		camera.world = this.world;
-		if (getDistancePos(camera.pos, this.pos) < 10) {
-			camera.pos = Pos(...linterpMulti(camera.pos, Pos(this.pos[0], this.pos[1] + this.eyeHeight, this.pos[2]), 0.6));
-		} else {
-			camera.pos = Pos(this.pos[0], this.pos[1] + this.eyeHeight, this.pos[2]);
-		
-		}
-		this.quat = quatFromEuler(this.theta, this.phi, 0);
-		copyArr(this.quat, camera.quat);
-		loading_world.shouldRegen = true;
-	}
-
-	updateMomentum() {
-		//subtract velocity of touching objects
-		this.contactObjs.forEach((obj => {
-			decrement(this.dPos, obj.dPos);
-		}).bind(this));
-		
-		//transform dPos to relative coordinates
-		[this.dPos[0], this.dPos[2]] = rotate(this.dPos[0], this.dPos[2], this.theta);
-		
-		this.updateSubMomentum();
-		
-		//transform back to real coordinates
-		[this.dPos[0], this.dPos[2]] = rotate(this.dPos[0], this.dPos[2], -this.theta);
-
-		this.contactObjs.forEach((obj => {
-			increment(this.dPos, obj.dPos);
-			this.contactObjs.delete(obj);
-		}).bind(this));
+		var stableForces = this.calcStableForces(xHat, zHat);
+		this.collider.pullState(this, stableForces);
+		this.collider.physStep(1);
+		// this.collider.physStep(1/2);
+		this.collider.pushState(this);
 
 		//update grounding
 		this.grounded = clamp(this.grounded - 1, 0, player_coyote);
-	}
-	
-	updateSubMomentum() {
-		//update each axis
-		this.updateMomentumAxis(0);
 
-		//gravity
-		this.onGround();
-		if (this.grounded > 0) {
-			if (this.dPos[1] < 0) {
-				this.dPos[1] *= this.frictionBrake;
-			}
-		} else {
-			this.dPos[1] -= this.gravity;
-		}
-		this.dPos[1] = clamp(this.dPos[1], -this.fallMax, this.fallMax);
-		this.dPos[1] *= this.frictionAir;
-		if (Math.abs(this.dPos[1]) < this.dMin) {
-			this.dPos[1] = 0;
-		}
-		
-		this.updateMomentumAxis(2);
+		loading_world.shouldRegen = true;
 	}
-	
-	updateMomentumAxis(num) {
-		const inRange = (Math.abs(this.dPos[num]) < this.dMax);
-		const decelerating = (this.aPos[num] * this.dPos[num] <= 0);
-		if (inRange) {
-			this.dPos[num] += this.aPos[num];
-		}
-		if (decelerating) {
-			this.dPos[num] *= this.frictionBrake;
-		}
-		if (!inRange && this.onGround()) {
-			this.dPos[num] *= this.frictionGround;
-		}
-		if (!inRange) {
-			this.dPos[num] *= this.frictionAir;
-		}
-		if (Math.abs(this.dPos[num]) < this.dMin) {
-			this.dPos[num] = 0;
-		}
-	}
-	
-	//collides as a sphere with the terrain, modifies dPos, returns the number of places the sphere has collided
-	sphereBounce(spherePos, div, vHat) {
-		const pi = Math.PI;
-		const twoPi = 2 * pi;
-		const halfPi = pi / 2;
+
+	calcStableForces(xHat, zHat) {
+		/**
+		POSSIBLE FORCES:
+		gravity
+		strafing / walking / jumping
 		
-		var numCollisions = 0;
-		var normals = [];
-		//go through the surface of the sphere in equal-angle measurements
-		//collide with each point to approximate colliding with the sphere
-		for (var p=-div/4; p<=div/4; p++) {
-			const phi = p * twoPi / div;
-			const tSteps = (Math.abs(p) == div / 4) ? 1 : div;
-			
-			for (var t=0; t<tSteps; t++) {
-				const theta = t * twoPi / div;
-				const offsetVec = polToCart(theta, phi, 1);
-				var bounceResult = this.rayBounce(spherePos, [0, 0, 0], offsetVec);
-				if (bounceResult) {
-					//if we've collided, bounce and change velocity
-					numCollisions += 1;
-					if (p < 0 && this.grounded < player_coyote) {
-						this.grounded += 1;
-					}
-					
-					if (dot(vHat, offsetVec) > 0.001) {
-						normals.push([-offsetVec[0], -offsetVec[1], -offsetVec[2], bounceResult.material.bounciness]);
-						while (bounceResult.parent) {
-							bounceResult = bounceResult.parent;
-						}
-						if (bounceResult.dPos) {
-							this.contactObjs.add(bounceResult);
-							this.stealVelFrom(bounceResult);
-						}
-					}
-				}
-			}
+		 */
+		var forces = [];
+		forces = forces.concat(this.calcStable_input(xHat, zHat));
+		forces = forces.concat(this.calcStable_fric(xHat, zHat));
+		return forces;
+	}
+
+	calcStable_input(xHat, zHat) {
+		var forces = [[0, -this.gravity, 0]];
+
+		//jumping
+		if (this.inputs[1] > 0) {
+			forces.push(this.jump());
 		}
-		normals.length = numCollisions;
-		return normals;
+
+		if (this.inputs[1] < 0) {
+			forces.push(this.dash());
+		}
+
+		var xForce = this.accelStrafe * this.inputs[0];
+		var zForce = this.accel * this.inputs[2];
+		forces.push(v3_mulS(xHat, xForce));
+		forces.push(v3_mulS(zHat, zForce));
+		return forces;
+	}
+
+	calcStable_fric() {
+		var forces = [];
+		const dPosHz = [this.dPos[0], 0, this.dPos[2]];
+		const hzHat = normalize(dPosHz);
+		const inRange = magnitude(dPosHz) < this.dMax;
+
+		//ground friction
+		var gSpeed = magnitude(dPosHz);
+		if (this.onGround()) {
+			forces.push(v3_mulS(hzHat, -gSpeed * this.frictionGround));
+		}
+		//air friction
+		var speed = magnitude(this.dPos);
+		forces.push(v3_mulS(normalize(this.dPos), -speed * this.frictionAir));
+
+		//braking friction
+		
+		// const decelerating = dot([this.inputs[0] * this.accelStrafe, this.inputs[1]], this.dPos) <= 0
+
+		// if (decelerating) {
+		// 	this.dPos[num] *= this.frictionBrake;
+		// }
+		
+		// if (magnitude(this.dPos) < this.dMin) {
+		// 	this.forces.push(v3_mulS(dHat, -magnitude(dPosHz) * this.frictionBrake));
+		// }
+		// if ()
+		// if (Math.abs(this.dPos[num]) < this.dMin) {
+		// 	this.dPos[num] = 0;
+		// }
+		
+		// console.log(`forcing ${v3_mulS(hzHat, -magnitude(dPosHz) * fricForce)}`);
+		return forces;
+	}
+
+	setCameraPos() {
+		var hBar = this.height / 2;
+		camera.world = this.world;
+		camera.pos = Pos(this.pos[0], this.pos[1] - hBar + this.eyeHeight, this.pos[2]);
+
+		this.collider.quat = quatFromEuler(this.theta, 0, 0);
+		this.quat = quatFromEuler(this.theta, this.phi, 0);
+		copyArr(this.quat, camera.quat);
+		
 	}
 
 	stealVelFrom(obj) {
 		increment(this.dPos, obj.dPos);
-	}
-	
-	//slightly simpler sphere calculation that just says if the sphere collides. Returns after the first collision.
-	sphereBounceTest(spherePos, div, vHat) {
-		const pi = Math.PI;
-		const twoPi = 2 * pi;
-		const halfPi = pi / 2;
-
-		for (var p=-div/4; p<=div/4; p++) {
-			const phi = p * twoPi / div;
-			const tSteps = (Math.abs(p) == div / 4) ? 1 : div;
-			
-			for (var t=0; t<tSteps; t++) {
-				const theta = t * twoPi / div;
-				const offsetVec = polToCart(theta, phi, 1);
-				if (this.rayBounce(spherePos, [0, 0, 0], offsetVec) && dot(vHat, offsetVec) > 0.001) {
-					return true;
-				}
-			}
-		}
-		normals.length = numCollisions;
-		return false;
-	}
-	
-	rayBounce(spherePos, dPos, vec) {
-		const w = this.width;
-		var pos = Pos(spherePos[0] + vec[0]*w, spherePos[1] + vec[1]*w, spherePos[2] + vec[2]*w);
-		var [dist, distObj] = sceneSDF(this.possibleObjs, pos);
-		
-		//hit
-		if (dist < ray_minDist) {
-			var saved = distObj.material;
-			//weirdness because the actual pos being passed out is different from the test pos
-			if (this.portalTest(distObj, pos)) {
-				increment(spherePos, saved.offset);
-				this.calcPossibleObjs();
-				return null;
-			}
-			return distObj;
-		}
-		return null;
-	}
-	
-	updatePosition() {
-		var [max, abs] = [Math.max, Math.abs];
-		/* movement follows a simple 3-part plan
-		1. cast ray upwards from self's feet
-		2. try to move ray in the movement directions, to whatever varying success
-		3. move ray downwards
-		
-		This makes sure that the movement is always valid, because there has to be an unobstructed path 
-		between the previous position and the new position.
-		It also allows the player to step up slopes.
-		
-		The basic idea for every individual movement part is this:
-			use a sphere to detect collisions. Any collisions will change momentum and prevent the sphere from moving,
-			So there's this repeated pattern of
-			move a tiny bit -> check if collision
-			if no: cool
-			if yes: move back that same tiny bit -> try again
-		 */
-
-		//before any raycasts, housekeeping
-		const zeroPos = Pos(0, 0, 0);
-		//calculate number of collision points on the sphere. If we ever collide with too many, the sphere is being CRUSHED!
-		const panicPoints = (this.colPoints * (this.colPoints / 2 - 1) + 2) * this.colPanicThreshold;
-		var coords = copyArr(this.pos, []);
-		var dChange = copyArr(this.dPos, []);
-		var dHat = normalize(this.dPos);
-		
-		//don't even bother if dPos is too small
-		if (max(abs(dChange[0]), abs(dChange[1]), abs(dChange[2])) < 0.0001) {
-			copyArr([0,0,0], this.dPos);
-			return;
-		}
-		
-		//sphereBounce at the start for portals!
-		// this.sphereBounce(coords, [0, 0, 0], this.colPoints);
-		
-		//go up
-		this.updateSubPosition(Pos(0, 1, 0), player_stepHeight, coords, Pos(0, 0, 0), panicPoints);
-		
-		//"sideways" (in reality can have a vertical component. This just means apply dPos)
-		var speed = getDistancePos(this.dPos, zeroPos);
-		if (speed > this.trueMax) {
-			speed = this.trueMax;
-		}
-		
-		this.updateSubPosition(dHat, speed, coords, dChange, panicPoints);
-		
-		//go back down
-		this.updateSubPosition(Pos(0, -1, 0), player_stepHeight + 1, coords, Pos(0, 0, 0), panicPoints);
-		
-		//never bounce back faster than we started
-		
-		//update real coordinates
-		// var initialSpeed = getDistancePos(this.dPos, zeroPos);
-		copyArr(dChange, this.dPos);
-		// var finalSpeed = getDistancePos(this.dPos, zeroPos);
-		// if (finalSpeed > initialSpeed) {
-		// 	this.dPos[0] *= initialSpeed / finalSpeed;
-		// 	this.dPos[1] *= initialSpeed / finalSpeed;
-		// 	this.dPos[2] *= initialSpeed / finalSpeed;
-		// }
-
-		copyArr(coords, this.pos);
-	}
-	
-	/**
-	* Updates the current position based on a vector.
-	* @param {Pos} vHat vector to move in the direction of. Is modified by the function.
-	* @param {Number} speed the speed at which to move in said direction
-	* @param {Pos} coords the current player position. Is modified by the function.
-	* @param {Pos} vChange buffer to store how the dPos should be changed. Is modified by the function.
-	* @param {Number} panicPoints number of collision points to panic at
-	 */
-	updateSubPosition(vHat, speed, coords, vChange, panicPoints) {
-		var safeSpeed = speed;
-		// console.log(`starting at ${printPos(coords)}`);
-		//take tiny steps - max dist of 2 for each step
-		const maxTickDist = 2;
-		var k = 0;
-		while (speed > 0.01) {
-			k += 1;
-			if (k > 30) {
-				console.error(`too many iterations!`);
-				return;
-			}
-			var tickDist = Math.min(maxTickDist, speed);
-			var normalsList;
-			
-			var p0 = coords;
-			var pX = coords;
-			var pY = [
-				coords[0] + vHat[0] * tickDist, 
-				coords[1] + vHat[1] * tickDist, 
-				coords[2] + vHat[2] * tickDist
-			];
-			var pM = linterpMulti(pX, pY, 0.5);
-			// console.log(`iter=${k}: at ${printPos(p0)} w/ completion=${tickDist}/${speed} towards ${printPos(vHat)}`);
-			
-			//test if there's a collision
-			normalsList = this.sphereBounce(pY, this.colPoints, vHat);
-			// console.log(`testing ${printPos(pY)}. collides: ${(normalsList[0] != undefined)}`);
-			speed -= tickDist;
-			if (normalsList[0] == undefined) {
-				// console.log(`good! Moving to ${printPos(pY)}`);
-				//that's good! Just move there
-				copyArr(pY, coords);
-				// if (Math.random() < 0.001) {console.log(`moving full distance`);}
-				continue;
-			}
-			
-			//figure out how far it's possible to go without colliding
-			//p0 - initial pos
-			//pX - last pos at which no collisions happen
-			//pM - middle test point
-			//pY - first pos at which collisions are happening
-			var stepDist = tickDist / 2;
-			tickDist = 0;
-			var bufferList = this.sphereBounce(pM, this.colPoints, vHat);
-			//use binary search, etc
-			for (var i=0; i<8; i++) {
-				if (bufferList[0]) {
-					pY = pM;
-				} else {
-					pX = pM;
-					tickDist += stepDist;
-				}
-				
-				pM = linterpMulti(pX, pY, 0.5);
-				stepDist /= 2;
-			
-				bufferList = this.sphereBounce(pM, this.colPoints, vHat);
-			}
-			
-			//sphere collision at pY gives list of normals we're colliding against
-			normalsList = bufferList;
-			// if (Math.random() < 0.01) {console.log(normalsList);}
-			
-			// console.log(`first: ${printPos(pX)}    last: ${printPos(pY)}`);
-			copyArr(pX, coords);
-			
-			//special case: if the number of normals > panicPoints, make the player FASTER and move them upwards
-			if (normalsList.length > panicPoints) {
-				console.log(`panic!`);
-				coords[1] += 1.5;
-				increment(vChange, v3_mulS(this.dPos, 0.1));
-				speed = 0;
-				continue;
-			}
-			
-			
-			//apply collide-and-slide with the normals, in no particular order
-			if (Math.random() < 0.01) {
-				// console.log(normalsList);
-			}
-			var n = 0;
-			const e = 0.01;
-			while (normalsList[n]) {
-				var colProj = proj(vHat, normalsList[n]);
-				var amt = (1 + normalsList[n][3]);
-				decrement(vHat, v3_mulS(colProj, amt));
-				// decrement(coords, v3_mulS(normalsList[n], e));
-				
-				//speed should be affected, but vHat needs to be a unit vector. So that's this
-				var newLen = getDistancePos(vHat, Pos(0, 0, 0));
-				speed *= newLen;
-				vHat = normalize(vHat);
-
-				decrement(vChange, v3_mulS(colProj, safeSpeed));
-				safeSpeed *= newLen;
-				n += 1;
-			}
-			// console.log(`collided with ${n} normals`);
-		}
-		// console.log(`ending at ${printPos(coords)}\n\n`);
 	}
 	
 	portalTest(obj, coords) {
@@ -482,48 +248,13 @@ class Player {
 		return false;
 	}
 	
-	tryMovementOnAxis(pos, axisVec, distance) {
-		if (distance < 0) {
-			axisVec = [-axisVec[0], -axisVec[1], -axisVec[2]];
-			distance = -distance;
-		}
-		if (true || distance > this.dMin) {
-			//cast ray sideways
-			var lookRay = new Ray_Tracking(this.world, pos, axisVec, this.width + distance + 1);
-			lookRay.iterate(0);
-			//if the ray's gone far enough, then move there
-			if (lookRay.distance > this.width + distance) {
-				return undefined;
-			} else {
-				return lookRay.object;
-			}
-		}
-	}
-	
 	onGround() {
-		var lookRay = new Ray_Tracking(this.world, this.pos, Pos(0, -1, 0), this.width + player_stepHeight);
-		lookRay.iterate(0);
-		if (lookRay.object != null) {
+		var d = sceneSDF(this.possibleObjs, v3_sub(this.pos, [0, this.height / 2, 0]));
+		if (d[0] < player_stepHeight) {
 			this.grounded = player_coyote;
+			return true;
 		}
-		return (lookRay.object != null);
-	}
-	
-	dash() {
-		var speed = getDistancePos(this.dPos, Pos(0, 0, 0));
-		if (speed > this.accel && speed < this.dashBase) {
-			this.dPos = normalize(this.dPos);
-			mulrementS(this.dPos, this.dashBase);
-		}
-		mulrementS(this.dPos, this.dashMult);
-	}
-
-	jump() {
-		//if the ray's hit an object then the player is on the ground
-		if (this.grounded > 0) {
-			this.dPos[1] = this.jumpSpeed;
-			this.grounded = 0;
-		}
+		return false;
 	}
 }
 
@@ -531,16 +262,29 @@ class Player_Debug extends Player {
 	constructor(world, pos, theta, phi) {
 		super(world, pos, theta, phi);
 		this.dMax = 6;
-		this.accel = 0.4;
+		this.accel = 0.5;
+		this.accelStrafe = 0.5;
+		this.accelLift = 0.4;
+		
+		this.frictionGround = 0;
+		this.frictionAir = 0.15;
 	}
-	
-	updateSubMomentum() {
-		this.updateMomentumAxis(0);
-		//player will fall slowly due to stepping if they're not rising constantly
-		this.dPos[1] -= 2;
-		this.updateMomentumAxis(1);
-		this.dPos[1] += 2;
-		this.updateMomentumAxis(2);
+
+	dash() {}
+
+	calcStable_input(xHat, zHat) {
+		if (this.inputs[1] < 0) {
+			//figure out dashing
+		}
+
+		var xForce = this.accelStrafe * this.inputs[0];
+		var yForce = this.accelLift * this.inputs[1];
+		var zForce = this.accel * this.inputs[2];
+		return [
+			v3_mulS(xHat, xForce),
+			v3_mulS([0, 1, 0], yForce),
+			v3_mulS(zHat, zForce)
+		];
 	}
 }
 
@@ -548,17 +292,28 @@ class Player_Noclip extends Player {
 	constructor(world, pos, theta, phi) {
 		super(world, pos, theta, phi);
 		this.dMax = 6;
-		this.accel = 0.4;
+		this.accel = 0.6 ;
+		this.accelStrafe = 0.6;
+		this.accelLift = 0.6;
+
+		this.frictionGround = 0;
+		this.frictionAir = 0.1;
 	}
-	
-	updateSubMomentum() {
-		this.updateMomentumAxis(0);
-		this.updateMomentumAxis(1);
-		this.updateMomentumAxis(2);
+
+	calcStable_input(xHat, zHat) {
+		if (this.inputs[1] < 0) {
+			//figure out dashing
+		}
+
+		var xForce = this.accelStrafe * this.inputs[0];
+		var yForce = this.accelLift * this.inputs[1];
+		var zForce = this.accel * this.inputs[2];
+		return [
+			v3_mulS(xHat, xForce),
+			v3_mulS([0, 1, 0], yForce),
+			v3_mulS(zHat, zForce)
+		];
 	}
-	
-	updatePosition() {
-		const dPos = this.dPos;
-		increment(this.pos, dPos);
-	}
+
+	calcCollisionForces() {}
 }

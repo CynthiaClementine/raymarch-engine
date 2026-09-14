@@ -460,6 +460,7 @@ function ec_initialize() {
 		],
 		
 		"GROUP-L":	[],
+		"CINDERBLOCK": [],
 		"DOTDOTDOT":[],
 		"LAMPPOST": [],
 		"SKYBUNNY": [],
@@ -471,7 +472,7 @@ function ec_initialize() {
 			`.a (wobl: #.##) 0.02—0.98 u0.01`, 
 			`.b (gain: #.##) 0.05—1 u0.05`,
 			`.iters (n: #) 1—4 u1`,
-		]
+		],
 	};
 	
 	var rgb = [

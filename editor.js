@@ -293,7 +293,7 @@ function calcPlacePos() {
 	var pos = null;
 	var dist = 1e101;
 	var snapSet = loading_world.bvh.objectsInBox(...bounds_expandU([[...base], [...base]], 4*editor.snapDist));
-	snapSet = snapSet.filter(o => trueObj(o) != exclude);
+	snapSet = snapSet.filter(o => (!o.intangible && trueObj(o) != exclude));
 	if (editor.flags.snapPos) {
 		//direct pos snapping
 		snapSet.forEach(o => {

@@ -112,6 +112,71 @@ class DotDotDot extends SceneCollection {
 	}
 }
 
+class Cinderblock extends SceneCollection {
+	static type = TYPE_MESH_BRICK;
+	constructor(posRot) {
+		super(posRot, meshes[`cinderBlock`]);
+		this.collider = new PhysStruct_Box(loading_world, this.pos, this.quat, 4, 4, 8);
+		this.dPos = Pos(0,0,0);
+	}
+
+	tick(world) {
+		if (world) {
+			this.collider.world = world;
+		}
+		this.collider.pullState(this, [[0, -phys_grav / 10, 0]]);
+		this.collider.physStep(1);
+		this.collider.pushState(this);
+	}
+
+	serialize() {
+		return `CINDERBLOCK${super.serializeKernel()}`;
+	}
+}
+
+class Snake extends SceneCollection {
+	constructor(posRot) {
+		super(posRot, []);
+		this.points = [[0,0,0]];
+		this.gridSize = 5;
+		this.len = 30;
+	}
+
+	animate(objGroup) {
+		for (var a=1; a<this.points.length; a++) {
+			objGroup.push(createDescribedObject(TYPE_LINE, {
+				pos: copyArr(this.points[a-1], []),
+				offP: v3_sub(this.points[a], this.points[a-1]),
+				posEnd: copyArr(this.points[a], []),
+				r: 2,
+				material: new M_Color(0, 255, 0),
+				parent: this
+			}));
+		}
+	}
+
+	tick() {
+		if (world_time % 10 > 1) {
+			return;
+		}
+
+		var b1 = Math.sign(Math.random() - 0.5);
+		var b2 = Math.sign(Math.random() - 0.5);
+		var b3 = Math.sign(Math.random() - 0.5);
+
+		var lastP = copyArr(this.points[this.points.length - 1], []);
+		increment(lastP, [b1*this.gridSize, b2*this.gridSize, b3*this.gridSize]);
+		this.points.push(lastP);
+		if (this.points.length > this.len) {
+			this.points = this.points.slice(1);
+		}
+	}
+
+	serialize() {
+		return `SNAKE${super.serializeKernel()}`;
+	}
+}
+
 class SkyBunny extends SceneCollection {
 	static type = TYPE_ENT_SKYBUNNY;
 	constructor(posRot) {
@@ -421,10 +486,11 @@ var map_strObj = {
 
 	"GENERIC": SceneCollectionGeneric,
 	
+	"CINDERBLOCK": Cinderblock,
 	"DOTDOTDOT": DotDotDot,
-	"SKYBUNNY": SkyBunny,
 	"LAMPPOST": Lamppost,
 	"WORM": Worm,
+	"SKYBUNNY": SkyBunny,
 	"TREE": Tree,
 	
 	//in here for editor purposes

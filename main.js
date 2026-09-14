@@ -156,7 +156,7 @@ function tick() {
 	}
 	
 	loading_world.objects.forEach(o => {
-		o.tick();
+		o.tick(loading_world);
 	});
 	loading_world.tick();
 
@@ -516,24 +516,23 @@ function handleKeyPress(a) {
 	switch (a.code) {
 		case "KeyA":
 		case "ArrowLeft":
-			player.aPos[0] = -player.accel;
+			player.inputs[0] = -1;
 			break;
 		case "KeyW":
 		case "ArrowUp":
-			player.aPos[2] = player.accel;
+			player.inputs[2] = 1;
 			break;
 		case "KeyD":
 		case "ArrowRight":
-			player.aPos[0] = player.accel;
+			player.inputs[0] = 1;
 			break;
 		case "KeyS":
 		case "ArrowDown":
-			player.aPos[2] = -player.accel;
+			player.inputs[2] = -1;
 			break;
 		case "ShiftLeft":
 		case "ShiftRight":
-			player.dash();
-			player.aPos[1] = -player.accel;
+			player.inputs[1] = -1;
 			controls.shift = true;
 			break;
 		case "AltLeft":
@@ -542,13 +541,23 @@ function handleKeyPress(a) {
 			a.preventDefault();
 			break;
 		case "Space":
-			player.jump();
 			if (controls.shift) {
-				player.aPos[1] = 0;
+				player.inputs[1] = 0;
 			} else {
-				player.aPos[1] = player.accel;
+				player.inputs[1] = 1;
 			}
 			a.preventDefault();
+			break;
+
+		case "KeyQ":
+			var spawnPos = transform([0, 0, 20], player.pos, player.quat);
+			var dPos = transform([0, 0, 0.1], [0,0,0], player.quat);
+			console.log(dPos);
+			var brick = createDescribedObject(TYPE_MESH_BRICK, {
+				pos: spawnPos,
+				dPos: dPos,
+			});
+			loading_world.objects.push(brick);
 			break;
 		
 		case "BracketRight":
@@ -569,23 +578,23 @@ function handleKeyNegate(a) {
 	switch(a.code) {
 		case "KeyA":
 		case "ArrowLeft":
-			player.aPos[0] = Math.max(player.aPos[0], 0);
+			player.inputs[0] = Math.max(player.inputs[0], 0);
 			break;
 		case "KeyW":
 		case "ArrowUp":
-			player.aPos[2] = Math.min(player.aPos[2], 0);
+			player.inputs[2] = Math.min(player.inputs[2], 0);
 			break;
 		case "KeyD":
 		case "ArrowRight":
-			player.aPos[0] = Math.min(player.aPos[0], 0);
+			player.inputs[0] = Math.min(player.inputs[0], 0);
 			break;
 		case "KeyS":
 		case "ArrowDown":
-			player.aPos[2] = Math.max(player.aPos[2], 0);
+			player.inputs[2] = Math.max(player.inputs[2], 0);
 			break;
 		case "ShiftLeft":
 		case "ShiftRight":
-			player.aPos[1] = Math.max(player.aPos[1], 0);
+			player.inputs[1] = Math.max(player.inputs[1], 0);
 			controls.shift = false;
 			break;
 		case "AltLeft":
@@ -593,7 +602,7 @@ function handleKeyNegate(a) {
 			controls.alt = false;
 			break;
 		case "Space":
-			player.aPos[1] = Math.min(player.aPos[1], 0);
+			player.inputs[1] = Math.min(player.inputs[1], 0);
 			break;
 
 		case "KeyE":

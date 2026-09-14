@@ -406,37 +406,6 @@ class SceneCollectionGeneric extends SceneCollection {
 	}
 }
 
-class PhysicsObject extends SceneCollection {
-	static type = TYPE_CLASS_PHYSOBJ;
-	/**
-	 * a PhysicsObject is an object that will move through the world and interact with 
-	 * @param {ObjPropSet} posRot the standard parameters
-	 * @param {SceneCollection} contained the SceneCollection to contain as the PhysObj
-	 * @param {COL_SPH|COL_BOX|COL_CYL} collisionType the type of simplified collision mesh to use.
-	 * @param {Number} paramX the collision X parameter
-	 * @param {Number} paramY the collision Y parameter
-	 * @param {Number} paramZ the collision Z parameter
-	 */
-	constructor(posRot, contained, collisionType, paramX, paramY, paramZ) {
-		this.obj = containedObject;
-		this.cType = collisionType;
-		this.cx = paramX;
-		this.cy = paramY;
-		this.cz = paramZ;
-
-		this.dPos = Pos(0,0,0);
-		this.dAngle = quatIdentity();
-	}
-
-	express() {
-		
-	}
-
-	serialize() {
-		return `PHYSOBJ${super.serializeKernel()}""`
-	}
-}
-
 
 class SceneCollectionLoose {
 	static type = TYPE_CLASS_LGROUP;

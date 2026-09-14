@@ -99,6 +99,7 @@ const TYPE_MESH_GENERIC =	200;
 const TYPE_MESH_DOT =		201;
 const TYPE_MESH_LAMPPOST =	203;
 const TYPE_TREE =			210;
+const TYPE_MESH_BRICK =		220;
 
 const TYPE_ENT_SKYBUNNY =	250;
 const TYPE_ENT_WORM =		251;
@@ -246,6 +247,7 @@ var debug_flags = {
 	autoScale: false,
 	bunnyTargets: false,
 	collisionRaycast: false,
+	collisionDots: false,
 	crosshair: true,
 	showGrid: false,
 	showLoopBounds: false,
@@ -270,6 +272,7 @@ var editor = {
 		snapGrid: true,
 		snapPos: true,
 		snapAxis: true,
+		snapIntangibles: false,
 	},
 	holp: Pos(0,0,0),
 	holr: quatIdentity(),
@@ -315,6 +318,8 @@ var perf_log = {
 var perf_len = 20;
 var perf_startT = 0;
 var perf_endT = 0;
+
+var phys_grav = 0.2;
 
 var player;
 var player_bounceThreshold = 1;
