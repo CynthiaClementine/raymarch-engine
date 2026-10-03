@@ -77,6 +77,7 @@ async function setup() {
 	createExtraTextures();
 	
 	resize();
+	runTests();
 	page_animation = window.requestAnimationFrame(main);
 	tickHandler = window.setInterval(tick, frameTime);
 }
@@ -496,9 +497,6 @@ function handleKeyPress(a) {
 			case "KeyL":
 				editor.local = !editor.local;
 				return;
-			case "KeyO":
-				//objectify the current group
-				return;
 			case "KeyP":
 				var r = Math.round;
 				var c = player;
@@ -551,8 +549,7 @@ function handleKeyPress(a) {
 
 		case "KeyQ":
 			var spawnPos = transform([0, 0, 20], player.pos, player.quat);
-			var dPos = transform([0, 0, 0.1], [0,0,0], player.quat);
-			console.log(dPos);
+			var dPos = transform([0, 0, 5], [0,0,0], player.quat);
 			var brick = createDescribedObject(TYPE_MESH_BRICK, {
 				pos: spawnPos,
 				dPos: dPos,

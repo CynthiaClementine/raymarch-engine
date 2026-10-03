@@ -116,17 +116,29 @@ class Cinderblock extends SceneCollection {
 	static type = TYPE_MESH_BRICK;
 	constructor(posRot) {
 		super(posRot, meshes[`cinderBlock`]);
-		this.collider = new PhysStruct_Box(loading_world, this.pos, this.quat, 4, 4, 8);
+		this.collider = new PhysStruct_Box(loading_world, this.pos, this.quat, 4, 4, 4);
 		this.dPos = Pos(0,0,0);
+	}
+
+	express() {
+		var arr1 = super.express();
+		var arr2 = [];
+		if (debug_flags.collisionDots) {
+			arr2 = this.collider.express();
+		}
+		return arr2.concat(arr1);
 	}
 
 	tick(world) {
 		if (world) {
 			this.collider.world = world;
 		}
-		this.collider.pullState(this, [[0, -phys_grav / 10, 0]]);
-		this.collider.physStep(1);
-		this.collider.pushState(this);
+
+		if (trueObj(editor.selected) != trueObj(this)) {
+			this.collider.pullState(this, [[0, -phys_grav, 0]]);
+			this.collider.physStep(1);
+			this.collider.pushState(this);
+		}
 	}
 
 	serialize() {

@@ -172,9 +172,9 @@ function quatToEuler(q) {
 
 
 /**
- * left-multiplies q1 and q2.
- * @param {Number[]} q1 quaternion to apply
- * @param {Number[]} q2 quaternion to apply to
+ * right-multiplies q1 and q2.
+ * @param {Number[]} q1 quaternion to apply to
+ * @param {Number[]} q2 quaternion to apply
  */
 function quatMultiply(q1, q2) {
 	return [
@@ -211,6 +211,16 @@ function quatRotate(p, q) {
 	p = quatMultiply([0, p[0], p[1], p[2]], q);
 	p = quatMultiply(qInv, p);
 	return [p[1], p[2], p[3]];
+}
+
+function quatRotateGPU(p, q) {
+	var qSlice = [q[1], q[2], q[3]];
+	var crossA = cross(qSlice, p);
+	var xp = v3_mulS(p, q[0]);
+	increment(crossA, xp);
+	var crossB = cross(qSlice, crossA);
+	mulrementS(crossB, 2);
+	return v3_add(p, crossB);
 }
 
 /**

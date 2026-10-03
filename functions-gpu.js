@@ -356,7 +356,7 @@ function setObject(worldOff, rowOff, objInd, objRef) {
 	//bit packing to fit the common params into row 0
 	buf32_int[0] = ((2*objRef.smoothness & 0xFFFF) << 0) | ((2*objRef.gloopiness & 0xFFFF) << 16);
 	const gloopiSmooth = buf32_float[0];
-	const quat = objRef.quat;
+	var quat = objRef.quat;
 	
 	// Row 0: object type + material type, nature, unused
 	var base = worldOff + objInd * 4;
@@ -368,6 +368,7 @@ function setObject(worldOff, rowOff, objInd, objRef) {
 		//replace with loop counts
 		buf32_int[0] = ((objRef.rx & 0x3FF) << 20) | ((objRef.ry & 0x3FF) << 10) | ((objRef.rz & 0x3FF) << 0)
 		data[base + 3] = buf32_float[0];
+		quat = objRef.objects[0].quat;
 	}
 	if (objRef.nature & N_EXTRUDE) {
 		//replace with extrude dimensions

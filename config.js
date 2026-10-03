@@ -21,6 +21,7 @@ const E_SUN =			20;
 const E_STARS =			21;
 const E_ITERS =			31;
 const E_GREYSCALE =		32;
+const E_SPECIAL =		99;
 const map_effStr = {
 	0: "E_BG",
 	1: "E_BG_RANGE",
@@ -31,6 +32,7 @@ const map_effStr = {
 	20: "E_SUN",
 	21: "E_STARS",
 	31: "E_ITERS",
+	99: "E_SPECIAL",
 };
 
 const N_NORMAL =	0;
@@ -43,7 +45,6 @@ const N_FIELD =		32;
 const N_EXTRUDE =	64;
 
 const M_COLOR =		0;
-const M_CONCRETE =	1;
 const M_RUBBER =	2;
 const M_NORMAL =	3;
 const M_GLASS =		10;
@@ -320,6 +321,7 @@ var perf_startT = 0;
 var perf_endT = 0;
 
 var phys_grav = 0.2;
+var phys_step = 1;
 
 var player;
 var player_bounceThreshold = 1;

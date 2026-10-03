@@ -14,6 +14,16 @@ templates/abstract:
 Meta-Objects:
 	Scene3dLoop
 	SceneCollection
+
+
+
+
+EXTRA OBJECT FLAGS:
+	intangible		whether an object is collidable or not
+	unselectable	whether an object is selectable in the editor
+	canCreate		whether an object is creatable in the editor
+
+flags are designed to have falsy defaults (undefined is falsy) so that's why they're like that
  */
 
 class ObjPropSet {
@@ -294,7 +304,8 @@ class Scene3dLoop {
 		//assume self has exactly ONE object.
 		var obj = this.objects[0];
 		var serial = obj.serializeGPU();
-		serial[7] = packageQrot(this.quat);
+		var eulerRep = quatToEuler(this.quat);
+		serial[7] = packageRot(eulerRep[0], eulerRep[1], eulerRep[2]);
 		buf32_int[0] = ((this.dx & 0x3FF) << 20) | ((this.dy & 0x3FF) << 10) | (this.dz & 0x3FF);
 		serial[8] = buf32_float[0];
 		return serial;

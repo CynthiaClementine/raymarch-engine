@@ -101,9 +101,14 @@ function linterpMulti(a, b, percentage) {
 	return returning;
 }
 
-//like the modulo operator, but keeps the number in bounds both ways
+/**
+ * Modulo operator, but maintains a positive output for negative numbers.
+ * Computed as `n - modulus * floor(n / modulus)`
+ * @param {Number} n number to mod
+ * @param {Number} modulus number to mod by
+ */
 function modulate(n, modulus) {
-	return (n > 0) ? (n % modulus) : (modulus + (n % modulus)) % modulus;
+	return n - modulus * Math.floor(n / modulus);
 }
 
 function modularDifference(a, b, modulo) {

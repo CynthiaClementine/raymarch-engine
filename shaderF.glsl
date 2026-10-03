@@ -11,7 +11,7 @@
 #define INVSQRT3 0.5773502692
 #define fencepost 4278259968.
 #define grav_constant 6.674
-#define quat_iden 2007498239u
+#define quat_iden 0u
 
 //precision / quality
 #define maxIters 500
@@ -74,6 +74,7 @@
 #define E_STARS			21
 #define E_ITERS			31
 #define E_GREYSCALE		32
+#define E_SPECIAL		99
 
 //natures
 #define N_NORMAL	0
@@ -271,6 +272,34 @@ vec4 unpackageQRot(uint inter) {
 	return q;
 }
 
+
+// vec4 unpackageQRot(int inter) {
+// 	if (inter == quat_iden) {
+// 		return vec4(1,0,0,0);
+// 	}
+// 	int range = 0x1FF;
+// 	vec4 q = vec4(0.);
+// 	int iLarg = int(inter >> 30);
+// 	//sign fix
+// 	if (iLarg < 0) {
+// 		iLarg = 4 + iLarg;
+// 		inter = inter & 0x3FFFFFFF;
+// 	}
+// 	float sum = 0.0;
+// 	for (int i=3; i>=0; i--) {
+// 		if (i == iLarg) {
+// 			continue;
+// 		}
+// 		float val = float(inter & range);
+// 		int negate = (inter >> 9) & 1;
+// 		q[i] = ((negate == 1) ? -INVSQRT2 : INVSQRT2) * val / float(range);
+// 		sum += q[i] * q[i];
+// 		inter = inter >> 10u;
+// 	}
+// 	q[iLarg] = sqrt(1. - sum);
+// 	return q;
+// }
+
 vec2 rotate(vec2 pos, int deg) {
 	float angle = float(deg) * 0.01745329252;
 	float sn = sin(angle);
@@ -282,13 +311,6 @@ vec2 rotate(vec2 pos, float rad) {
 	float sn = sin(rad);
 	float cs = cos(rad);
 	return vec2(pos.x * cs - pos.y * sn, pos.y * cs + pos.x * sn);
-}
-
-vec3 rotate3d(vec3 p, int theta, int phi, int rot) {
-	p.xz = rotate(p.xz, -theta);
-	p.yz = rotate(p.yz, phi);
-	p.xy = rotate(p.xy, -rot);
-	return p;
 }
 
 vec3 rotate3d(vec3 p, vec4 quat) {
@@ -488,6 +510,31 @@ void postEffect(vec4 data0, vec4 data1, vec4 data2) {
 			stage[0].color.rgb = vec3(0.2989*c.r + 0.5870*c.g + 0.1140*c.b);
 			groundColor = vec3(0.2989*groundColor.r + 0.5870*groundColor.g + 0.1140*groundColor.b);
 		} return;
+		case E_SPECIAL: {
+			float d = clamp((stage[0].totalDist / 1000.), 0., 1.);
+			vec3 cClose = vec3(0.34375, 1., 0.49609375); //88, 252, 127
+			vec3 cMid = vec3(0.125, 0.125, 0.80078125); //32, 32, 205
+			vec3 cFar = vec3(0.4140625, 0.171875, 0.359375); //106, 44, 92
+			//make final light color based on distance
+
+			float s1 = 0.1;
+			float s2 = 0.5;
+
+			if (d < s1) {
+				d = d / s1;
+				stage[2].color.rgb *= cClose;
+				return;
+			}
+			
+			if (d < s2) {
+				d = (d - s1) / (s2 - s1);
+				stage[2].color.rgb *= mix(cClose, cMid, d);
+				return;
+			}
+
+			d = (d - s2) / (1. - s2);
+			stage[2].color.rgb *= mix(cMid, cFar, d);
+		}
 	}
 }
 
@@ -831,8 +878,11 @@ float objSDF(vec3 p, Objdata obj) {
 	if (type >= 100) {
 		type -= 100;
 		p -= obj.data1.xyz;
-		vec4 angle = unpackageQRot(floatBitsToUint(obj.data3[2]));
-		p = rotate3d(p, angle);
+		//this is a bad way to do it, but I just couldn't get uncompressing quaternions to work correctly
+		int anglBits = floatBitsToInt(obj.data3[2]);
+		p.xz = rotate(p.xz, (anglBits & 0x1FF));
+		p.yz = rotate(p.yz, ((anglBits >> 9) & 0x1FF) - 90);
+		p.xy = rotate(p.xy, ((anglBits >> 18) & 0x1FF));
 
 		int iterBits = floatBitsToInt(obj.loopAmts);
 		vec3 loopNums = vec3(
@@ -1828,5 +1878,9 @@ void main() {
 	applyColor(0, vec4(groundColor, 1.));
 	
 	//send to screem
+	// if (!hit) {
+		// outColor = vec4(196, 0, 0, 1.);
+	// } else {
 	outColor = vec4(stage[0].color.rgb, 1.);
+	// }
 }

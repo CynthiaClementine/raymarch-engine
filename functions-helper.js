@@ -178,7 +178,7 @@ function calcLine(xDir, yDir, zDir, x, pixelWidth, pixelHeight) {
 	
 	
 	for (var y=0; y<pixelHeight; y++) {
-		const [xMult, yMult, zMult] = camera_projFunc(x, pixelWidth, y, pixelHeight);
+		const [xMult, yMult, zMult] = camera_projFunc(x, pixelWidth, pixelHeight - y, pixelHeight);
 		//create a ray and iterate until complete
 		trueDir = [
 			xDir[0] * xMult + yDir[0] * yMult + zDir[0] * zMult,
@@ -482,9 +482,14 @@ function loadSpot(spotObj, pxMult) {
  * @returns {Integer} 
  */
 function packageRot(theta, phi, rot) {
-	var deg = (a) => {return Math.round(a / degToRad);};
+	// theta modulate()
+	var deg = (a) => {
+		return Math.round(a / degToRad);
+	};
+	theta = modulate(deg(theta), 360);
 	phi = deg(phi) + 90;
-	buf32_int[0] = ((deg(theta) & 0x1FF) << 0) | ((phi & 0x1FF) << 9) | ((deg(rot) & 0x1FF) << 18);
+	rot = modulate(deg(rot), 360);
+	buf32_int[0] = ((theta & 0x1FF) << 0) | ((phi & 0x1FF) << 9) | ((rot & 0x1FF) << 18);
 	return buf32_float[0];
 }
 
@@ -645,15 +650,6 @@ function noise(x, y) {
 					linterp(randStable(i[0], i[1]+1), randStable(i[0]+1, i[1]+1), f[0]), f[1]);
 }
 
-function randStable(p0, p1) {
-	const b0 = p0 * 0.3183099 + 0.71;
-	const b1 = p1 * 0.3183099 + 0.113;
-	p0 = 50 * (b0 - Math.floor(b0));
-	p1 = 50 * (b1 - Math.floor(b1));
-	const q = p0 * p1 * (p0 + p1);
-	return 2 * (q - Math.floor(q)) - 1;
-}
-
 function mortonCalc(pos, lowestPos, highestPos) {
 	const mortonRange = (2 ** 10) - 1;
 	
@@ -701,12 +697,12 @@ function mortonSwizzle(x) {
 	return x;
 }
 
-function modulate(x, num) {
-	return (x < 0) ? num + (x % num) : x % num;
-}
-
+/**
+ * like modulate, but half the range is in the negatives. 
+ * Computed as `x - n * round(x / n)`
+ */
 function modulateSigned(x, num) {
-	return modulate(x - (num / 2), num) - (num / 2);
+	return x - num * Math.round(x / num);
 }
 
 function modulateSoft(x, num) {
@@ -760,6 +756,22 @@ function printPos(pos) {
 	return `(${pos[0].toFixed(n)},${pos[1].toFixed(n)},${pos[2].toFixed(n)})`;
 }
 
+function randStable(p0, p1) {
+	const b0 = p0 * 0.3183099 + 0.71;
+	const b1 = p1 * 0.3183099 + 0.113;
+	p0 = 50 * (b0 - Math.floor(b0));
+	p1 = 50 * (b1 - Math.floor(b1));
+	const q = p0 * p1 * (p0 + p1);
+	return 2 * (q - Math.floor(q)) - 1;
+}
+
+function rotate3d(p, theta, phi, rot) {
+	[p[0], p[2]] = rotate(p[0], p[2], -theta);
+	[p[1], p[2]] = rotate(p[1], p[2],  phi);
+	[p[0], p[1]] = rotate(p[0], p[1],  -rot);
+	return p;
+}
+
 /**
  * gives the squared distance to a segment, from point p.
  */
@@ -781,7 +793,8 @@ function snapToGrid(num) {
  */
 function transform(point, offset, quat) {
 	point = quatRotate(point, quat);
-	return [point[0] + offset[0], point[1] + offset[1], point[2] + offset[2]];
+	increment(point, offset);
+	return point;
 }
 
 /**
@@ -812,7 +825,7 @@ function transformTransform(pos, quat, basePos, baseQuat) {
  * @param {Number[]} rotation quaternion
  */
 function transformInverse(point, offset, quat) {
-	return quatUnrotate([point[0] - offset[0], point[1] - offset[1], point[2] - offset[2]], quat);
+	return quatUnrotate(v3_sub(point, offset), quat);
 }
 
 /**
@@ -877,6 +890,13 @@ function serializeNat(nature, gloop, smooth, ex, ey, ez) {
 		nature = `${nature}.${2*gloop}.${2*smooth}`;
 	}
 	return `${nature}`;
+}
+
+function trueObj(object) {
+	while (object.parent) {
+		object = object.parent;
+	}
+	return object;
 }
 
 function updateFOV(newFOV) {

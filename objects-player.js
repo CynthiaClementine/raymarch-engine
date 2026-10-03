@@ -69,7 +69,7 @@ class Player {
 		this.eyeHeight = 7;
 		this.width = 3;
 
-		this.collider = new PhysStruct_Player(this.world, copyArr(this.pos, []), quatIdentity(), this.width, this.height / 2);
+		this.collider = new PhysStruct_Player(this.world, copyArr(this.pos, []), quatIdentity(), this.width, this.height / 2, this.width);
 
 		this.colPoints = 16;
 		this.possibleObjs = [];
@@ -298,6 +298,13 @@ class Player_Noclip extends Player {
 
 		this.frictionGround = 0;
 		this.frictionAir = 0.1;
+
+		this.collider = new PhysStruct_Null(this.world, copyArr(this.pos, []));
+	}
+
+	express() {
+		this.setCameraPos();
+		return [];
 	}
 
 	calcStable_input(xHat, zHat) {

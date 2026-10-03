@@ -281,13 +281,6 @@ function calcPlacePos() {
 		}
 	}
 
-	const trueObj = (obj) => {
-		while (obj.parent) {
-			obj = obj.parent;
-		}
-		return obj;
-	}
-
 	//snap to objects pos if necessary
 	var exclude = trueObj(editor.selected);
 	var pos = null;
@@ -493,16 +486,15 @@ function editor_applyDrag(dragVec) {
 
 		var angleOff = degToRad * (controls.shift ? editor.snapAngle : 1);
 
-		
 		const dragMag = 100 * (Math.abs(dragVec[0]) + Math.abs(dragVec[1]));
 		for (var a=0; a<dragMag; a++) {
-			var quats = [
-				es.quat,
-				quatMultiply(es.quat, quatFromAA(angleOff, [1, 0, 0])),
-				quatMultiply(es.quat, quatFromAA(-angleOff, [1, 0, 0])),
-				quatMultiply(es.quat, quatFromAA(angleOff, [0, 1, 0])),
-				quatMultiply(es.quat, quatFromAA(-angleOff, [0, 1, 0])),
-			];
+			// var quats = [
+			// 	es.quat,
+			// 	quatMultiply(es.quat, quatFromAA(angleOff, [1, 0, 0])),
+			// 	quatMultiply(es.quat, quatFromAA(-angleOff, [1, 0, 0])),
+			// 	quatMultiply(es.quat, quatFromAA(angleOff, [0, 1, 0])),
+			// 	quatMultiply(es.quat, quatFromAA(-angleOff, [0, 1, 0])),
+			// ];
 
 			// copyArr(editor.holr, es.quat);
 
