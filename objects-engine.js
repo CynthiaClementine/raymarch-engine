@@ -359,7 +359,21 @@ class PhysStruct {
 		const dMax = this.dMax;
 		const ignore = this.ignore;
 		this.possibleObjs = this.world.bvh.objectsInBox(v3_subS(this.pos, dMax), v3_addS(this.pos, dMax));
-		this.possibleObjs = this.possibleObjs.filter(a => (!a.intangible && trueObj(a) != ignore));
+		this.portalObjs = [];
+		for (var o=0; o<this.possibleObjs.length; o++) {
+			var O = this.possibleObjs[o];
+			if (O.intangible || trueObj(O) == ignore) {
+				this.possibleObjs.splice(o, 1);
+				o -= 1;
+				continue;
+			}
+			if (O.material && O.material.type == M_PORTAL) {
+				this.portalObjs.push(O)
+				this.possibleObjs.splice(o, 1);
+				o -= 1;
+				continue;
+			}
+		}
 	}
 
 	//debug, usually not used but could be useful
@@ -425,6 +439,13 @@ class PhysStruct {
 	pushState(obj) {
 		copyArr(this.pos, obj.pos);
 		copyArr(this.dPos, obj.dPos);
+		if (obj.world && this.world != obj.world) {
+			//oughhhhh
+
+			if (obj == player) {
+				obj.world = this.world;
+			}
+		}
 	}
 
 	physStep(fMult) {
@@ -519,6 +540,15 @@ class PhysStruct {
 		mulrementS(this.dPos, mult);
 		increment(this.pos, this.dPos);
 		recrementS(this.dPos, mult);
+		this.portalCheck();
+	}
+
+	portalCheck() {
+		var res = sceneSDF(this.portalObjs, this.pos);
+		if (res[0] < ray_minDist && worlds[res[1].material.str]) {
+			increment(this.pos, res[1].material.offset);
+			this.world = worlds[res[1].material.str];
+		}
 	}
 }
 

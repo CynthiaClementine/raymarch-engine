@@ -832,7 +832,7 @@ function transformInverse(point, offset, quat) {
  * gives the SDF of a specified set of objects (considered the Scene.)
  * @param {Scene3dObject[]} sceneCollection array of objects to check against
  * @param {Pos} pos position to check
- * @returns `[closestDist, closestObj]`
+ * @returns {[]} `[closestDist, closestObj]`
  */
 function sceneSDF(sceneCollection, pos) {
 	var dist = 1e1001;
