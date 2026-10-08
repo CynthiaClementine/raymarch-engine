@@ -528,12 +528,8 @@ function fabrik(vectorSet, targetPoint, iterations) {
 	var lenSet = [Math.hypot(...vectorSet[0])];
 
 	for (var g=1; g<vectorSet.length; g++) {
-		lenSet[g] = Math.hypot(...vectorSet[g]);
-		endSet[g] = [
-			endSet[g-1][0] + vectorSet[g][0], 
-			endSet[g-1][1] + vectorSet[g][1], 
-			endSet[g-1][2] + vectorSet[g][2]
-		];
+		lenSet[g] = magnitude(vectorSet[g]);
+		endSet[g] = v3_add(endSet[g-1], vectorSet[g]);
 	}
 
 	for (var w=0; w<iterations; w++) {
@@ -541,11 +537,7 @@ function fabrik(vectorSet, targetPoint, iterations) {
 		endSet[vectorSet.length-1] = targetPoint;
 		for (var g=vectorSet.length-1; g>0; g--) {
 			//L = norm(B-A)
-			var pointVec = normalize([
-				endSet[g][0] - endSet[g-1][0],
-				endSet[g][1] - endSet[g-1][1],
-				endSet[g][2] - endSet[g-1][2]
-			]);
+			var pointVec = normalize(v3_sub(endSet[g], endSet[g-1]));
 			//A = B - L*l
 			endSet[g-1][0] = endSet[g][0] - pointVec[0] * lenSet[g];
 			endSet[g-1][1] = endSet[g][1] - pointVec[1] * lenSet[g];
@@ -556,11 +548,7 @@ function fabrik(vectorSet, targetPoint, iterations) {
 		endSet[-1] = [0,0,0];
 		for (var g=0; g<vectorSet.length; g++) {
 			//L = norm(B - A)
-			var pointVec = normalize([
-				endSet[g][0] - endSet[g-1][0],
-				endSet[g][1] - endSet[g-1][1],
-				endSet[g][2] - endSet[g-1][2],
-			]);
+			var pointVec = normalize(v3_sub(endSet[g], endSet[g-1]));
 			//B = A + L*l
 			endSet[g][0] = endSet[g-1][0] + pointVec[0] * lenSet[g]
 			endSet[g][1] = endSet[g-1][1] + pointVec[1] * lenSet[g]
@@ -571,11 +559,7 @@ function fabrik(vectorSet, targetPoint, iterations) {
 	//STEP 4: un-setup
 	var finals = [];
 	for (var h=0; h<vectorSet.length; h++) {
-		finals[h] = [
-			endSet[h][0] - endSet[h-1][0],
-			endSet[h][1] - endSet[h-1][1],
-			endSet[h][2] - endSet[h-1][2],
-		];
+		finals[h] = v3_sub(endSet[h], endSet[h-1]);
 	}
 
 	return finals;

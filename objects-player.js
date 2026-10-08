@@ -45,14 +45,14 @@ class Player {
 		this.pos = pos;
 		this.dPos = Pos(0, 0, 0);
 		this.aPos = Pos(0, 0, 0);
-		this.dMax = 3;
+		this.dMax = 4;
 		
 		this.inputs = Pos(0,0,0);
 
 		//how fast the player accelerates
-		this.accel = 0.3;
-		this.accelStrafe = 0.25;
-		this.jumpForce = 16;
+		this.accel = 0.2;
+		this.accelStrafe = 0.15;
+		this.jumpForce = 6;
 		this.dashBase = 0.5;
 		this.dashMult = 1.1;
 		this.frictionBrake = 0.2;
@@ -186,20 +186,30 @@ class Player {
 		return forces;
 	}
 
-	calcStable_fric() {
+	calcStable_fric(xHat, zHat) {
 		var forces = [];
+		const dPosRel = copyArr(this.dPos, []);
+		[dPosRel[0], dPosRel[2]] = rotate(dPosRel[0], dPosRel[2], this.theta);
 		const dPosHz = [this.dPos[0], 0, this.dPos[2]];
 		const hzHat = normalize(dPosHz);
 		const inRange = magnitude(dPosHz) < this.dMax;
 
+		const fricAmt = this.onGround() ? this.frictionGround : this.frictionAir;
+
+
+		//side to side
+		var hats = [xHat, [0, 1, 0], zHat];
+		[0, 2].forEach((i => {
+			if (this.inputs[i] * dPosRel[i] <= 0 || Math.abs(dPosRel[i]) > this.dMax) {
+				forces.push(v3_mulS(hats[i], -dPosRel[i] * fricAmt));
+			}
+		}).bind(this));
+
 		//ground friction
-		var gSpeed = magnitude(dPosHz);
-		if (this.onGround()) {
-			forces.push(v3_mulS(hzHat, -gSpeed * this.frictionGround));
-		}
-		//air friction
-		var speed = magnitude(this.dPos);
-		forces.push(v3_mulS(normalize(this.dPos), -speed * this.frictionAir));
+		// var gSpeed = magnitude(dPosHz);
+		// if () {
+		// 	forces.push(v3_mulS(hzHat, -gSpeed * this.frictionGround));
+		// }
 
 		//braking friction
 		
@@ -249,7 +259,7 @@ class Player {
 	}
 	
 	onGround() {
-		var d = sceneSDF(this.possibleObjs, v3_sub(this.pos, [0, this.height / 2, 0]));
+		var d = sceneSDF(this.collider.possibleObjs ?? [], v3_sub(this.pos, [0, this.height / 2, 0]));
 		if (d[0] < player_stepHeight) {
 			this.grounded = player_coyote;
 			return true;
@@ -261,16 +271,35 @@ class Player {
 class Player_Debug extends Player {
 	constructor(world, pos, theta, phi) {
 		super(world, pos, theta, phi);
-		this.dMax = 6;
-		this.accel = 0.5;
-		this.accelStrafe = 0.5;
-		this.accelLift = 0.4;
+		this.dMax = 10;
+		this.accel = 0.2;
+		this.accelStrafe = 0.15;
+		this.accelLift = 0.3;
 		
 		this.frictionGround = 0;
 		this.frictionAir = 0.15;
 	}
 
 	dash() {}
+
+	calcStable_fric(xHat, zHat) {
+		var forces = [];
+		const dPosRel = copyArr(this.dPos, []);
+		[dPosRel[0], dPosRel[2]] = rotate(dPosRel[0], dPosRel[2], this.theta);
+
+		
+		const fricAmt = this.onGround() ? this.frictionGround : this.frictionAir;
+		var hats = [xHat, [0, 1, 0], zHat];
+
+		//side to side
+		[0, 1, 2].forEach((i => {
+			if (this.inputs[i] * dPosRel[i] <= 0 || Math.abs(dPosRel[i]) > this.dMax) {
+				forces.push(v3_mulS(hats[i], -dPosRel[i] * fricAmt));
+			}
+		}).bind(this));
+		
+		return forces;
+	}
 
 	calcStable_input(xHat, zHat) {
 		if (this.inputs[1] < 0) {
@@ -320,6 +349,25 @@ class Player_Noclip extends Player {
 			v3_mulS([0, 1, 0], yForce),
 			v3_mulS(zHat, zForce)
 		];
+	}
+
+	calcStable_fric(xHat, zHat) {
+		var forces = [];
+		const dPosRel = copyArr(this.dPos, []);
+		[dPosRel[0], dPosRel[2]] = rotate(dPosRel[0], dPosRel[2], this.theta);
+
+		
+		const fricAmt = this.frictionAir;
+		var hats = [xHat, [0, 1, 0], zHat];
+
+		//side to side
+		[0, 1, 2].forEach((i => {
+			if (this.inputs[i] * dPosRel[i] <= 0 || Math.abs(dPosRel[i]) > this.dMax) {
+				forces.push(v3_mulS(hats[i], -dPosRel[i] * fricAmt));
+			}
+		}).bind(this));
+		
+		return forces;
 	}
 
 	calcCollisionForces() {}
