@@ -16,6 +16,7 @@ var dtx;
 
 async function setup() {
 	createWorlds();
+	setupAudio();
 	canvas = document.getElementById(`glbox`);
 	banvas = document.getElementById(`viewbox`);
 	btx = banvas.getContext("2d");
@@ -166,8 +167,9 @@ function tick() {
 	if ((!editor.stable && stableGuess) || (editor.stable && stableGuess && world_time % 60 == 1)) {
 		saveWorldState();
 	}
-
 	editor.stable = stableGuess;
+	
+	tickAudio();
 
 	perf_logEnd(`tick`);
 }
@@ -618,6 +620,9 @@ function handleCursorLockChange() {
 
 
 function handleMouseDown(a) {
+	if (atx.state == `suspended`) {
+		atx.resume();
+	}
 	controls.mButton = 1 + (a.button / 2);
 
 	//left-click

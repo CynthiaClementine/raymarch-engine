@@ -336,6 +336,7 @@ const ray_maxDist = 3000;
 const ray_nearDist = 10;
 const ray_minDist = 0.1;
 const ray_maxIters = 500;
+const ray_maxBounces = 5;
 var ray_safetyMult = 1;
 
 
@@ -433,11 +434,6 @@ const splashes = [
 ];
 
 var tickHandler;
-
-const tree_maxD = 5000;
-const tree_minD = 2;
-const tree_l = 41;
-var tree_sets = 7;
 
 const texture_rowsPerObj = 5;
 const texture_rowsPerMat = 3;

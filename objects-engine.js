@@ -80,83 +80,89 @@ class Ray_Tracking {
 	}
 }
 
-// class Ray_Sonic {
-// 	/**
-// 	* a Sonic Ray bounces through the scene and stops when it's hit a sound-producing object.
-// 	* Similarly to a tracking ray, keeps track of both total distance and object hit. Will bounce off of non-sonic objects.
-// 	* Tracking Rays also keep track of which object they've hit.
-// 	* @param {World} world the world the ray's in
-// 	* @param {Float32Array[]} pos starting position of the ray
-// 	* @param {Float32Array[]} dPos direction vector to travel in
-// 	* @param {Number} maxDist the maximum distance to travel before stopping
-// 	*/
-// 	constructor(world, pos, dPos, maxDist, minDist, power) {
-// 		this.world = world;
-// 		this.pos = new Float32Array(pos);
-// 		this.dPos = dPos;
-// 		this.distance = 0;
-// 		this.distCap = maxDist ?? ray_maxDist;
-// 		this.minDist = ray_minDist;
-// 		this.objsList = [];
-// 		this.object = null;
-// 		this.calcObjs();
-// 	}
+class Ray_Sonic {
+	/**
+	* a Sonic Ray bounces through the scene and stops when it's hit a sound-producing object.
+	* Similarly to a tracking ray, keeps track of both total distance and object hit. Will bounce off of non-sonic objects.
+	* Tracking Rays also keep track of which object they've hit.
+	* @param {World} world the world the ray's in
+	* @param {Float32Array[]} pos starting position of the ray
+	* @param {Float32Array[]} dPos direction vector to travel in
+	* @param {Number} maxDist the maximum distance to travel before stopping
+	*/
+	constructor(world, pos, dPos, maxDist) {
+		this.world = world;
+		this.pos = new Float32Array(pos);
+		this.dPos = dPos;
+		this.distance = 0;
+		this.distCap = maxDist ?? ray_maxDist;
+		this.bounceCap = ray_maxBounces;
+		this.objsList = [];
+		this.object = null;
+		this.sound = null;
+		this.calcObjs();
+	}
 	
-// 	reset(world, pos, dPos) {
-// 		this.world = world;
-// 		this.pos = new Float32Array(pos);
-// 		this.dPos = dPos;
-// 		this.distance = 0;
-// 		this.calcObjs();
-// 		this.object = null;
-// 	}
+	reset(world, pos, dPos) {
+		this.world = world;
+		this.pos = new Float32Array(pos);
+		this.dPos = dPos;
+		this.distance = 0;
+		this.calcObjs();
+		this.object = null;
+		this.sound = null;
+	}
 	
-// 	calcObjs() {
-// 		this.objsList = this.world.bvh.objects(this).filter(a => !a.intangible);
-// 	}
+	calcObjs() {
+		this.objsList = this.world.bvh.objects(this).filter(a => !a.intangible);
+	}
 
-// 	iterate() {
-// 		const minDist = this.minDist;
-// 		var iters = 0;
-// 		if (!this.objsList.length || this.objsList.length == 0) {
-// 			return;
-// 		}
+	iterate() {
+		const minDist = ray_minDist;
+		var iters = 0;
+		if (!this.objsList.length || this.objsList.length == 0) {
+			return;
+		}
 		
-// 		while (iters < ray_maxIters) {
-// 			//get distance
-// 			const distObj = sceneSDF(this.objsList, this.pos)[1];
-// 			if (!distObj) {
-// 				this.distance = this.distCap;
-// 				return this.distCap;
-// 			}
-// 			var dist = distObj.distanceToPos(this.pos);
-// 			dist = applyDist(1e1001, dist, distObj.nature, distObj.gloopiness, distObj.smoothness);
+		while (iters < ray_maxIters) {
+			//get distance
+			const distObj = sceneSDF(this.objsList, this.pos)[1];
+			if (!distObj) {
+				this.distance = this.distCap;
+				return this.distCap;
+			}
+			var dist = distObj.distanceToPos(this.pos);
+			dist = applyDist(1e1001, dist, distObj.nature, distObj.gloopiness, distObj.smoothness);
 			
-// 			//if distance is out of dist bounds
-// 			if (dist < minDist) {
-// 				this.object = distObj;
-// 				return this.distance;
-// 			}
+			//if distance is out of dist bounds
+			if (dist < minDist) {
+				if (distObj.sound) {
+					//hit
+					this.sound = distObj.sound;
+					this.object = distObj;
+				}
+				return this.distance;
+			}
 			
-// 			if (dist < ray_nearDist) {
-// 				distObj.material.applyNearEffect(this);
-// 			}
+			if (dist < ray_nearDist) {
+				distObj.material.applyNearEffect(this);
+			}
 			
-// 			dist = Math.min(dist, this.distCap - this.distance);
+			dist = Math.min(dist, this.distCap - this.distance);
 			
-// 			//move distance
-// 			increment(this.pos, v3_mulS(this.dPos, dist));
-// 			this.distance += dist;
+			//move distance
+			increment(this.pos, v3_mulS(this.dPos, dist));
+			this.distance += dist;
 			
-// 			//if we've reached the cap, return
-// 			if (this.distance >= this.distCap) {
-// 				return this.distCap;
-// 			}
-// 			iters += 1;
-// 		}
-// 		return this.distance;
-// 	}
-// }
+			//if we've reached the cap, return
+			if (this.distance >= this.distCap) {
+				return this.distCap;
+			}
+			iters += 1;
+		}
+		return this.distance;
+	}
+}
 
 
 
